@@ -3,6 +3,7 @@ extern crate nom;
 pub mod literal;
 pub mod expression;
 pub mod function_apply;
+pub mod identifier;
 
 use literal::literal_integral_number;
 use function_apply::parse_function_apply;
