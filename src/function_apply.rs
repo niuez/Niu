@@ -5,17 +5,17 @@ use nom::sequence::*;
 use nom::IResult;
 
 use crate::expression::{ Expression, parse_expression };
-use crate::identifier::{ Identifier, parse_identifier };
 
 #[derive(Debug)]
 pub struct FunctionApply<'a> {
-    pub id: Identifier<'a>,
+    pub func: Box<Expression<'a>>,
     pub args: Vec<Expression<'a>>,
 }
 
 pub fn parse_function_apply(s: &str) -> IResult<&str, Expression> {
-    let (s, (id, _, _, _, op, _)) = tuple((
-            parse_identifier, space0, char('('), space0, opt(tuple((
+    println!("{:?}", s);
+    let (s, (func, _, _, _, op, _)) = tuple((
+            parse_expression, space0, char('('), space0, opt(tuple((
                 parse_expression, space0, many0(tuple((char(','), space0, parse_expression, space0))),
                 opt(char(',')),
                 space0,
@@ -32,7 +32,7 @@ pub fn parse_function_apply(s: &str) -> IResult<&str, Expression> {
             Vec::new()
         }
     };
-    Ok((s, Expression::FunctionApply(FunctionApply { id, args })))
+    Ok((s, Expression::FunctionApply(FunctionApply { func: Box::new(func), args })))
 }
 
 #[test]
