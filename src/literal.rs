@@ -6,11 +6,11 @@ use nom::multi::*;
 use nom::sequence::*;
 use nom::IResult;
 
-use crate::expression::Expression;
+use crate::unary_expr::UnaryExpr;
 
-pub fn parse_literal(s: &str) -> IResult<&str, Expression> {
+pub fn parse_literal(s: &str) -> IResult<&str, UnaryExpr> {
     let (s, x) = alt((literal_i64, literal_u64))(s)?;
-    Ok((s, Expression::Literal(x)))
+    Ok((s, UnaryExpr::Literal(x)))
 }
 
 #[derive(Debug)]

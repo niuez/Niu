@@ -19,9 +19,7 @@ pub fn parse_identifier(s: &str) -> IResult<&str, Identifier> {
                     tag("for"),
                     tag("in")
                     ))))(s)?;
-    let (s, (head, tails)) = all_consuming(
-        tuple((alt((alpha1, tag("_"))), many0(alt((alphanumeric1, tag("_"))))))
-        )(s)?;
+    let (s, (head, tails)) = tuple((alt((alpha1, tag("_"))), many0(alt((alphanumeric1, tag("_"))))))(s)?;
     let mut name = vec![head];
     for s in tails {
         name.push(s);
