@@ -13,7 +13,7 @@ pub enum UnaryExpr<'a> {
     Subseq(Box<UnaryExpr<'a>>, Subseq<'a>),
 }
 
-pub fn parse_unary_expr(s: &str) -> IResult<&str, Expression> {
+pub fn parse_unary_expr(s: &str) -> IResult<&str, UnaryExpr> {
     let (s, x) = alt((
             parse_variable,
             parse_literal,
@@ -24,7 +24,7 @@ pub fn parse_unary_expr(s: &str) -> IResult<&str, Expression> {
         now = s;
         prec = UnaryExpr::Subseq(Box::new(prec), sub);
     }
-    Ok((now, Expression::UnaryExpr(prec)))
+    Ok((now, prec))
 }
 
 #[derive(Debug)]
@@ -42,4 +42,5 @@ fn parse_unary_expr_test() {
     println!("{:?}", parse_unary_expr("func(1, 2, 3)"));
     println!("{:?}", parse_unary_expr("add(1, add(2, 3), 4)"));
     println!("{:?}", parse_unary_expr("generate_func(91)(1333)"));
+    println!("{:?}", parse_unary_expr("generate_func(31 * 91, 210)(1333 / 5 * 3)"));
 }
