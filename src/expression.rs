@@ -9,11 +9,46 @@ use crate::unary_expr::{ UnaryExpr, parse_unary_expr };
 
 #[derive(Debug)]
 pub enum Expression<'a> {
-    Term(Term<'a>),
+    Poly(Poly<'a>),
+}
+
+#[derive(Debug)]
+pub struct Poly<'a> {
+    pub terms: Vec<Term<'a>>,
+    pub opes: Vec<PolyOperator>,
+}
+
+#[derive(Debug)]
+pub enum PolyOperator {
+    Add,
+    Sub,
 }
 
 pub fn parse_expression(s: &str) -> IResult<&str, Expression> {
-    parse_term(s)
+    parse_poly(s)
+}
+
+pub fn parse_poly(s: &str) -> IResult<&str, Expression> {
+    let (s, (head, _, tails)) = 
+        tuple((parse_term, space0, many0(tuple((parse_poly_operator, space0, parse_term, space0)))))(s)?;
+    let mut terms = vec![head];
+    let mut opes = Vec::new();
+
+    for (ope, _, term, _) in tails {
+        terms.push(term);
+        opes.push(ope);
+    }
+    Ok((s, Expression::Poly(Poly { terms, opes })))
+}
+
+pub fn parse_poly_operator(s: &str) -> IResult<&str, PolyOperator> {
+    let (s, c) = one_of("+-")(s)?;
+    let ope = match c {
+        '+' => PolyOperator::Add,
+        '-' => PolyOperator::Sub,
+        _ => unreachable!()
+    };
+    Ok((s, ope))
 }
 
 #[derive(Debug)]
@@ -22,7 +57,13 @@ pub struct Term<'a> {
     pub opes: Vec<TermOperator>,
 }
 
-pub fn parse_term(s: &str) -> IResult<&str, Expression> {
+#[derive(Debug)]
+pub enum TermOperator {
+    Mul,
+    Div,
+}
+
+pub fn parse_term(s: &str) -> IResult<&str, Term> {
     let (s, (head, _, tails)) = 
         tuple((parse_unary_expr, space0, many0(tuple((parse_term_operator, space0, parse_unary_expr, space0)))))(s)?;
     let mut unary_exprs = vec![head];
@@ -32,7 +73,7 @@ pub fn parse_term(s: &str) -> IResult<&str, Expression> {
         unary_exprs.push(expr);
         opes.push(ope);
     }
-    Ok((s, Expression::Term(Term { unary_exprs, opes })))
+    Ok((s, Term { unary_exprs, opes }))
 }
 
 pub fn parse_term_operator(s: &str) -> IResult<&str, TermOperator> {
@@ -45,15 +86,16 @@ pub fn parse_term_operator(s: &str) -> IResult<&str, TermOperator> {
     Ok((s, ope))
 }
 
-#[derive(Debug)]
-
-pub enum TermOperator {
-    Mul,
-    Div,
-}
 
 #[test]
 fn parse_term_test() {
     println!("{:?}", parse_term("15 * 13 / 12 * 11"));
     println!("{:?}", parse_term("5 * generate_func(31 * 91, 210)(1333 / 5 * 3) * fib(5)"));
+}
+
+#[test]
+fn parse_poly_test() {
+    println!("{:?}", parse_poly("1 + 2 - 3 + 4 - 5"));
+    println!("{:?}", parse_poly("func(1 + 2, 3 - 4)"));
+    println!("{:#?}", parse_poly("1 + 2 * 3 - 4 / 5"));
 }
