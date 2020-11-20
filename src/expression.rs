@@ -1,10 +1,8 @@
 //use nom::branch::*;
 use nom::IResult;
 use nom::character::complete::*;
-use nom::combinator::*;
 use nom::multi::*;
-use nom::sequence::*;
-
+use nom::sequence::*; 
 use crate::unary_expr::{ UnaryExpr, parse_unary_expr };
 
 #[derive(Debug)]
@@ -98,4 +96,5 @@ fn parse_poly_test() {
     println!("{:?}", parse_poly("1 + 2 - 3 + 4 - 5"));
     println!("{:?}", parse_poly("func(1 + 2, 3 - 4)"));
     println!("{:#?}", parse_poly("1 + 2 * 3 - 4 / 5"));
+    println!("{:#?}", parse_poly("(1 + 2) * (3 - 4) / 5"));
 }
