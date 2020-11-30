@@ -10,6 +10,8 @@ pub mod unary_expr;
 pub mod statement;
 pub mod let_declaration;
 
+pub mod block;
+
 fn main() {
     //println!("{:?}", parse_function_apply("func()"));
     //println!("{:?}", parse_function_apply("func(1, 2)"));

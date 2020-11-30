@@ -1,8 +1,5 @@
 use nom::branch::*;
 use nom::IResult;
-use nom::character::complete::*;
-use nom::bytes::complete::*;
-use nom::sequence::*;
 
 use crate::expression::{ Expression, parse_expression };
 use crate::let_declaration::{ LetDeclaration, parse_let_declaration };
@@ -24,9 +21,7 @@ fn parse_let_declaration_to_statement(s: &str) -> IResult<&str, Statement> {
 }
 
 pub fn parse_statement(s: &str) -> IResult<&str, Statement> {
-    let (s, (_, statement, _, _semi)) =
-        tuple((space0, alt((parse_let_declaration_to_statement, parse_expression_to_statement)), space0, tag(";")))(s)?;
-    Ok((s, statement))
+    alt((parse_let_declaration_to_statement, parse_expression_to_statement))(s)
 }
 
 #[test]
