@@ -31,5 +31,6 @@ pub fn parse_identifier(s: &str) -> IResult<&str, Identifier> {
 fn parse_identifier_test() {
     println!("{:?}", parse_identifier("func"));
     println!("{:?}", parse_identifier("if"));
+    println!("{:?}", parse_identifier("x"));
     println!("{:?}", parse_identifier("f_u_n_c91"));
 }

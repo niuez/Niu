@@ -7,6 +7,9 @@ pub mod subseq;
 
 pub mod unary_expr;
 
+pub mod statement;
+pub mod let_declaration;
+
 fn main() {
     //println!("{:?}", parse_function_apply("func()"));
     //println!("{:?}", parse_function_apply("func(1, 2)"));
