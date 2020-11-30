@@ -8,15 +8,16 @@ use nom::IResult;
 
 use crate::unary_expr::UnaryExpr;
 
-pub fn parse_literal(s: &str) -> IResult<&str, UnaryExpr> {
-    let (s, x) = alt((literal_i64, literal_u64))(s)?;
-    Ok((s, UnaryExpr::Literal(x)))
-}
-
 #[derive(Debug)]
-pub enum LiteralIntegralNumber<'a> {
+pub enum Literal<'a> {
     U64(LiteralU64<'a>),
     I64(LiteralI64<'a>),
+    Boolean(Boolean),
+}
+
+pub fn parse_literal(s: &str) -> IResult<&str, UnaryExpr> {
+    let (s, x) = alt((literal_i64, literal_u64, literal_boolean))(s)?;
+    Ok((s, UnaryExpr::Literal(x)))
 }
 
 #[derive(Debug)]
@@ -29,25 +30,25 @@ pub struct LiteralI64<'a> {
     pub number: Vec<&'a str>,
 }
 
-
-pub fn literal_integral_number(s: &str) -> IResult<&str, LiteralIntegralNumber> {
-    let (s, x) = alt((literal_i64, literal_u64))(s)?;
-    Ok((s, x))
+#[derive(Debug)]
+pub enum Boolean {
+    True,
+    False,
 }
 
-pub fn literal_u64(s: &str) -> IResult<&str, LiteralIntegralNumber> {
+pub fn literal_u64(s: &str) -> IResult<&str, Literal> {
     let (s, (number, _)) = 
          tuple((unsigned_number, opt(tag("u64"))))(s)?;
     Ok((s, 
-        LiteralIntegralNumber::U64(LiteralU64 { number })
+        Literal::U64(LiteralU64 { number })
         ))
 }
 
-pub fn literal_i64(s: &str) -> IResult<&str, LiteralIntegralNumber> {
+pub fn literal_i64(s: &str) -> IResult<&str, Literal> {
     let (s, (number, _)) = 
          tuple((unsigned_number, tag("i64")))(s)?;
     Ok((s, 
-        LiteralIntegralNumber::I64(LiteralI64 { number })
+        Literal::I64(LiteralI64 { number })
         ))
 }
 
@@ -59,14 +60,30 @@ pub fn unsigned_number(s: &str) -> IResult<&str, Vec<&str>> {
     })(s)
 }
 
+pub fn literal_boolean(s: &str) -> IResult<&str, Literal> {
+    let (s, x) = alt((tag("true"), tag("false")))(s)?;
+    match x {
+        "true" => Ok((s, Literal::Boolean(Boolean::True))),
+        "false" => Ok((s, Literal::Boolean(Boolean::False))),
+        _ => unreachable!(),
+    }
+}
+    
+
 #[test]
 fn parse_literal_u64_test() {
-    println!("{:?}", literal_integral_number("659"));
-    println!("{:?}", literal_integral_number("6_5_9"));
+    println!("{:?}", parse_literal("659"));
+    println!("{:?}", parse_literal("6_5_9"));
 }
 
 #[test]
 fn parse_literal_i64_test() {
-    println!("{:?}", literal_integral_number("659i64"));
-    println!("{:?}", literal_integral_number("6_5_9i64"));
+    println!("{:?}", parse_literal("659i64"));
+    println!("{:?}", parse_literal("6_5_9i64"));
+}
+
+#[test]
+fn parse_literal_boolean_test() {
+    println!("{:?}", parse_literal("true"));
+    println!("{:?}", parse_literal("false"));
 }

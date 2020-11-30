@@ -3,7 +3,7 @@ use nom::IResult;
 use nom::character::complete::*;
 use nom::sequence::*;
 
-use crate::literal::{ LiteralIntegralNumber, parse_literal };
+use crate::literal::{ Literal, parse_literal };
 use crate::identifier::{ Identifier, parse_identifier };
 use crate::expression::{ Expression, parse_expression };
 use crate::subseq::{ Subseq, parse_subseq };
@@ -11,7 +11,7 @@ use crate::subseq::{ Subseq, parse_subseq };
 #[derive(Debug)]
 pub enum UnaryExpr<'a> {
     Variable(Variable<'a>),
-    Literal(LiteralIntegralNumber<'a>),
+    Literal(Literal<'a>),
     Parentheses(Parentheses<'a>),
     Subseq(Box<UnaryExpr<'a>>, Subseq<'a>),
 }
