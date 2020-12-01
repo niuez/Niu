@@ -2,6 +2,7 @@ extern crate nom;
 
 pub mod literal;
 pub mod expression;
+pub mod expression2;
 pub mod identifier;
 pub mod subseq;
 
