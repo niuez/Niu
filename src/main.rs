@@ -15,6 +15,8 @@ pub mod block;
 pub mod type_id;
 pub mod func_definition;
 
+pub mod full_content;
+
 fn main() {
     //println!("{:?}", parse_function_apply("func()"));
     //println!("{:?}", parse_function_apply("func(1, 2)"));
