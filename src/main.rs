@@ -12,6 +12,8 @@ pub mod let_declaration;
 
 pub mod block;
 
+pub mod type_id;
+
 fn main() {
     //println!("{:?}", parse_function_apply("func()"));
     //println!("{:?}", parse_function_apply("func(1, 2)"));
