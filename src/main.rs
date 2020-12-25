@@ -13,6 +13,7 @@ pub mod let_declaration;
 pub mod block;
 
 pub mod type_id;
+pub mod func_definition;
 
 fn main() {
     //println!("{:?}", parse_function_apply("func()"));
