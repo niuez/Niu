@@ -6,7 +6,8 @@ use nom::sequence::*;
 use crate::literal::{ Literal, parse_literal };
 use crate::identifier::{ Identifier, parse_identifier };
 use crate::expression::{ Expression, parse_expression };
-use crate::subseq::{ Subseq, parse_subseq };
+use crate::subseq::{ Subseq, parse_subseq, subseq_gen_type };
+use crate::unify::*;
 
 #[derive(Debug)]
 pub enum UnaryExpr {
@@ -14,6 +15,18 @@ pub enum UnaryExpr {
     Literal(Literal),
     Parentheses(Parentheses),
     Subseq(Box<UnaryExpr>, Subseq),
+}
+
+impl GenType for UnaryExpr {
+    fn gen_type(&self, equs: &mut TypeEquations) -> TResult {
+        match *self {
+            UnaryExpr::Variable(ref v) => v.gen_type(equs),
+            UnaryExpr::Literal(ref l) => l.gen_type(equs),
+            UnaryExpr::Parentheses(ref p) => p.gen_type(equs),
+            UnaryExpr::Subseq(ref expr, ref s) => subseq_gen_type(expr.as_ref(), s, equs)
+            
+        }
+    }
 }
 
 pub fn parse_unary_expr(s: &str) -> IResult<&str, UnaryExpr> {
@@ -36,6 +49,12 @@ pub struct Variable {
     pub name: Identifier,
 }
 
+impl GenType for Variable {
+    fn gen_type(&self, _: &mut TypeEquations) -> TResult {
+        Ok(Type::Variable(self.name.clone()))
+    }
+}
+
 pub fn parse_variable(s: &str) -> IResult<&str, UnaryExpr> {
     let(s, name) = parse_identifier(s)?;
     Ok((s, UnaryExpr::Variable(Variable { name })))
@@ -44,6 +63,12 @@ pub fn parse_variable(s: &str) -> IResult<&str, UnaryExpr> {
 #[derive(Debug)]
 pub struct Parentheses {
     pub expr: Expression,
+}
+
+impl GenType for Parentheses {
+    fn gen_type(&self, equs: &mut TypeEquations) -> TResult {
+        self.expr.gen_type(equs)
+    }
 }
 
 pub fn parse_parentheses(s: &str) -> IResult<&str, UnaryExpr> {

@@ -4,10 +4,20 @@ use nom::sequence::*;
 use nom::multi::*;
 
 use crate::func_definition::{ FuncDefinition, parse_func_definition };
+use crate::unify::*;
 
 #[derive(Debug)]
 pub struct FullContent {
     pub funcs: Vec<FuncDefinition>,
+}
+
+impl GenType for FullContent {
+    fn gen_type(&self, equs: &mut TypeEquations) -> TResult {
+        for f in self.funcs.iter() {
+            f.gen_type(equs)?;
+        }
+        Ok(Type::End)
+    }
 }
 
 pub fn parse_full_content(s: &str) -> IResult<&str, FullContent> {

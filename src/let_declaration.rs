@@ -8,12 +8,25 @@ use nom::combinator::*;
 use crate::identifier::{ Identifier, parse_identifier };
 use crate::type_id::{ TypeId, parse_type_id };
 use crate::expression::{ Expression, parse_expression };
+use crate::unify::*;
 
 #[derive(Debug)]
 pub struct LetDeclaration {
     pub id: Identifier,
     pub type_info: Option<TypeId>,
     pub value: Expression,
+}
+
+impl GenType for LetDeclaration {
+    fn gen_type(&self, equs: &mut TypeEquations) -> TResult {
+        let value_type = self.value.gen_type(equs)?;
+        equs.add_equation(Type::Variable(self.id.clone()), value_type);
+        if let Some(ref t) = self.type_info {
+            let t_type = t.gen_type(equs)?;
+            equs.add_equation(Type::Variable(self.id.clone()), t_type);
+        }
+        Ok(Type::End)
+    }
 }
 
 pub fn parse_let_declaration(s: &str) -> IResult<&str, LetDeclaration> {

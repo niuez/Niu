@@ -8,6 +8,7 @@ use nom::IResult;
 use crate::identifier::{ Identifier, parse_identifier };
 use crate::type_id::{ TypeId, parse_type_id };
 use crate::block::{ Block, parse_block };
+use crate::unify::*;
 
 #[derive(Debug)]
 pub struct FuncDefinition {
@@ -15,6 +16,24 @@ pub struct FuncDefinition {
     pub args: Vec<(Identifier, TypeId)>,
     pub return_type: TypeId,
     pub block: Block,
+}
+
+impl GenType for FuncDefinition {
+    fn gen_type(&self, equs: &mut TypeEquations) -> TResult {
+        let func_type = Type::Func(
+            Box::new(self.return_type.gen_type(equs)?),
+            self.args.iter().map(|(_, t)| t.gen_type(equs)).collect::<Result<Vec<_>, String>>()?
+            );
+        equs.add_equation(Type::Variable(self.func_id.clone()), func_type);
+        for (i, t) in self.args.iter() {
+            let t_type = t.gen_type(equs)?; 
+            equs.add_equation(Type::Variable(i.clone()), t_type);
+        }
+        let result_type = self.block.gen_type(equs)?;
+        let return_t = self.return_type.gen_type(equs)?;
+        equs.add_equation(result_type, return_t);
+        Ok(Type::End)
+    }
 }
 
 pub fn parse_func_definition(s: &str) -> IResult<&str, FuncDefinition> {
@@ -39,4 +58,12 @@ pub fn parse_func_definition(s: &str) -> IResult<&str, FuncDefinition> {
 #[test]
 fn parse_func_definition_test() {
     println!("{:?}", parse_func_definition("fn func(x: i64) -> i64 { let y = x * x; y + x }"))
+}
+#[test]
+fn gentype_func_definition_test() {
+    let (_, t) = parse_func_definition("fn func(x: i64) -> i64 { let y = x * x; y + x }").unwrap();
+    println!("{:?}", t);
+    let mut equs = TypeEquations::new();
+    t.gen_type(&mut equs).unwrap();
+    println!("{:#?}", equs);
 }

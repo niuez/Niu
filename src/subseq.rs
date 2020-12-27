@@ -5,10 +5,35 @@ use nom::sequence::*;
 use nom::IResult;
 
 use crate::expression::{ Expression, parse_expression };
+use crate::unary_expr::UnaryExpr;
+use crate::unify::*;
 
 #[derive(Debug)]
 pub enum Subseq {
     Call(Call),
+}
+
+pub fn subseq_gen_type(uexpr: &UnaryExpr, subseq: &Subseq, equs: &mut TypeEquations) -> TResult {
+    match *subseq {
+        Subseq::Call(ref call) => {
+            let uexpr_type = uexpr.gen_type(equs)?;
+            let call_args = &call.args;
+            if let Type::Func(ref def_result, ref def_args) = uexpr_type {
+                if def_args.len() == call_args.len() {
+                    def_args.iter().zip(call_args.iter().map(|arg| arg.gen_type(equs)).collect::<Result<Vec<_>, String>>()?.into_iter())
+                                   .for_each(|(d, c)| equs.add_equation(d.clone(), c));
+                    Ok(def_result.as_ref().clone())
+                }
+                else {
+                    Err("length of args is not match".to_string())
+                }
+            }
+            else {
+                Err("caller is not function".to_string())
+            }
+        }
+    }
+
 }
 
 #[derive(Debug)]

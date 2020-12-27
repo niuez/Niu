@@ -3,11 +3,22 @@ use nom::IResult;
 
 use crate::expression::{ Expression, parse_expression };
 use crate::let_declaration::{ LetDeclaration, parse_let_declaration };
+use crate::unify::*;
 
 #[derive(Debug)]
 pub enum Statement {
     Expression(Expression),
     LetDeclaration(LetDeclaration),
+}
+
+impl GenType for Statement {
+    fn gen_type(&self, equs: &mut TypeEquations) -> TResult {
+        match *self {
+            Statement::Expression(ref e) => e.gen_type(equs)?,
+            Statement::LetDeclaration(ref l) => l.gen_type(equs)?,
+        };
+        Ok(Type::End)
+    }
 }
 
 fn parse_expression_to_statement(s: &str) -> IResult<&str, Statement> {

@@ -1,9 +1,12 @@
 use crate::identifier::Identifier;
 
+
 #[derive(Debug, Clone)]
 pub enum Type {
     Type(Identifier),
+    Func(Box<Type>, Vec<Type>),
     Variable(Identifier),
+    End,
 }
 
 #[derive(Debug)]
@@ -24,6 +27,8 @@ impl TypeEquations {
     }
 }
 
+pub type TResult = Result<Type, String>;
+
 pub trait GenType {
-    fn gen_type(&self) -> Type;
+    fn gen_type(&self, equs: &mut TypeEquations) -> TResult;
 }

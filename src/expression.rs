@@ -5,11 +5,21 @@ use nom::multi::*;
 use nom::sequence::*; 
 use nom::bytes::complete::*;
 use nom::branch::*;
+
 use crate::unary_expr::{ UnaryExpr, parse_unary_expr };
+use crate::unify::*;
 
 #[derive(Debug)]
 pub enum Expression {
     Expression(ExpOr),
+}
+
+impl GenType for Expression {
+    fn gen_type(&self, equs: &mut TypeEquations) -> TResult {
+        match *self {
+            Expression::Expression(ref e) => e.gen_type(equs)
+        }
+    }
 }
 
 fn default_parse_expression<P: ParseExpression>(s: &str) -> IResult<&str, P>
@@ -46,6 +56,12 @@ pub struct ExpOr {
     pub opes: Vec<OperatorOr>,
 }
 
+impl GenType for ExpOr {
+    fn gen_type(&self, equs: &mut TypeEquations) -> TResult {
+        self.terms[0].gen_type(equs)
+    }
+}
+
 #[derive(Debug)]
 pub struct OperatorOr();
 
@@ -71,6 +87,12 @@ impl ParseOperator for OperatorOr {
 pub struct ExpAnd {
     pub terms: Vec<ExpOrd>,
     pub opes: Vec<OperatorAnd>,
+}
+
+impl GenType for ExpAnd {
+    fn gen_type(&self, equs: &mut TypeEquations) -> TResult {
+        self.terms[0].gen_type(equs)
+    }
 }
 
 #[derive(Debug)]
@@ -99,6 +121,12 @@ impl ParseOperator for OperatorAnd {
 pub struct ExpOrd {
     pub terms: Vec<ExpBitOr>,
     pub ope: Option<OperatorOrd>,
+}
+
+impl GenType for ExpOrd {
+    fn gen_type(&self, equs: &mut TypeEquations) -> TResult {
+        self.terms[0].gen_type(equs)
+    }
 }
 
 #[derive(Debug)]
@@ -152,6 +180,12 @@ pub struct ExpBitOr {
     pub opes: Vec<OperatorBitOr>,
 }
 
+impl GenType for ExpBitOr {
+    fn gen_type(&self, equs: &mut TypeEquations) -> TResult {
+        self.terms[0].gen_type(equs)
+    }
+}
+
 #[derive(Debug)]
 pub struct OperatorBitOr();
 
@@ -177,6 +211,12 @@ impl ParseOperator for OperatorBitOr {
 pub struct ExpBitXor {
     pub terms: Vec<ExpBitAnd>,
     pub opes: Vec<OperatorBitXor>,
+}
+
+impl GenType for ExpBitXor {
+    fn gen_type(&self, equs: &mut TypeEquations) -> TResult {
+        self.terms[0].gen_type(equs)
+    }
 }
 
 #[derive(Debug)]
@@ -206,6 +246,12 @@ pub struct ExpBitAnd {
     pub opes: Vec<OperatorBitAnd>,
 }
 
+impl GenType for ExpBitAnd {
+    fn gen_type(&self, equs: &mut TypeEquations) -> TResult {
+        self.terms[0].gen_type(equs)
+    }
+}
+
 #[derive(Debug)]
 pub struct OperatorBitAnd();
 
@@ -231,6 +277,12 @@ impl ParseOperator for OperatorBitAnd {
 pub struct ExpShift {
     pub terms: Vec<ExpAddSub>,
     pub opes: Vec<OperatorShift>,
+}
+
+impl GenType for ExpShift {
+    fn gen_type(&self, equs: &mut TypeEquations) -> TResult {
+        self.terms[0].gen_type(equs)
+    }
 }
 
 #[derive(Debug)]
@@ -269,6 +321,12 @@ pub struct ExpAddSub {
     pub opes: Vec<OperatorAddSub>,
 }
 
+impl GenType for ExpAddSub {
+    fn gen_type(&self, equs: &mut TypeEquations) -> TResult {
+        self.terms[0].gen_type(equs)
+    }
+}
+
 #[derive(Debug)]
 pub enum OperatorAddSub {
     Add,
@@ -302,6 +360,12 @@ impl ParseOperator for OperatorAddSub {
 pub struct ExpMulDevRem {
     pub unary_exprs: Vec<UnaryExpr>,
     pub opes: Vec<OperatorMulDevRem>,
+}
+
+impl GenType for ExpMulDevRem {
+    fn gen_type(&self, equs: &mut TypeEquations) -> TResult {
+        self.unary_exprs[0].gen_type(equs)
+    }
 }
 
 #[derive(Debug)]

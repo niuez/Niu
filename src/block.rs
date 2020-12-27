@@ -8,11 +8,21 @@ use nom::combinator::*;
 
 use crate::statement::{ Statement, parse_statement };
 use crate::expression::{ Expression, parse_expression };
+use crate::unify::*;
 
 #[derive(Debug)]
 pub struct Block {
     pub statements: Vec<Statement>,
     pub return_exp: Option<Expression>,
+}
+
+impl GenType for Block {
+    fn gen_type(&self, equs: &mut TypeEquations) -> TResult {
+        for s in self.statements.iter() {
+            s.gen_type(equs)?;
+        }
+        self.return_exp.as_ref().unwrap().gen_type(equs)
+    }
 }
 
 pub fn parse_block(s: &str) -> IResult<&str, Block> {
