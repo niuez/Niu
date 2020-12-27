@@ -29,3 +29,12 @@ pub fn parse_full_content(s: &str) -> IResult<&str, FullContent> {
 fn parse_full_content_test() {
     println!("{:?}", parse_full_content("fn func(x: i64) -> i64 { let y = x * x; y + x } fn add(x: i64) -> i64 { x + x }"))
 }
+
+#[test]
+fn gentype_full_test() {
+    let (_, t) = parse_full_content("fn two(z: i64) -> i64 { 2i64 } fn func(x: i64) -> i64 { let y = x; two(x) }").unwrap();
+    println!("{:?}", t);
+    let mut equs = TypeEquations::new();
+    t.gen_type(&mut equs).unwrap();
+    println!("{:#?}", equs);
+}
