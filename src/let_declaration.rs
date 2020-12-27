@@ -10,10 +10,10 @@ use crate::type_id::{ TypeId, parse_type_id };
 use crate::expression::{ Expression, parse_expression };
 
 #[derive(Debug)]
-pub struct LetDeclaration<'a> {
-    pub id: Identifier<'a>,
-    pub type_info: Option<TypeId<'a>>,
-    pub value: Expression<'a>,
+pub struct LetDeclaration {
+    pub id: Identifier,
+    pub type_info: Option<TypeId>,
+    pub value: Expression,
 }
 
 pub fn parse_let_declaration(s: &str) -> IResult<&str, LetDeclaration> {

@@ -10,11 +10,11 @@ use crate::type_id::{ TypeId, parse_type_id };
 use crate::block::{ Block, parse_block };
 
 #[derive(Debug)]
-pub struct FuncDefinition<'a> {
-    pub func_id: Identifier<'a>,
-    pub args: Vec<(Identifier<'a>, TypeId<'a>)>,
-    pub return_type: TypeId<'a>,
-    pub block: Block<'a>,
+pub struct FuncDefinition {
+    pub func_id: Identifier,
+    pub args: Vec<(Identifier, TypeId)>,
+    pub return_type: TypeId,
+    pub block: Block,
 }
 
 pub fn parse_func_definition(s: &str) -> IResult<&str, FuncDefinition> {

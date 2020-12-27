@@ -10,9 +10,9 @@ use crate::statement::{ Statement, parse_statement };
 use crate::expression::{ Expression, parse_expression };
 
 #[derive(Debug)]
-pub struct Block<'a> {
-    pub statements: Vec<Statement<'a>>,
-    pub return_exp: Option<Expression<'a>>,
+pub struct Block {
+    pub statements: Vec<Statement>,
+    pub return_exp: Option<Expression>,
 }
 
 pub fn parse_block(s: &str) -> IResult<&str, Block> {

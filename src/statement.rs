@@ -5,9 +5,9 @@ use crate::expression::{ Expression, parse_expression };
 use crate::let_declaration::{ LetDeclaration, parse_let_declaration };
 
 #[derive(Debug)]
-pub enum Statement<'a> {
-    Expression(Expression<'a>),
-    LetDeclaration(LetDeclaration<'a>),
+pub enum Statement {
+    Expression(Expression),
+    LetDeclaration(LetDeclaration),
 }
 
 fn parse_expression_to_statement(s: &str) -> IResult<&str, Statement> {

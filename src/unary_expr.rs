@@ -9,11 +9,11 @@ use crate::expression::{ Expression, parse_expression };
 use crate::subseq::{ Subseq, parse_subseq };
 
 #[derive(Debug)]
-pub enum UnaryExpr<'a> {
-    Variable(Variable<'a>),
-    Literal(Literal<'a>),
-    Parentheses(Parentheses<'a>),
-    Subseq(Box<UnaryExpr<'a>>, Subseq<'a>),
+pub enum UnaryExpr {
+    Variable(Variable),
+    Literal(Literal),
+    Parentheses(Parentheses),
+    Subseq(Box<UnaryExpr>, Subseq),
 }
 
 pub fn parse_unary_expr(s: &str) -> IResult<&str, UnaryExpr> {
@@ -32,8 +32,8 @@ pub fn parse_unary_expr(s: &str) -> IResult<&str, UnaryExpr> {
 }
 
 #[derive(Debug)]
-pub struct Variable<'a> {
-    pub name: Identifier<'a>,
+pub struct Variable {
+    pub name: Identifier,
 }
 
 pub fn parse_variable(s: &str) -> IResult<&str, UnaryExpr> {
@@ -42,8 +42,8 @@ pub fn parse_variable(s: &str) -> IResult<&str, UnaryExpr> {
 }
 
 #[derive(Debug)]
-pub struct Parentheses<'a> {
-    pub expr: Expression<'a>,
+pub struct Parentheses {
+    pub expr: Expression,
 }
 
 pub fn parse_parentheses(s: &str) -> IResult<&str, UnaryExpr> {

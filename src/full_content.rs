@@ -6,8 +6,8 @@ use nom::multi::*;
 use crate::func_definition::{ FuncDefinition, parse_func_definition };
 
 #[derive(Debug)]
-pub struct FullContent<'a> {
-    pub funcs: Vec<FuncDefinition<'a>>,
+pub struct FullContent {
+    pub funcs: Vec<FuncDefinition>,
 }
 
 pub fn parse_full_content(s: &str) -> IResult<&str, FullContent> {

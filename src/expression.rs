@@ -8,13 +8,13 @@ use nom::branch::*;
 use crate::unary_expr::{ UnaryExpr, parse_unary_expr };
 
 #[derive(Debug)]
-pub enum Expression<'a> {
-    Expression(ExpOr<'a>),
+pub enum Expression {
+    Expression(ExpOr),
 }
 
-fn default_parse_expression<'a, P: ParseExpression<'a>>(s: &'a str) -> IResult<&'a str, P>
+fn default_parse_expression<P: ParseExpression>(s: &str) -> IResult<&str, P>
 where
-    P::Child: ParseExpression<'a>,
+    P::Child: ParseExpression,
     P::Operator: ParseOperator,
 {
     let (s, (head, _, tails)) = 
@@ -29,11 +29,11 @@ where
     Ok((s, P::new_expr(terms, opes)))
 }
 
-trait ParseExpression<'a>: Sized {
-    type Child: 'a;
-    type Operator: 'a;
+trait ParseExpression: Sized {
+    type Child: Sized;
+    type Operator: Sized;
     fn new_expr(childs: Vec<Self::Child>, opes: Vec<Self::Operator>) -> Self;
-    fn parse_expression(s: &'a str) -> IResult<&'a str, Self>;
+    fn parse_expression(s: &str) -> IResult<&str, Self>;
 }
 
 trait ParseOperator: Sized {
@@ -41,22 +41,22 @@ trait ParseOperator: Sized {
 }
 
 #[derive(Debug)]
-pub struct ExpOr<'a> {
-    pub terms: Vec<ExpAnd<'a>>,
+pub struct ExpOr {
+    pub terms: Vec<ExpAnd>,
     pub opes: Vec<OperatorOr>,
 }
 
 #[derive(Debug)]
 pub struct OperatorOr();
 
-impl<'a> ParseExpression<'a> for ExpOr<'a> {
-    type Child = ExpAnd<'a>;
+impl ParseExpression for ExpOr {
+    type Child = ExpAnd;
     type Operator = OperatorOr;
     fn new_expr(terms: Vec<Self::Child>, opes: Vec<Self::Operator>) -> Self {
         Self { terms, opes }
     }
-    fn parse_expression(s: &'a str) -> IResult<&'a str, Self> {
-        default_parse_expression::<'a, Self>(s)
+    fn parse_expression(s: &str) -> IResult<&str, Self> {
+        default_parse_expression::<Self>(s)
     }
 }
 
@@ -68,22 +68,22 @@ impl ParseOperator for OperatorOr {
 }
 
 #[derive(Debug)]
-pub struct ExpAnd<'a> {
-    pub terms: Vec<ExpOrd<'a>>,
+pub struct ExpAnd {
+    pub terms: Vec<ExpOrd>,
     pub opes: Vec<OperatorAnd>,
 }
 
 #[derive(Debug)]
 pub struct OperatorAnd();
 
-impl<'a> ParseExpression<'a> for ExpAnd<'a> {
-    type Child = ExpOrd<'a>;
+impl ParseExpression for ExpAnd {
+    type Child = ExpOrd;
     type Operator = OperatorAnd;
     fn new_expr(terms: Vec<Self::Child>, opes: Vec<Self::Operator>) -> Self {
         Self { terms, opes }
     }
-    fn parse_expression(s: &'a str) -> IResult<&'a str, Self> {
-        default_parse_expression::<'a, Self>(s)
+    fn parse_expression(s: &str) -> IResult<&str, Self> {
+        default_parse_expression::<Self>(s)
     }
 }
 
@@ -96,8 +96,8 @@ impl ParseOperator for OperatorAnd {
 
 
 #[derive(Debug)]
-pub struct ExpOrd<'a> {
-    pub terms: Vec<ExpBitOr<'a>>,
+pub struct ExpOrd {
+    pub terms: Vec<ExpBitOr>,
     pub ope: Option<OperatorOrd>,
 }
 
@@ -111,8 +111,8 @@ pub enum OperatorOrd {
     Grq,
 }
 
-impl<'a> ParseExpression<'a> for ExpOrd<'a> {
-    type Child = ExpBitOr<'a>;
+impl ParseExpression for ExpOrd {
+    type Child = ExpBitOr;
     type Operator = OperatorOrd;
     fn new_expr(terms: Vec<Self::Child>, mut opes: Vec<Self::Operator>) -> Self {
         if terms.len() == 1 && opes.len() == 0 {
@@ -125,8 +125,8 @@ impl<'a> ParseExpression<'a> for ExpOrd<'a> {
             unreachable!();
         }
     }
-    fn parse_expression(s: &'a str) -> IResult<&'a str, Self> {
-        default_parse_expression::<'a, Self>(s)
+    fn parse_expression(s: &str) -> IResult<&str, Self> {
+        default_parse_expression::<Self>(s)
     }
 }
 
@@ -147,22 +147,22 @@ impl ParseOperator for OperatorOrd {
 }
 
 #[derive(Debug)]
-pub struct ExpBitOr<'a> {
-    pub terms: Vec<ExpBitXor<'a>>,
+pub struct ExpBitOr {
+    pub terms: Vec<ExpBitXor>,
     pub opes: Vec<OperatorBitOr>,
 }
 
 #[derive(Debug)]
 pub struct OperatorBitOr();
 
-impl<'a> ParseExpression<'a> for ExpBitOr<'a> {
-    type Child = ExpBitXor<'a>;
+impl ParseExpression for ExpBitOr {
+    type Child = ExpBitXor;
     type Operator = OperatorBitOr;
     fn new_expr(terms: Vec<Self::Child>, opes: Vec<Self::Operator>) -> Self {
         Self { terms, opes }
     }
-    fn parse_expression(s: &'a str) -> IResult<&'a str, Self> {
-        default_parse_expression::<'a, Self>(s)
+    fn parse_expression(s: &str) -> IResult<&str, Self> {
+        default_parse_expression::<Self>(s)
     }
 }
 
@@ -174,22 +174,22 @@ impl ParseOperator for OperatorBitOr {
 }
 
 #[derive(Debug)]
-pub struct ExpBitXor<'a> {
-    pub terms: Vec<ExpBitAnd<'a>>,
+pub struct ExpBitXor {
+    pub terms: Vec<ExpBitAnd>,
     pub opes: Vec<OperatorBitXor>,
 }
 
 #[derive(Debug)]
 pub struct OperatorBitXor();
 
-impl<'a> ParseExpression<'a> for ExpBitXor<'a> {
-    type Child = ExpBitAnd<'a>;
+impl ParseExpression for ExpBitXor {
+    type Child = ExpBitAnd;
     type Operator = OperatorBitXor;
     fn new_expr(terms: Vec<Self::Child>, opes: Vec<Self::Operator>) -> Self {
         Self { terms, opes }
     }
-    fn parse_expression(s: &'a str) -> IResult<&'a str, Self> {
-        default_parse_expression::<'a, Self>(s)
+    fn parse_expression(s: &str) -> IResult<&str, Self> {
+        default_parse_expression::<Self>(s)
     }
 }
 
@@ -201,22 +201,22 @@ impl ParseOperator for OperatorBitXor {
 }
 
 #[derive(Debug)]
-pub struct ExpBitAnd<'a> {
-    pub terms: Vec<ExpShift<'a>>,
+pub struct ExpBitAnd {
+    pub terms: Vec<ExpShift>,
     pub opes: Vec<OperatorBitAnd>,
 }
 
 #[derive(Debug)]
 pub struct OperatorBitAnd();
 
-impl<'a> ParseExpression<'a> for ExpBitAnd<'a> {
-    type Child = ExpShift<'a>;
+impl ParseExpression for ExpBitAnd {
+    type Child = ExpShift;
     type Operator = OperatorBitAnd;
     fn new_expr(terms: Vec<Self::Child>, opes: Vec<Self::Operator>) -> Self {
         Self { terms, opes }
     }
-    fn parse_expression(s: &'a str) -> IResult<&'a str, Self> {
-        default_parse_expression::<'a, Self>(s)
+    fn parse_expression(s: &str) -> IResult<&str, Self> {
+        default_parse_expression::<Self>(s)
     }
 }
 
@@ -228,8 +228,8 @@ impl ParseOperator for OperatorBitAnd {
 }
 
 #[derive(Debug)]
-pub struct ExpShift<'a> {
-    pub terms: Vec<ExpAddSub<'a>>,
+pub struct ExpShift {
+    pub terms: Vec<ExpAddSub>,
     pub opes: Vec<OperatorShift>,
 }
 
@@ -239,14 +239,14 @@ pub enum OperatorShift {
     Shr,
 }
 
-impl<'a> ParseExpression<'a> for ExpShift<'a> {
-    type Child = ExpAddSub<'a>;
+impl ParseExpression for ExpShift {
+    type Child = ExpAddSub;
     type Operator = OperatorShift;
     fn new_expr(terms: Vec<Self::Child>, opes: Vec<Self::Operator>) -> Self {
         Self { terms, opes }
     }
-    fn parse_expression(s: &'a str) -> IResult<&'a str, Self> {
-        default_parse_expression::<'a, Self>(s)
+    fn parse_expression(s: &str) -> IResult<&str, Self> {
+        default_parse_expression::<Self>(s)
     }
 }
 
@@ -264,8 +264,8 @@ impl ParseOperator for OperatorShift {
 
 
 #[derive(Debug)]
-pub struct ExpAddSub<'a> {
-    pub terms: Vec<ExpMulDevRem<'a>>,
+pub struct ExpAddSub {
+    pub terms: Vec<ExpMulDevRem>,
     pub opes: Vec<OperatorAddSub>,
 }
 
@@ -275,14 +275,14 @@ pub enum OperatorAddSub {
     Sub,
 }
 
-impl<'a> ParseExpression<'a> for ExpAddSub<'a> {
-    type Child = ExpMulDevRem<'a>;
+impl ParseExpression for ExpAddSub {
+    type Child = ExpMulDevRem;
     type Operator = OperatorAddSub;
     fn new_expr(terms: Vec<Self::Child>, opes: Vec<Self::Operator>) -> Self {
         Self { terms, opes }
     }
-    fn parse_expression(s: &'a str) -> IResult<&'a str, Self> {
-        default_parse_expression::<'a, Self>(s)
+    fn parse_expression(s: &str) -> IResult<&str, Self> {
+        default_parse_expression::<Self>(s)
     }
 }
 
@@ -299,8 +299,8 @@ impl ParseOperator for OperatorAddSub {
 }
 
 #[derive(Debug)]
-pub struct ExpMulDevRem<'a> {
-    pub unary_exprs: Vec<UnaryExpr<'a>>,
+pub struct ExpMulDevRem {
+    pub unary_exprs: Vec<UnaryExpr>,
     pub opes: Vec<OperatorMulDevRem>,
 }
 
@@ -311,13 +311,13 @@ pub enum OperatorMulDevRem {
     Rem
 }
 
-impl<'a> ParseExpression<'a> for ExpMulDevRem<'a> {
-    type Child = UnaryExpr<'a>;
+impl ParseExpression for ExpMulDevRem {
+    type Child = UnaryExpr;
     type Operator = OperatorMulDevRem;
     fn new_expr(unary_exprs: Vec<Self::Child>, opes: Vec<Self::Operator>) -> Self {
         Self { unary_exprs, opes }
     }
-    fn parse_expression(s: &'a str) -> IResult<&'a str, Self> {
+    fn parse_expression(s: &str) -> IResult<&str, Self> {
         let (s, (head, _, tails)) = 
             tuple((parse_unary_expr, space0, many0(tuple((Self::Operator::parse_operator, space0, parse_unary_expr, space0)))))(s)?;
         let mut unary_exprs = vec![head];

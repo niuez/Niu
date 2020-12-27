@@ -6,9 +6,18 @@ use nom::multi::*;
 use nom::sequence::*;
 use nom::IResult;
 
-#[derive(Debug)]
-pub struct Identifier<'a> {
-    pub name: Vec<&'a str>,
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
+pub struct Identifier {
+    pub name: String,
+}
+
+impl<'a> Identifier {
+    pub fn from_str(s: &str) -> Self {
+        Identifier { name: s.to_string() }
+    }
+    pub fn from_vec_str(vec: Vec<&str>) -> Self {
+        Identifier { name: vec.join("") }
+    }
 }
 
 pub fn parse_identifier(s: &str) -> IResult<&str, Identifier> {
@@ -24,7 +33,7 @@ pub fn parse_identifier(s: &str) -> IResult<&str, Identifier> {
     for s in tails {
         name.push(s);
     }
-    Ok((s, Identifier { name }))
+    Ok((s, Identifier::from_vec_str(name)))
 }
 
 #[test]

@@ -7,13 +7,13 @@ use nom::IResult;
 use crate::expression::{ Expression, parse_expression };
 
 #[derive(Debug)]
-pub enum Subseq<'a> {
-    Call(Call<'a>),
+pub enum Subseq {
+    Call(Call),
 }
 
 #[derive(Debug)]
-pub struct Call<'a> {
-    pub args: Vec<Expression<'a>>,
+pub struct Call {
+    pub args: Vec<Expression>,
 }
 
 pub fn parse_subseq(s: &str) -> IResult<&str, Subseq> {
