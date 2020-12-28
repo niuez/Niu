@@ -18,7 +18,9 @@ pub fn subseq_gen_type(uexpr: &UnaryExpr, subseq: &Subseq, equs: &mut TypeEquati
         Subseq::Call(ref call) => {
             let caller = uexpr.gen_type(equs)?;
             let args = call.args.iter().map(|arg| arg.gen_type(equs)).collect::<Result<Vec<_>, String>>()?;
-            Ok(Type::CallLazy(CallLazy { caller: Box::new(caller), args }))
+            let return_type = equs.get_type_variable();
+            equs.add_equation(caller, Type::Func(args, Box::new(return_type.clone())));
+            Ok(return_type)
             /* if let Type::Func(ref def_result, ref def_args) = uexpr_type {
                 if def_args.len() == call_args.len() {
                     def_args.iter().zip(call_args.iter().map(|arg| arg.gen_type(equs)).collect::<Result<Vec<_>, String>>()?.into_iter())

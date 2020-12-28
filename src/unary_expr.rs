@@ -51,7 +51,7 @@ pub struct Variable {
 
 impl GenType for Variable {
     fn gen_type(&self, _: &mut TypeEquations) -> TResult {
-        Ok(Type::Variable(self.name.clone()))
+        Ok(Type::TypeVariable(TypeVariable::Identifier(self.name.clone())))
     }
 }
 
