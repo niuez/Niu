@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use nom::bytes::complete::*;
 use nom::character::complete::*;
 use nom::combinator::*;
@@ -9,6 +11,7 @@ use crate::identifier::{ Identifier, parse_identifier };
 use crate::type_id::{ TypeId, parse_type_id };
 use crate::block::{ Block, parse_block };
 use crate::unify::*;
+use crate::unary_expr::Variable;
 
 #[derive(Debug)]
 pub struct FuncDefinition {
@@ -19,20 +22,54 @@ pub struct FuncDefinition {
     pub block: Block,
 }
 
+#[derive(Debug, Clone)]
+pub struct FuncDefinitionInfo {
+    pub generics: Vec<TypeId>,
+    pub args: Vec<(Identifier, TypeId)>,
+    pub return_type: TypeId,
+}
+
+impl FuncDefinitionInfo {
+    pub fn generate_type(&self, equs: &mut TypeEquations) -> TResult {
+        let mut mp = HashMap::new();
+        for gt in self.generics.iter() {
+            mp.insert(gt.clone(), equs.get_type_variable());
+        }
+        let mut generics_to_type = |t: &TypeId| {
+            match mp.get(t).cloned() {
+                Some(t) => Ok(t),
+                None => t.gen_type(equs)
+            }
+        };
+        let args = self.args.iter().map(|(_, t)| generics_to_type(t)).collect::<Result<Vec<Type>, String>>()?;
+        let return_type = generics_to_type(&self.return_type)?;
+        Ok(Type::Func(args, Box::new(return_type)))
+    }
+}
+
+impl FuncDefinition {
+    pub fn get_func_info(&self) -> (Variable, FuncDefinitionInfo) {
+        (Variable { name: self.func_id.clone() },
+         FuncDefinitionInfo { generics: self.generics.clone(), args: self.args.clone(), return_type: self.return_type.clone() }
+         )
+    }
+}
+
 impl GenType for FuncDefinition {
     fn gen_type(&self, equs: &mut TypeEquations) -> TResult {
-        let func_type = Type::Func(
-            self.args.iter().map(|(_, t)| t.gen_type(equs)).collect::<Result<Vec<_>, String>>()?,
-            Box::new(self.return_type.gen_type(equs)?)
-            );
-        equs.add_equation(Type::TypeVariable(TypeVariable::Identifier(self.func_id.clone())), func_type);
+        equs.into_scope();
+
         for (i, t) in self.args.iter() {
+            let alpha = equs.get_type_variable();
             let t_type = t.gen_type(equs)?; 
-            equs.add_equation(Type::TypeVariable(TypeVariable::Identifier(i.clone())), t_type);
+            equs.regist_variable(Variable::from_identifier(i.clone()), alpha.clone());
+            equs.add_equation(alpha, t_type);
         }
         let result_type = self.block.gen_type(equs)?;
         let return_t = self.return_type.gen_type(equs)?;
         equs.add_equation(result_type, return_t);
+
+        equs.out_scope();
         Ok(Type::End)
     }
 }

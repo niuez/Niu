@@ -8,6 +8,7 @@ use nom::combinator::*;
 use crate::identifier::{ Identifier, parse_identifier };
 use crate::type_id::{ TypeId, parse_type_id };
 use crate::expression::{ Expression, parse_expression };
+use crate::unary_expr::Variable;
 use crate::unify::*;
 
 #[derive(Debug)]
@@ -19,11 +20,13 @@ pub struct LetDeclaration {
 
 impl GenType for LetDeclaration {
     fn gen_type(&self, equs: &mut TypeEquations) -> TResult {
+        let alpha = equs.get_type_variable();
+        equs.regist_variable(Variable::from_identifier(self.id.clone()), alpha.clone());
         let value_type = self.value.gen_type(equs)?;
-        equs.add_equation(Type::TypeVariable(TypeVariable::Identifier(self.id.clone())), value_type);
+        equs.add_equation(alpha.clone(), value_type);
         if let Some(ref t) = self.type_info {
             let t_type = t.gen_type(equs)?;
-            equs.add_equation(Type::TypeVariable(TypeVariable::Identifier(self.id.clone())), t_type);
+            equs.add_equation(alpha.clone(), t_type);
         }
         Ok(Type::End)
     }

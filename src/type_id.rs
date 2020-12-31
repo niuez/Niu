@@ -3,7 +3,7 @@ use nom::IResult;
 use crate::identifier::{ Identifier, parse_identifier };
 use crate::unify::*;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct TypeId {
     pub id: Identifier,
 }

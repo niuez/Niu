@@ -24,7 +24,6 @@ impl GenType for UnaryExpr {
             UnaryExpr::Literal(ref l) => l.gen_type(equs),
             UnaryExpr::Parentheses(ref p) => p.gen_type(equs),
             UnaryExpr::Subseq(ref expr, ref s) => subseq_gen_type(expr.as_ref(), s, equs)
-            
         }
     }
 }
@@ -44,14 +43,20 @@ pub fn parse_unary_expr(s: &str) -> IResult<&str, UnaryExpr> {
     Ok((now, prec))
 }
 
-#[derive(Debug)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone)]
 pub struct Variable {
     pub name: Identifier,
 }
 
+impl Variable {
+    pub fn from_identifier(id: Identifier) -> Self {
+        Variable { name: id }
+    }
+}
+
 impl GenType for Variable {
-    fn gen_type(&self, _: &mut TypeEquations) -> TResult {
-        Ok(Type::TypeVariable(TypeVariable::Identifier(self.name.clone())))
+    fn gen_type(&self, equs: &mut TypeEquations) -> TResult {
+        equs.get_type_from_variable(self)
     }
 }
 

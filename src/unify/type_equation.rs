@@ -1,4 +1,8 @@
+use std::collections::HashMap;
+
 use crate::identifier::Identifier;
+use crate::unary_expr::Variable;
+use crate::func_definition::{ FuncDefinitionInfo, FuncDefinition };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Type {
@@ -52,7 +56,6 @@ impl Type {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum TypeVariable {
-    Identifier(Identifier),
     Counter(usize),
 }
 
@@ -64,11 +67,10 @@ pub struct TypeEquation {
 
 #[derive(Debug)]
 pub struct TypeEquations {
+    func: HashMap<Variable, FuncDefinitionInfo>,
     cnt: usize,
+    variables: Vec<HashMap<Variable, Type>>,
     equs: Vec<TypeEquation>,
-}
-
-impl TypeEquations {
 }
 
 #[derive(Debug)]
@@ -84,7 +86,7 @@ pub trait GenType {
 }
 
 impl TypeEquations {
-    pub fn new() -> Self { Self { equs: Vec::new(), cnt: 0, } }
+    pub fn new() -> Self { Self { func: HashMap::new(), equs: Vec::new(), cnt: 0, variables: Vec::new() } }
     pub fn add_equation(&mut self, left: Type, right: Type) {
         self.equs.push(TypeEquation { left, right });
     }
@@ -93,7 +95,31 @@ impl TypeEquations {
         self.cnt += 1;
         Type::TypeVariable(TypeVariable::Counter(i))
     }
-
+    pub fn into_scope(&mut self) {
+        self.variables.push(HashMap::new());
+    }
+    pub fn out_scope(&mut self) {
+        self.variables.pop();
+    }
+    pub fn regist_variable(&mut self, var: Variable, t: Type) {
+        println!("{:?} = {:?}", var, t);
+        self.variables.last_mut().unwrap().insert(var.clone(), t.clone());
+    }
+    pub fn regist_func_info(&mut self, func: &FuncDefinition) {
+        let (fvar, finfo) = func.get_func_info();
+        self.func.insert(fvar, finfo);
+    }
+    pub fn get_type_from_variable(&mut self, var: &Variable) -> TResult {
+        if let Some(func) = self.func.get(var).cloned() {
+            return func.generate_type(self);
+        }
+        for mp in self.variables.iter().rev() {
+            if let Some(t) = mp.get(var) {
+                return Ok(t.clone())
+            }
+        }
+        Err(format!("Variable {:?} is not found", var))
+    }
     fn subst(&mut self, theta: &TypeSubst) {
         for TypeEquation { left, right } in self.equs.iter_mut() {
             left.subst(theta);
@@ -148,7 +174,7 @@ impl TypeEquations {
         Ok(thetas)
     }
 }
-
+/*
 #[test]
 fn test_unify() {
 
@@ -159,7 +185,7 @@ fn test_unify() {
             vec![
                 TypeEquation { left: counter(0), right: Type::Type(Identifier::from_str("int")) }
             ],
-            cnt: 0,
+            cnt: 0, variables: Vec::new()
         };
         println!("{:?}", equs.unify());
     }
@@ -169,7 +195,7 @@ fn test_unify() {
                 TypeEquation { left: counter(0), right: Type::Type(Identifier::from_str("int")) },
                 TypeEquation { left: counter(1), right: Type::Type(Identifier::from_str("int")) }
             ],
-            cnt: 0,
+            cnt: 0, variables: Vec::new()
         };
         println!("{:?}", equs.unify());
     }
@@ -179,7 +205,7 @@ fn test_unify() {
                 TypeEquation { left: counter(0), right: Type::Type(Identifier::from_str("int")) },
                 TypeEquation { left: counter(1), right: counter(0) }
             ],
-            cnt: 0,
+            cnt: 0, variables: Vec::new()
         };
         println!("{:?}", equs.unify());
     }
@@ -190,7 +216,7 @@ fn test_unify() {
                 TypeEquation { left: counter(3), right: counter(4) },
                 TypeEquation { left: counter(0), right: Type::Func(vec![counter(1), counter(2)], Box::new(counter(4))) },
             ],
-            cnt: 0,
+            cnt: 0, variables: Vec::new()
         };
         println!("{:#?}", equs.unify());
     }
@@ -202,8 +228,9 @@ fn test_unify() {
                 TypeEquation { left: counter(0), right: Type::Func(vec![counter(1), counter(2)], Box::new(counter(4))) },
                 TypeEquation { left: counter(2), right: typ("int") },
             ],
-            cnt: 0,
+            cnt: 0, variables: Vec::new()
         };
         println!("{:#?}", equs.unify());
     }
 }
+*/

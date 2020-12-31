@@ -11,6 +11,17 @@ pub struct FullContent {
     pub funcs: Vec<FuncDefinition>,
 }
 
+impl FullContent {
+    pub fn type_check(&self) -> Result<TypeEquations, String> {
+        let mut equs = TypeEquations::new();
+        for f in self.funcs.iter() {
+            equs.regist_func_info(f);
+            f.gen_type(&mut equs)?;
+        }
+        Ok(equs)
+    }
+}
+
 impl GenType for FullContent {
     fn gen_type(&self, equs: &mut TypeEquations) -> TResult {
         for f in self.funcs.iter() {
@@ -34,7 +45,16 @@ fn parse_full_content_test() {
 fn gentype_full_test() {
     let (_, t) = parse_full_content("fn two(z: i64) -> i64 { 2i64 } fn func(x: i64) -> i64 { let y = x; two(x) }").unwrap();
     println!("{:?}", t);
-    let mut equs = TypeEquations::new();
-    t.gen_type(&mut equs).unwrap();
+    let mut equs = t.type_check().unwrap();
+    println!("{:#?}", equs.unify());
+}
+
+#[test]
+fn gentype_full_test2() {
+    let (s, t) = parse_full_content("fn generics_func<T>(x: T) -> T { x } fn echo(x: i64) -> i64 { let y = generics_func(x); y }").unwrap();
+    println!("{:?}", s);
+    println!("{:?}", t);
+    let mut equs = t.type_check().unwrap();
     println!("{:#?}", equs);
+    println!("{:#?}", equs.unify());
 }
