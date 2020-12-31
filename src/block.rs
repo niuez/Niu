@@ -9,6 +9,7 @@ use nom::combinator::*;
 use crate::statement::{ Statement, parse_statement };
 use crate::expression::{ Expression, parse_expression };
 use crate::unify::*;
+use crate::trans::*;
 
 #[derive(Debug)]
 pub struct Block {
@@ -22,6 +23,14 @@ impl GenType for Block {
             s.gen_type(equs)?;
         }
         self.return_exp.as_ref().unwrap().gen_type(equs)
+    }
+}
+
+impl Transpile for Block {
+    fn transpile(&self, ta: &mut TypeAnnotation) -> String {
+        let mut vec = self.statements.iter().map(|s| s.transpile()).collect::<Vec<_>>();
+        vec.push(format!("return {};", self.return_exp.transpile()));
+        vec.join("; ")
     }
 }
 

@@ -12,6 +12,7 @@ use crate::type_id::{ TypeId, parse_type_id };
 use crate::block::{ Block, parse_block };
 use crate::unify::*;
 use crate::unary_expr::Variable;
+use crate::trans::*;
 
 #[derive(Debug)]
 pub struct FuncDefinition {
@@ -71,6 +72,30 @@ impl GenType for FuncDefinition {
 
         equs.out_scope();
         Ok(Type::End)
+    }
+}
+
+impl Transpile for FuncDefinition {
+    fn transpile(&self, ta: &mut TypeAnnotation) -> String {
+        let template_str =
+            if self.generics.len() > 0 {
+                let gen = self.generics.iter().map(|g| format!("class {}", g.transpile(ta))).collect::<Vec<_>>().join(", ");
+                format!("template<{}> ", gen)
+            } 
+            else {
+                "".to_string()
+            };
+
+        let return_str = self.return_type.transpile(ta);
+        let func_str = self.func_id.into_string();
+        let arg_str = self.args.iter().map(|(id, ty)| {
+            ta.count();
+            format!("{} {}", ty.transpile(ta), id.into_string())
+        }).collect::<Vec<_>>().join(", ");
+
+        let block_str = self.block.transpile(ta);
+
+        format!("{}{} {}({}) {{ {} }}", template_str, return_str, func_str, arg_str, block_str)
     }
 }
 

@@ -120,6 +120,9 @@ impl TypeEquations {
         }
         Err(format!("Variable {:?} is not found", var))
     }
+    pub fn clear_equations(&mut self) {
+        self.equs.clear();
+    }
     fn subst(&mut self, theta: &TypeSubst) {
         for TypeEquation { left, right } in self.equs.iter_mut() {
             left.subst(theta);

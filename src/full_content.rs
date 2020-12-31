@@ -3,8 +3,10 @@ use nom::character::complete::*;
 use nom::sequence::*;
 use nom::multi::*;
 
+
 use crate::func_definition::{ FuncDefinition, parse_func_definition };
 use crate::unify::*;
+use crate::trans::*;
 
 #[derive(Debug)]
 pub struct FullContent {
@@ -12,13 +14,18 @@ pub struct FullContent {
 }
 
 impl FullContent {
-    pub fn type_check(&self) -> Result<TypeEquations, String> {
+    pub fn type_check(&mut self) -> Result<TypeAnnotation, String> {
         let mut equs = TypeEquations::new();
+        let mut ta = TypeAnnotation::new();
         for f in self.funcs.iter() {
             equs.regist_func_info(f);
             f.gen_type(&mut equs)?;
+            for TypeSubst { tv, t } in equs.unify()? {
+                ta.insert(tv, t);
+            }
+            equs.clear_equations();
         }
-        Ok(equs)
+        Ok(ta)
     }
 }
 
@@ -28,6 +35,17 @@ impl GenType for FullContent {
             f.gen_type(equs)?;
         }
         Ok(Type::End)
+    }
+}
+
+impl Transpile for FullContent {
+    fn transpile(&self, ta: &mut TypeAnnotation) -> String {
+        let res = String::new();
+        for f in self.funcs.iter() {
+            let s = f.transpile(ta)?;
+            res.push_str(&s);
+        }
+        res
     }
 }
 
@@ -43,18 +61,17 @@ fn parse_full_content_test() {
 
 #[test]
 fn gentype_full_test() {
-    let (_, t) = parse_full_content("fn two(z: i64) -> i64 { 2i64 } fn func(x: i64) -> i64 { let y = x; two(x) }").unwrap();
+    let (_, mut t) = parse_full_content("fn two(z: i64) -> i64 { 2i64 } fn func(x: i64) -> i64 { let y = x; two(x) }").unwrap();
     println!("{:?}", t);
-    let mut equs = t.type_check().unwrap();
-    println!("{:#?}", equs.unify());
+    let ta = t.type_check().unwrap();
+    println!("{:#?}", ta);
 }
 
 #[test]
 fn gentype_full_test2() {
-    let (s, t) = parse_full_content("fn generics_func<T>(x: T) -> T { x } fn echo(x: i64) -> i64 { let y = generics_func(x); y }").unwrap();
+    let (s, mut t) = parse_full_content("fn generics_func<T>(x: T) -> T { x } fn echo(x: i64) -> i64 { let y = generics_func(x); y }").unwrap();
     println!("{:?}", s);
     println!("{:?}", t);
-    let mut equs = t.type_check().unwrap();
-    println!("{:#?}", equs);
-    println!("{:#?}", equs.unify());
+    let ta = t.type_check().unwrap();
+    println!("{:#?}", ta);
 }

@@ -18,6 +18,9 @@ impl<'a> Identifier {
     pub fn from_vec_str(vec: Vec<&str>) -> Self {
         Identifier { name: vec.join("") }
     }
+    pub fn into_string(&self) -> String {
+        self.name.clone()
+    }
 }
 
 pub fn parse_identifier(s: &str) -> IResult<&str, Identifier> {
