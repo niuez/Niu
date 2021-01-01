@@ -7,6 +7,7 @@ use nom::IResult;
 use crate::expression::{ Expression, parse_expression };
 use crate::unary_expr::UnaryExpr;
 use crate::unify::*;
+use crate::trans::*;
 
 #[derive(Debug)]
 pub enum Subseq {
@@ -21,22 +22,20 @@ pub fn subseq_gen_type(uexpr: &UnaryExpr, subseq: &Subseq, equs: &mut TypeEquati
             let return_type = equs.get_type_variable();
             equs.add_equation(caller, Type::Func(args, Box::new(return_type.clone())));
             Ok(return_type)
-            /* if let Type::Func(ref def_result, ref def_args) = uexpr_type {
-                if def_args.len() == call_args.len() {
-                    def_args.iter().zip(call_args.iter().map(|arg| arg.gen_type(equs)).collect::<Result<Vec<_>, String>>()?.into_iter())
-                                   .for_each(|(d, c)| equs.add_equation(d.clone(), c));
-                    Ok(def_result.as_ref().clone())
-                }
-                else {
-                    Err("length of args is not match".to_string())
-                }
-            }
-            else {
-                Err("caller is not function".to_string())
-            } */
         }
     }
 
+}
+
+pub fn subseq_transpile(uexpr: &UnaryExpr, subseq: &Subseq, ta: &mut TypeAnnotation) -> String {
+    match *subseq {
+        Subseq::Call(ref call) => {
+            let caller = uexpr.transpile(ta);
+            let args = call.args.iter().map(|arg| arg.transpile(ta)).collect::<Vec<_>>().join(", ");
+            ta.count();
+            format!("{}({})", caller, args)
+        }
+    }
 }
 
 #[derive(Debug)]

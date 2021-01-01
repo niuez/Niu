@@ -32,7 +32,7 @@ impl Transpile for Block {
         if let Some(ref return_exp) = self.return_exp {
             vec.push(format!("return {};", return_exp.transpile(ta)));
         }
-        vec.join("; ")
+        vec.join(";\n")
     }
 }
 

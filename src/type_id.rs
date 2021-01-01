@@ -9,15 +9,26 @@ pub struct TypeId {
     pub id: Identifier,
 }
 
+impl TypeId {
+    pub fn from_str(s: &str) -> Self {
+        TypeId { id: Identifier::from_str(s) }
+    }
+}
+
 impl GenType for TypeId {
     fn gen_type(&self, _: &mut TypeEquations) -> TResult {
-        Ok(Type::Type(self.id.clone()))
+        Ok(Type::Type(self.clone()))
     }
 }
 
 impl Transpile for TypeId {
     fn transpile(&self, ta: &mut TypeAnnotation) -> String {
-        self.id.into_string()
+        match self.id.into_string().as_str() {
+            "i64" => "std::int_fast64_t",
+            "u64" => "std::uint_fast64_t",
+            "bool" => "bool",
+            s => s,
+        }.to_string()
     }
 }
 

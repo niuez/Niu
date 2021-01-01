@@ -1,12 +1,13 @@
 use std::collections::HashMap;
 
-use crate::identifier::Identifier;
 use crate::unary_expr::Variable;
+use crate::type_id::TypeId;
 use crate::func_definition::{ FuncDefinitionInfo, FuncDefinition };
+use crate::trans::*;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Type {
-    Type(Identifier),
+    Type(TypeId),
     Func(Vec<Type>, Box<Type>),
     TypeVariable(TypeVariable),
     End,
@@ -51,6 +52,15 @@ impl Type {
     fn clone_type_variable(&self) -> TypeVariable {
         if let Type::TypeVariable(ref tv) = *self { tv.clone() }
         else { unreachable!("it is not TypeVariable") }
+    }
+}
+
+impl Transpile for Type {
+    fn transpile(&self, ta: &mut TypeAnnotation) -> String {
+        match *self {
+            Type::Type(ref t) => t.transpile(ta),
+            _ => unreachable!("it is not Type"),
+        }
     }
 }
 

@@ -8,8 +8,9 @@ use nom::IResult;
 
 
 use crate::unary_expr::UnaryExpr;
-use crate::identifier::Identifier;
+use crate::type_id::TypeId;
 use crate::unify::*;
+use crate::trans::*;
 
 #[derive(Debug)]
 pub enum Literal {
@@ -21,9 +22,18 @@ pub enum Literal {
 impl GenType for Literal {
     fn gen_type(&self, _: &mut TypeEquations) -> TResult {
         match *self {
-            Literal::U64(_) => Ok(Type::Type(Identifier::from_str("u64"))),
-            Literal::I64(_) => Ok(Type::Type(Identifier::from_str("i64"))),
-            Literal::Boolean(_) => Ok(Type::Type(Identifier::from_str("bool"))),
+            Literal::U64(_) => Ok(Type::Type(TypeId::from_str("u64"))),
+            Literal::I64(_) => Ok(Type::Type(TypeId::from_str("i64"))),
+            Literal::Boolean(_) => Ok(Type::Type(TypeId::from_str("bool"))),
+        }
+    }
+}
+impl Transpile for Literal {
+    fn transpile(&self, ta: &mut TypeAnnotation) -> String {
+        match *self {
+            Literal::U64(ref u) => u.transpile(ta),
+            Literal::I64(ref i) => i.transpile(ta),
+            Literal::Boolean(ref b) => b.transpile(ta),
         }
     }
 }
@@ -47,6 +57,27 @@ pub struct LiteralI64 {
 pub enum Boolean {
     True,
     False,
+}
+
+impl Transpile for LiteralU64 {
+    fn transpile(&self, ta: &mut TypeAnnotation) -> String {
+        format!("{}ll", self.number)
+    }
+}
+
+impl Transpile for LiteralI64 {
+    fn transpile(&self, ta: &mut TypeAnnotation) -> String {
+        format!("{}ll", self.number)
+    }
+}
+
+impl Transpile for Boolean {
+    fn transpile(&self, ta: &mut TypeAnnotation) -> String {
+        match *self {
+            Boolean::True => "true",
+            Boolean::False => "false",
+        }.to_string()
+    }
 }
 
 pub fn literal_u64(s: &str) -> IResult<&str, Literal> {

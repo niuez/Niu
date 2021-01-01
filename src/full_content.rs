@@ -19,6 +19,7 @@ impl FullContent {
         let mut ta = TypeAnnotation::new();
         for f in self.funcs.iter() {
             equs.regist_func_info(f);
+            ta.regist_func_info(f);
             f.gen_type(&mut equs)?;
             for TypeSubst { tv, t } in equs.unify()? {
                 ta.insert(tv, t);
@@ -40,7 +41,7 @@ impl GenType for FullContent {
 
 impl Transpile for FullContent {
     fn transpile(&self, ta: &mut TypeAnnotation) -> String {
-        let res = String::new();
+        let mut res = "#include <bits/stdc++.h>\n\n".to_string();
         for f in self.funcs.iter() {
             let s = f.transpile(ta);
             res.push_str(&s);
@@ -69,9 +70,13 @@ fn gentype_full_test() {
 
 #[test]
 fn gentype_full_test2() {
-    let (s, mut t) = parse_full_content("fn generics_func<T>(x: T) -> T { x } fn echo(x: i64) -> i64 { let y = generics_func(x); y }").unwrap();
+    let prog = "fn generics_func<T>(x: T) -> T { x } fn echo(x: i64) -> i64 { let y = generics_func(x); let z = generics_func(false); y }";
+
+    let (s, mut t) = parse_full_content(prog).unwrap();
     println!("{:?}", s);
     println!("{:?}", t);
-    let ta = t.type_check().unwrap();
+    let mut ta = t.type_check().unwrap();
     println!("{:#?}", ta);
+
+    println!("```cpp\n{}```\n", t.transpile(&mut ta));
 }

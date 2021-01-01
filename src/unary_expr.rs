@@ -34,7 +34,7 @@ impl Transpile for UnaryExpr {
         match *self {
             UnaryExpr::Variable(ref v) => v.transpile(ta),
             UnaryExpr::Literal(ref l) => l.transpile(ta),
-            UnaryExpr::Parentheses(ref p) => format!("({})", p.transpile(ta)),
+            UnaryExpr::Parentheses(ref p) => p.transpile(ta),
             UnaryExpr::Subseq(ref expr, ref s) => subseq_transpile(expr.as_ref(), s, ta),
         }
     }
@@ -42,9 +42,9 @@ impl Transpile for UnaryExpr {
 
 pub fn parse_unary_expr(s: &str) -> IResult<&str, UnaryExpr> {
     let (s, x) = alt((
-            parse_variable,
             parse_literal,
             parse_parentheses,
+            parse_variable,
             ))(s)?;
     let mut now = s;
     let mut prec = x;
@@ -72,6 +72,12 @@ impl GenType for Variable {
     }
 }
 
+impl Transpile for Variable {
+    fn transpile(&self, ta: &mut TypeAnnotation) -> String {
+        ta.trans_variable(self)
+    }
+}
+
 pub fn parse_variable(s: &str) -> IResult<&str, UnaryExpr> {
     let(s, name) = parse_identifier(s)?;
     Ok((s, UnaryExpr::Variable(Variable { name })))
@@ -85,6 +91,12 @@ pub struct Parentheses {
 impl GenType for Parentheses {
     fn gen_type(&self, equs: &mut TypeEquations) -> TResult {
         self.expr.gen_type(equs)
+    }
+}
+
+impl Transpile for Parentheses {
+    fn transpile(&self, ta: &mut TypeAnnotation) -> String {
+        format!("({})", self.expr.transpile(ta))
     }
 }
 

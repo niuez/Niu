@@ -46,6 +46,17 @@ impl FuncDefinitionInfo {
         let return_type = generics_to_type(&self.return_type)?;
         Ok(Type::Func(args, Box::new(return_type)))
     }
+
+    pub fn get_generics_annotation(&self, ta: &mut TypeAnnotation) -> String {
+        if self.generics.len() > 0 {
+            let gen = self.generics.iter().map(|_| { let res = ta.annotation(); ta.count(); res.transpile(ta) })
+                          .collect::<Vec<_>>().join(", ");
+            format!("<{}>", gen)
+        }
+        else {
+            "".to_string()
+        }
+    }
 }
 
 impl FuncDefinition {
@@ -95,7 +106,7 @@ impl Transpile for FuncDefinition {
 
         let block_str = self.block.transpile(ta);
 
-        format!("{}{} {}({}) {{ {} }}", template_str, return_str, func_str, arg_str, block_str)
+        format!("{}{} {}({}) {{\n{}\n}}\n", template_str, return_str, func_str, arg_str, block_str)
     }
 }
 
