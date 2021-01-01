@@ -22,7 +22,7 @@ impl GenType for TypeId {
 }
 
 impl Transpile for TypeId {
-    fn transpile(&self, ta: &mut TypeAnnotation) -> String {
+    fn transpile(&self, _: &mut TypeAnnotation) -> String {
         match self.id.into_string().as_str() {
             "i64" => "std::int_fast64_t",
             "u64" => "std::uint_fast64_t",

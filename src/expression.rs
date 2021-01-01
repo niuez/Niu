@@ -7,6 +7,7 @@ use nom::bytes::complete::*;
 use nom::branch::*;
 
 use crate::unary_expr::{ UnaryExpr, parse_unary_expr };
+use crate::type_id::TypeId;
 use crate::unify::*;
 use crate::trans::*;
 
@@ -67,7 +68,16 @@ pub struct ExpOr {
 
 impl GenType for ExpOr {
     fn gen_type(&self, equs: &mut TypeEquations) -> TResult {
-        self.terms[0].gen_type(equs)
+        if self.terms.len() > 1 {
+            for t in self.terms.iter() {
+                let ty = t.gen_type(equs)?;
+                equs.add_equation(ty, Type::Type(TypeId::from_str("bool")));
+            }
+            Ok(Type::Type(TypeId::from_str("bool")))
+        }
+        else {
+            self.terms[0].gen_type(equs)
+        }
     }
 }
 
@@ -86,8 +96,8 @@ impl Transpile for ExpOr {
 }
 
 impl Transpile for OperatorOr {
-    fn transpile(&self, ta: &mut TypeAnnotation) -> String {
-        "|".to_string()
+    fn transpile(&self, _: &mut TypeAnnotation) -> String {
+        "||".to_string()
     }
 }
 
@@ -118,7 +128,16 @@ pub struct ExpAnd {
 
 impl GenType for ExpAnd {
     fn gen_type(&self, equs: &mut TypeEquations) -> TResult {
-        self.terms[0].gen_type(equs)
+        if self.terms.len() > 1 {
+            for t in self.terms.iter() {
+                let ty = t.gen_type(equs)?;
+                equs.add_equation(ty, Type::Type(TypeId::from_str("bool")));
+            }
+            Ok(Type::Type(TypeId::from_str("bool")))
+        }
+        else {
+            self.terms[0].gen_type(equs)
+        }
     }
 }
 
@@ -137,8 +156,8 @@ impl Transpile for ExpAnd {
 }
 
 impl Transpile for OperatorAnd {
-    fn transpile(&self, ta: &mut TypeAnnotation) -> String {
-        "&".to_string()
+    fn transpile(&self, _: &mut TypeAnnotation) -> String {
+        "&&".to_string()
     }
 }
 
@@ -169,7 +188,16 @@ pub struct ExpOrd {
 
 impl GenType for ExpOrd {
     fn gen_type(&self, equs: &mut TypeEquations) -> TResult {
-        self.terms[0].gen_type(equs)
+        match self.ope {
+            Some(_) => {
+                let t0 = self.terms[0].gen_type(equs)?;
+                let t1 = self.terms[1].gen_type(equs)?;
+                equs.add_equation(t0, t1);
+                Ok(Type::Type(TypeId::from_str("bool")))
+            }
+            None => self.terms[0].gen_type(equs),
+
+        }
     }
 }
 
@@ -193,7 +221,7 @@ impl Transpile for ExpOrd {
 }
 
 impl Transpile for OperatorOrd {
-    fn transpile(&self, ta: &mut TypeAnnotation) -> String {
+    fn transpile(&self, _: &mut TypeAnnotation) -> String {
         match *self {
             OperatorOrd::Equal  => "==",
             OperatorOrd::NotEq  => "!=",
@@ -248,6 +276,10 @@ pub struct ExpBitOr {
 
 impl GenType for ExpBitOr {
     fn gen_type(&self, equs: &mut TypeEquations) -> TResult {
+        let ty = self.terms.iter().map(|t| t.gen_type(equs)).collect::<Result<Vec<_>, String>>()?;
+        for i in 0..self.opes.len() {
+            equs.add_equation(ty[i].clone(), ty[i + 1].clone());
+        }
         self.terms[0].gen_type(equs)
     }
 }
@@ -267,8 +299,8 @@ impl Transpile for ExpBitOr {
 }
 
 impl Transpile for OperatorBitOr {
-    fn transpile(&self, ta: &mut TypeAnnotation) -> String {
-        "||".to_string()
+    fn transpile(&self, _: &mut TypeAnnotation) -> String {
+        "|".to_string()
     }
 }
 
@@ -298,6 +330,10 @@ pub struct ExpBitXor {
 
 impl GenType for ExpBitXor {
     fn gen_type(&self, equs: &mut TypeEquations) -> TResult {
+        let ty = self.terms.iter().map(|t| t.gen_type(equs)).collect::<Result<Vec<_>, String>>()?;
+        for i in 0..self.opes.len() {
+            equs.add_equation(ty[i].clone(), ty[i + 1].clone());
+        }
         self.terms[0].gen_type(equs)
     }
 }
@@ -317,7 +353,7 @@ impl Transpile for ExpBitXor {
 }
 
 impl Transpile for OperatorBitXor {
-    fn transpile(&self, ta: &mut TypeAnnotation) -> String {
+    fn transpile(&self, _: &mut TypeAnnotation) -> String {
         "^".to_string()
     }
 }
@@ -348,6 +384,10 @@ pub struct ExpBitAnd {
 
 impl GenType for ExpBitAnd {
     fn gen_type(&self, equs: &mut TypeEquations) -> TResult {
+        let ty = self.terms.iter().map(|t| t.gen_type(equs)).collect::<Result<Vec<_>, String>>()?;
+        for i in 0..self.opes.len() {
+            equs.add_equation(ty[i].clone(), ty[i + 1].clone());
+        }
         self.terms[0].gen_type(equs)
     }
 }
@@ -367,7 +407,7 @@ impl Transpile for ExpBitAnd {
 }
 
 impl Transpile for OperatorBitAnd {
-    fn transpile(&self, ta: &mut TypeAnnotation) -> String {
+    fn transpile(&self, _: &mut TypeAnnotation) -> String {
         "&".to_string()
     }
 }
@@ -398,6 +438,10 @@ pub struct ExpShift {
 
 impl GenType for ExpShift {
     fn gen_type(&self, equs: &mut TypeEquations) -> TResult {
+        let ty = self.terms.iter().map(|t| t.gen_type(equs)).collect::<Result<Vec<_>, String>>()?;
+        for i in 0..self.opes.len() {
+            equs.add_equation(ty[i].clone(), ty[i + 1].clone());
+        }
         self.terms[0].gen_type(equs)
     }
 }
@@ -420,7 +464,7 @@ impl Transpile for ExpShift {
 }
 
 impl Transpile for OperatorShift {
-    fn transpile(&self, ta: &mut TypeAnnotation) -> String {
+    fn transpile(&self, _: &mut TypeAnnotation) -> String {
         match *self {
             OperatorShift::Shl => "<<",
             OperatorShift::Shr => ">>",
@@ -460,6 +504,10 @@ pub struct ExpAddSub {
 
 impl GenType for ExpAddSub {
     fn gen_type(&self, equs: &mut TypeEquations) -> TResult {
+        let ty = self.terms.iter().map(|t| t.gen_type(equs)).collect::<Result<Vec<_>, String>>()?;
+        for i in 0..self.opes.len() {
+            equs.add_equation(ty[i].clone(), ty[i + 1].clone());
+        }
         self.terms[0].gen_type(equs)
     }
 }
@@ -482,7 +530,7 @@ impl Transpile for ExpAddSub {
 }
 
 impl Transpile for OperatorAddSub {
-    fn transpile(&self, ta: &mut TypeAnnotation) -> String {
+    fn transpile(&self, _: &mut TypeAnnotation) -> String {
         match *self {
             OperatorAddSub::Add => "+",
             OperatorAddSub::Sub => "-",
@@ -521,6 +569,10 @@ pub struct ExpMulDivRem {
 
 impl GenType for ExpMulDivRem {
     fn gen_type(&self, equs: &mut TypeEquations) -> TResult {
+        let ty = self.unary_exprs.iter().map(|t| t.gen_type(equs)).collect::<Result<Vec<_>, String>>()?;
+        for i in 0..self.opes.len() {
+            equs.add_equation(ty[i].clone(), ty[i + 1].clone());
+        }
         self.unary_exprs[0].gen_type(equs)
     }
 }
@@ -544,7 +596,7 @@ impl Transpile for ExpMulDivRem {
 }
 
 impl Transpile for OperatorMulDivRem {
-    fn transpile(&self, ta: &mut TypeAnnotation) -> String {
+    fn transpile(&self, _: &mut TypeAnnotation) -> String {
         match *self {
             OperatorMulDivRem::Mul => "*",
             OperatorMulDivRem::Div => "/",
