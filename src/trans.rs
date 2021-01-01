@@ -24,6 +24,9 @@ impl TypeAnnotation {
         let (fvar, finfo) = func.get_func_info();
         self.func.insert(fvar, finfo);
     }
+    pub fn size(&self) -> usize {
+        self.theta.len() 
+    }
     pub fn annotation(&self) -> Type {
         self.theta.get(&self.cnt).unwrap().clone()
     }

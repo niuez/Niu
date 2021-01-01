@@ -78,7 +78,7 @@ pub struct TypeEquation {
 #[derive(Debug)]
 pub struct TypeEquations {
     func: HashMap<Variable, FuncDefinitionInfo>,
-    cnt: usize,
+    pub cnt: usize,
     variables: Vec<HashMap<Variable, Type>>,
     equs: Vec<TypeEquation>,
 }

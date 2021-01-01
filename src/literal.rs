@@ -60,19 +60,19 @@ pub enum Boolean {
 }
 
 impl Transpile for LiteralU64 {
-    fn transpile(&self, ta: &mut TypeAnnotation) -> String {
+    fn transpile(&self, _: &mut TypeAnnotation) -> String {
         format!("{}ll", self.number)
     }
 }
 
 impl Transpile for LiteralI64 {
-    fn transpile(&self, ta: &mut TypeAnnotation) -> String {
+    fn transpile(&self, _: &mut TypeAnnotation) -> String {
         format!("{}ll", self.number)
     }
 }
 
 impl Transpile for Boolean {
-    fn transpile(&self, ta: &mut TypeAnnotation) -> String {
+    fn transpile(&self, _: &mut TypeAnnotation) -> String {
         match *self {
             Boolean::True => "true",
             Boolean::False => "false",

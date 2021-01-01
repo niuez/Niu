@@ -280,7 +280,7 @@ impl GenType for ExpBitOr {
         for i in 0..self.opes.len() {
             equs.add_equation(ty[i].clone(), ty[i + 1].clone());
         }
-        self.terms[0].gen_type(equs)
+        Ok(ty[0].clone())
     }
 }
 
@@ -334,7 +334,7 @@ impl GenType for ExpBitXor {
         for i in 0..self.opes.len() {
             equs.add_equation(ty[i].clone(), ty[i + 1].clone());
         }
-        self.terms[0].gen_type(equs)
+        Ok(ty[0].clone())
     }
 }
 
@@ -388,7 +388,7 @@ impl GenType for ExpBitAnd {
         for i in 0..self.opes.len() {
             equs.add_equation(ty[i].clone(), ty[i + 1].clone());
         }
-        self.terms[0].gen_type(equs)
+        Ok(ty[0].clone())
     }
 }
 
@@ -442,7 +442,7 @@ impl GenType for ExpShift {
         for i in 0..self.opes.len() {
             equs.add_equation(ty[i].clone(), ty[i + 1].clone());
         }
-        self.terms[0].gen_type(equs)
+        Ok(ty[0].clone())
     }
 }
 
@@ -508,7 +508,7 @@ impl GenType for ExpAddSub {
         for i in 0..self.opes.len() {
             equs.add_equation(ty[i].clone(), ty[i + 1].clone());
         }
-        self.terms[0].gen_type(equs)
+        Ok(ty[0].clone())
     }
 }
 
@@ -573,7 +573,7 @@ impl GenType for ExpMulDivRem {
         for i in 0..self.opes.len() {
             equs.add_equation(ty[i].clone(), ty[i + 1].clone());
         }
-        self.unary_exprs[0].gen_type(equs)
+        Ok(ty[0].clone())
     }
 }
 

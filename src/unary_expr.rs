@@ -7,6 +7,7 @@ use crate::literal::{ Literal, parse_literal };
 use crate::identifier::{ Identifier, parse_identifier };
 use crate::expression::{ Expression, parse_expression };
 use crate::subseq::{ Subseq, parse_subseq, subseq_gen_type, subseq_transpile };
+use crate::block::{ parse_block, Block };
 use crate::unify::*;
 use crate::trans::*;
 
@@ -15,6 +16,7 @@ pub enum UnaryExpr {
     Variable(Variable),
     Literal(Literal),
     Parentheses(Parentheses),
+    Block(Block),
     Subseq(Box<UnaryExpr>, Subseq),
 }
 
@@ -24,6 +26,7 @@ impl GenType for UnaryExpr {
             UnaryExpr::Variable(ref v) => v.gen_type(equs),
             UnaryExpr::Literal(ref l) => l.gen_type(equs),
             UnaryExpr::Parentheses(ref p) => p.gen_type(equs),
+            UnaryExpr::Block(ref b) => b.gen_type(equs),
             UnaryExpr::Subseq(ref expr, ref s) => subseq_gen_type(expr.as_ref(), s, equs)
         }
     }
@@ -35,6 +38,7 @@ impl Transpile for UnaryExpr {
             UnaryExpr::Variable(ref v) => v.transpile(ta),
             UnaryExpr::Literal(ref l) => l.transpile(ta),
             UnaryExpr::Parentheses(ref p) => p.transpile(ta),
+            UnaryExpr::Block(ref b) => format!("[&](){{ {} }}()", b.transpile(ta)),
             UnaryExpr::Subseq(ref expr, ref s) => subseq_transpile(expr.as_ref(), s, ta),
         }
     }
@@ -44,6 +48,7 @@ pub fn parse_unary_expr(s: &str) -> IResult<&str, UnaryExpr> {
     let (s, x) = alt((
             parse_literal,
             parse_parentheses,
+            parse_bracket_block,
             parse_variable,
             ))(s)?;
     let mut now = s;
@@ -103,6 +108,11 @@ impl Transpile for Parentheses {
 pub fn parse_parentheses(s: &str) -> IResult<&str, UnaryExpr> {
     let(s, (_, _, expr, _, _)) = tuple((char('('), space0, parse_expression, space0, char(')')))(s)?;
     Ok((s, UnaryExpr::Parentheses(Parentheses { expr })))
+}
+
+pub fn parse_bracket_block(s: &str) -> IResult<&str, UnaryExpr> {
+    let(s, (_, _, block, _, _)) = tuple((char('{'), space0, parse_block, space0, char('}')))(s)?;
+    Ok((s, UnaryExpr::Block(block)))
 }
 
 #[test]
