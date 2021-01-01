@@ -10,6 +10,7 @@ use crate::type_id::{ TypeId, parse_type_id };
 use crate::expression::{ Expression, parse_expression };
 use crate::unary_expr::Variable;
 use crate::unify::*;
+use crate::trans::*;
 
 #[derive(Debug)]
 pub struct LetDeclaration {
@@ -29,6 +30,16 @@ impl GenType for LetDeclaration {
             equs.add_equation(alpha.clone(), t_type);
         }
         Ok(Type::End)
+    }
+}
+
+impl Transpile for LetDeclaration {
+    fn transpile(&self, ta: &mut TypeAnnotation) -> String {
+        format!("{} {} = {}",
+                { let res = ta.annotation().transpile(ta); ta.count(); res },
+                self.id.into_string(),
+                self.value.transpile(ta)
+        )
     }
 }
 

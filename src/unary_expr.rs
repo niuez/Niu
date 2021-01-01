@@ -6,8 +6,9 @@ use nom::sequence::*;
 use crate::literal::{ Literal, parse_literal };
 use crate::identifier::{ Identifier, parse_identifier };
 use crate::expression::{ Expression, parse_expression };
-use crate::subseq::{ Subseq, parse_subseq, subseq_gen_type };
+use crate::subseq::{ Subseq, parse_subseq, subseq_gen_type, subseq_transpile };
 use crate::unify::*;
+use crate::trans::*;
 
 #[derive(Debug)]
 pub enum UnaryExpr {
@@ -24,6 +25,17 @@ impl GenType for UnaryExpr {
             UnaryExpr::Literal(ref l) => l.gen_type(equs),
             UnaryExpr::Parentheses(ref p) => p.gen_type(equs),
             UnaryExpr::Subseq(ref expr, ref s) => subseq_gen_type(expr.as_ref(), s, equs)
+        }
+    }
+}
+
+impl Transpile for UnaryExpr {
+    fn transpile(&self, ta: &mut TypeAnnotation) -> String {
+        match *self {
+            UnaryExpr::Variable(ref v) => v.transpile(ta),
+            UnaryExpr::Literal(ref l) => l.transpile(ta),
+            UnaryExpr::Parentheses(ref p) => format!("({})", p.transpile(ta)),
+            UnaryExpr::Subseq(ref expr, ref s) => subseq_transpile(expr.as_ref(), s, ta),
         }
     }
 }

@@ -42,7 +42,7 @@ impl Transpile for FullContent {
     fn transpile(&self, ta: &mut TypeAnnotation) -> String {
         let res = String::new();
         for f in self.funcs.iter() {
-            let s = f.transpile(ta)?;
+            let s = f.transpile(ta);
             res.push_str(&s);
         }
         res

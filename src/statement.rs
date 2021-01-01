@@ -4,6 +4,7 @@ use nom::IResult;
 use crate::expression::{ Expression, parse_expression };
 use crate::let_declaration::{ LetDeclaration, parse_let_declaration };
 use crate::unify::*;
+use crate::trans::*;
 
 #[derive(Debug)]
 pub enum Statement {
@@ -18,6 +19,15 @@ impl GenType for Statement {
             Statement::LetDeclaration(ref l) => l.gen_type(equs)?,
         };
         Ok(Type::End)
+    }
+}
+
+impl Transpile for Statement {
+    fn transpile(&self, ta: &mut TypeAnnotation) -> String {
+        match *self {
+            Statement::Expression(ref e) => e.transpile(ta),
+            Statement::LetDeclaration(ref l) => l.transpile(ta),
+        }
     }
 }
 

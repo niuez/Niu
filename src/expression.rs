@@ -8,6 +8,7 @@ use nom::branch::*;
 
 use crate::unary_expr::{ UnaryExpr, parse_unary_expr };
 use crate::unify::*;
+use crate::trans::*;
 
 #[derive(Debug)]
 pub enum Expression {
@@ -17,7 +18,15 @@ pub enum Expression {
 impl GenType for Expression {
     fn gen_type(&self, equs: &mut TypeEquations) -> TResult {
         match *self {
-            Expression::Expression(ref e) => e.gen_type(equs)
+            Expression::Expression(ref e) => e.gen_type(equs),
+        }
+    }
+}
+
+impl Transpile for Expression {
+    fn transpile(&self, ta: &mut TypeAnnotation) -> String {
+        match *self {
+            Expression::Expression(ref e) => e.transpile(ta),
         }
     }
 }
@@ -65,6 +74,24 @@ impl GenType for ExpOr {
 #[derive(Debug)]
 pub struct OperatorOr();
 
+impl Transpile for ExpOr {
+    fn transpile(&self, ta: &mut TypeAnnotation) -> String {
+        let mut res = String::new();
+        for i in 0..self.terms.len() {
+            res.push_str(&self.terms[i].transpile(ta));
+            if i < self.opes.len() { res.push_str(&self.opes[i].transpile(ta)); }
+        }
+        res
+    }
+}
+
+impl Transpile for OperatorOr {
+    fn transpile(&self, ta: &mut TypeAnnotation) -> String {
+        "|".to_string()
+    }
+}
+
+
 impl ParseExpression for ExpOr {
     type Child = ExpAnd;
     type Operator = OperatorOr;
@@ -97,6 +124,23 @@ impl GenType for ExpAnd {
 
 #[derive(Debug)]
 pub struct OperatorAnd();
+
+impl Transpile for ExpAnd {
+    fn transpile(&self, ta: &mut TypeAnnotation) -> String {
+        let mut res = String::new();
+        for i in 0..self.terms.len() {
+            res.push_str(&self.terms[i].transpile(ta));
+            if i < self.opes.len() { res.push_str(&self.opes[i].transpile(ta)); }
+        }
+        res
+    }
+}
+
+impl Transpile for OperatorAnd {
+    fn transpile(&self, ta: &mut TypeAnnotation) -> String {
+        "&".to_string()
+    }
+}
 
 impl ParseExpression for ExpAnd {
     type Child = ExpOrd;
@@ -137,6 +181,28 @@ pub enum OperatorOrd {
     Greater,
     Leq,
     Grq,
+}
+
+impl Transpile for ExpOrd {
+    fn transpile(&self, ta: &mut TypeAnnotation) -> String {
+        match self.ope {
+            Some(ref o) => format!("{} {} {}", self.terms[0].transpile(ta), o.transpile(ta), self.terms[1].transpile(ta)),
+            None => self.terms[0].transpile(ta),
+        }
+    }
+}
+
+impl Transpile for OperatorOrd {
+    fn transpile(&self, ta: &mut TypeAnnotation) -> String {
+        match *self {
+            OperatorOrd::Equal  => "==",
+            OperatorOrd::NotEq  => "!=",
+            OperatorOrd::Less   => "<",
+            OperatorOrd::Greater=> ">",
+            OperatorOrd::Leq    => "<=",
+            OperatorOrd::Grq    => ">=",
+        }.to_string()
+    }
 }
 
 impl ParseExpression for ExpOrd {
@@ -189,6 +255,23 @@ impl GenType for ExpBitOr {
 #[derive(Debug)]
 pub struct OperatorBitOr();
 
+impl Transpile for ExpBitOr {
+    fn transpile(&self, ta: &mut TypeAnnotation) -> String {
+        let mut res = String::new();
+        for i in 0..self.terms.len() {
+            res.push_str(&self.terms[i].transpile(ta));
+            if i < self.opes.len() { res.push_str(&self.opes[i].transpile(ta)); }
+        }
+        res
+    }
+}
+
+impl Transpile for OperatorBitOr {
+    fn transpile(&self, ta: &mut TypeAnnotation) -> String {
+        "||".to_string()
+    }
+}
+
 impl ParseExpression for ExpBitOr {
     type Child = ExpBitXor;
     type Operator = OperatorBitOr;
@@ -222,6 +305,23 @@ impl GenType for ExpBitXor {
 #[derive(Debug)]
 pub struct OperatorBitXor();
 
+impl Transpile for ExpBitXor {
+    fn transpile(&self, ta: &mut TypeAnnotation) -> String {
+        let mut res = String::new();
+        for i in 0..self.terms.len() {
+            res.push_str(&self.terms[i].transpile(ta));
+            if i < self.opes.len() { res.push_str(&self.opes[i].transpile(ta)); }
+        }
+        res
+    }
+}
+
+impl Transpile for OperatorBitXor {
+    fn transpile(&self, ta: &mut TypeAnnotation) -> String {
+        "^".to_string()
+    }
+}
+
 impl ParseExpression for ExpBitXor {
     type Child = ExpBitAnd;
     type Operator = OperatorBitXor;
@@ -254,6 +354,23 @@ impl GenType for ExpBitAnd {
 
 #[derive(Debug)]
 pub struct OperatorBitAnd();
+
+impl Transpile for ExpBitAnd {
+    fn transpile(&self, ta: &mut TypeAnnotation) -> String {
+        let mut res = String::new();
+        for i in 0..self.terms.len() {
+            res.push_str(&self.terms[i].transpile(ta));
+            if i < self.opes.len() { res.push_str(&self.opes[i].transpile(ta)); }
+        }
+        res
+    }
+}
+
+impl Transpile for OperatorBitAnd {
+    fn transpile(&self, ta: &mut TypeAnnotation) -> String {
+        "&".to_string()
+    }
+}
 
 impl ParseExpression for ExpBitAnd {
     type Child = ExpShift;
@@ -291,6 +408,26 @@ pub enum OperatorShift {
     Shr,
 }
 
+impl Transpile for ExpShift {
+    fn transpile(&self, ta: &mut TypeAnnotation) -> String {
+        let mut res = String::new();
+        for i in 0..self.terms.len() {
+            res.push_str(&self.terms[i].transpile(ta));
+            if i < self.opes.len() { res.push_str(&self.opes[i].transpile(ta)); }
+        }
+        res
+    }
+}
+
+impl Transpile for OperatorShift {
+    fn transpile(&self, ta: &mut TypeAnnotation) -> String {
+        match *self {
+            OperatorShift::Shl => "<<",
+            OperatorShift::Shr => ">>",
+        }.to_string()
+    }
+}
+
 impl ParseExpression for ExpShift {
     type Child = ExpAddSub;
     type Operator = OperatorShift;
@@ -317,7 +454,7 @@ impl ParseOperator for OperatorShift {
 
 #[derive(Debug)]
 pub struct ExpAddSub {
-    pub terms: Vec<ExpMulDevRem>,
+    pub terms: Vec<ExpMulDivRem>,
     pub opes: Vec<OperatorAddSub>,
 }
 
@@ -333,8 +470,28 @@ pub enum OperatorAddSub {
     Sub,
 }
 
+impl Transpile for ExpAddSub {
+    fn transpile(&self, ta: &mut TypeAnnotation) -> String {
+        let mut res = String::new();
+        for i in 0..self.terms.len() {
+            res.push_str(&self.terms[i].transpile(ta));
+            if i < self.opes.len() { res.push_str(&self.opes[i].transpile(ta)); }
+        }
+        res
+    }
+}
+
+impl Transpile for OperatorAddSub {
+    fn transpile(&self, ta: &mut TypeAnnotation) -> String {
+        match *self {
+            OperatorAddSub::Add => "+",
+            OperatorAddSub::Sub => "-",
+        }.to_string()
+    }
+}
+
 impl ParseExpression for ExpAddSub {
-    type Child = ExpMulDevRem;
+    type Child = ExpMulDivRem;
     type Operator = OperatorAddSub;
     fn new_expr(terms: Vec<Self::Child>, opes: Vec<Self::Operator>) -> Self {
         Self { terms, opes }
@@ -357,27 +514,48 @@ impl ParseOperator for OperatorAddSub {
 }
 
 #[derive(Debug)]
-pub struct ExpMulDevRem {
+pub struct ExpMulDivRem {
     pub unary_exprs: Vec<UnaryExpr>,
-    pub opes: Vec<OperatorMulDevRem>,
+    pub opes: Vec<OperatorMulDivRem>,
 }
 
-impl GenType for ExpMulDevRem {
+impl GenType for ExpMulDivRem {
     fn gen_type(&self, equs: &mut TypeEquations) -> TResult {
         self.unary_exprs[0].gen_type(equs)
     }
 }
 
 #[derive(Debug)]
-pub enum OperatorMulDevRem {
+pub enum OperatorMulDivRem {
     Mul,
     Div,
     Rem
 }
 
-impl ParseExpression for ExpMulDevRem {
+impl Transpile for ExpMulDivRem {
+    fn transpile(&self, ta: &mut TypeAnnotation) -> String {
+        let mut res = String::new();
+        for i in 0..self.unary_exprs.len() {
+            res.push_str(&self.unary_exprs[i].transpile(ta));
+            if i < self.opes.len() { res.push_str(&self.opes[i].transpile(ta)); }
+        }
+        res
+    }
+}
+
+impl Transpile for OperatorMulDivRem {
+    fn transpile(&self, ta: &mut TypeAnnotation) -> String {
+        match *self {
+            OperatorMulDivRem::Mul => "*",
+            OperatorMulDivRem::Div => "/",
+            OperatorMulDivRem::Rem => "%",
+        }.to_string()
+    }
+}
+
+impl ParseExpression for ExpMulDivRem {
     type Child = UnaryExpr;
-    type Operator = OperatorMulDevRem;
+    type Operator = OperatorMulDivRem;
     fn new_expr(unary_exprs: Vec<Self::Child>, opes: Vec<Self::Operator>) -> Self {
         Self { unary_exprs, opes }
     }
@@ -391,17 +569,17 @@ impl ParseExpression for ExpMulDevRem {
             unary_exprs.push(expr);
             opes.push(ope);
         }
-        Ok((s, ExpMulDevRem { unary_exprs, opes }))
+        Ok((s, ExpMulDivRem { unary_exprs, opes }))
     }
 }
 
-impl ParseOperator for OperatorMulDevRem {
+impl ParseOperator for OperatorMulDivRem {
     fn parse_operator(s: &str) -> IResult<&str, Self> {
         let (s, c) = one_of("*/%")(s)?;
         let ope = match c {
-            '*' => OperatorMulDevRem::Mul,
-            '/' => OperatorMulDevRem::Div,
-            '%' => OperatorMulDevRem::Rem,
+            '*' => OperatorMulDivRem::Mul,
+            '/' => OperatorMulDivRem::Div,
+            '%' => OperatorMulDivRem::Rem,
             _ => unreachable!()
         };
         Ok((s, ope))
