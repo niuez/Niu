@@ -120,3 +120,17 @@ fn gentype_full_test5() {
     println!("```cpp\n{}```\n", t.transpile(&mut ta));
 }
 
+
+#[test]
+fn gentype_full_test6() {
+    let prog = "fn equ(a: i64) -> u64 { let res = if true { true } else { 1u64 }; 2u64 }";
+
+    let (s, mut t) = parse_full_content(prog).unwrap();
+    println!("{:?}", s);
+    println!("{:?}", t);
+    let mut ta = t.type_check().unwrap();
+    println!("{:#?}", ta);
+
+    println!("```cpp\n{}```\n", t.transpile(&mut ta));
+}
+
