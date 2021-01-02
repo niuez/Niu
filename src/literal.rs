@@ -61,7 +61,7 @@ pub enum Boolean {
 
 impl Transpile for LiteralU64 {
     fn transpile(&self, _: &mut TypeAnnotation) -> String {
-        format!("{}ll", self.number)
+        format!("{}ull", self.number)
     }
 }
 

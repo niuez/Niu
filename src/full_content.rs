@@ -98,9 +98,22 @@ fn gentype_full_test3() {
 fn gentype_full_test4() {
     let prog = "fn plus<T>(x: T, y: T) -> T { x + y } fn equ(a: i64, b: i64, c: i64, d: i64) -> bool { plus(a, b) == plus(c, d) }";
 
-    let (s, mut t) = parse_full_content(prog).unwrap();
+    let (_, mut t) = parse_full_content(prog).unwrap();
     //println!("{:?}", s);
     //println!("{:?}", t);
+    let mut ta = t.type_check().unwrap();
+    println!("{:#?}", ta);
+
+    println!("```cpp\n{}```\n", t.transpile(&mut ta));
+}
+
+#[test]
+fn gentype_full_test5() {
+    let prog = "fn equ(a: i64, b: i64, c: i64, d: i64) -> u64 { let result = if a == b { 1u64 } else if c == d { 2u64 } else { 3u64 }; result }";
+
+    let (s, mut t) = parse_full_content(prog).unwrap();
+    println!("{:?}", s);
+    println!("{:?}", t);
     let mut ta = t.type_check().unwrap();
     println!("{:#?}", ta);
 

@@ -1,3 +1,5 @@
+pub mod if_expr;
+
 //use nom::branch::*;
 use nom::IResult;
 use nom::character::complete::*;
@@ -11,8 +13,11 @@ use crate::type_id::TypeId;
 use crate::unify::*;
 use crate::trans::*;
 
+pub use if_expr::*;
+
 #[derive(Debug)]
 pub enum Expression {
+    IfExpr(Box<IfExpr>),
     Expression(ExpOr),
 }
 
@@ -20,6 +25,7 @@ impl GenType for Expression {
     fn gen_type(&self, equs: &mut TypeEquations) -> TResult {
         match *self {
             Expression::Expression(ref e) => e.gen_type(equs),
+            Expression::IfExpr(ref ifexpr) => ifexpr.as_ref().gen_type(equs),
         }
     }
 }
@@ -28,6 +34,7 @@ impl Transpile for Expression {
     fn transpile(&self, ta: &mut TypeAnnotation) -> String {
         match *self {
             Expression::Expression(ref e) => e.transpile(ta),
+            Expression::IfExpr(ref ifexpr) => ifexpr.as_ref().transpile(ta),
         }
     }
 }
@@ -642,6 +649,11 @@ impl ParseOperator for OperatorMulDivRem {
 
 
 pub fn parse_expression(s: &str) -> IResult<&str, Expression> {
+    let (s, expr) = alt((parse_if_expr, parse_expor))(s)?;
+    Ok((s, expr))
+}
+
+pub fn parse_expor(s: &str) -> IResult<&str, Expression> {
     let (s, p) = ExpOr::parse_expression(s)?;
     Ok((s, Expression::Expression(p)))
 }
