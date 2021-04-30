@@ -13,22 +13,31 @@ use crate::type_id::{ TypeId, parse_type_id };
 //use crate::unary_expr::Variable;
 //use crate::trans::*;
 
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+pub struct TraitId {
+    pub id: Identifier,
+}
+
+pub fn parse_trait_id(s: &str) -> IResult<&str, TraitId> {
+    let (s, id) = parse_identifier(s)?;
+    Ok((s, TraitId { id }))
+}
 
 #[derive(Debug, Clone)]
 pub struct TraitDefinition {
-    pub trait_id: Identifier,
+    pub trait_id: TraitId,
     pub types: Vec<Identifier>,
 }
 
 impl TraitDefinition {
-    pub fn get_trait_id_pair(&self) -> (Identifier, TraitDefinition) {
+    pub fn get_trait_id_pair(&self) -> (TraitId, TraitDefinition) {
         (self.trait_id.clone(), self.clone())
     }
 }
 
 pub fn parse_trait_definition(s: &str) -> IResult<&str, TraitDefinition> {
     let (s, (_, _, trait_id, _, _, _, many_types, _, _)) = 
-        tuple((tag("trait"), space1, parse_identifier,
+        tuple((tag("trait"), space1, parse_trait_id,
             space0, char('{'), space0,
             many0(tuple((tag("type"), space1, parse_identifier, space0, char(';'), space0))),
             space0, char('}')))(s)?;
@@ -38,14 +47,20 @@ pub fn parse_trait_definition(s: &str) -> IResult<&str, TraitDefinition> {
 
 #[derive(Debug, Clone)]
 pub struct ImplTrait {
-    pub trait_id: Identifier,
+    pub trait_id: TraitId,
     pub impl_ty: TypeId,
     pub types: Vec<(Identifier, TypeId)>,
 }
 
+impl ImplTrait {
+    pub fn get_impl_trait_pair(&self) -> (TraitId, ImplTrait) {
+        (self.trait_id.clone(), self.clone())
+    }
+}
+
 pub fn parse_impl_trait(s: &str) -> IResult<&str, ImplTrait> {
     let (s, (_, _, trait_id, _, _, _, impl_ty, _, _, _, many_types, _, _)) = 
-        tuple((tag("impl"), space1, parse_identifier,
+        tuple((tag("impl"), space1, parse_trait_id,
             space1, tag("for"), space1, parse_type_id,
             space0, char('{'), space0,
             many0(tuple((tag("type"), space1, parse_identifier, space0, char('='), space0, parse_type_id, space0, char(';'), space0))),

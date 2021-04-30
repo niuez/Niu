@@ -4,6 +4,7 @@ use crate::unary_expr::Variable;
 use crate::type_id::TypeId;
 use crate::func_definition::{ FuncDefinitionInfo, FuncDefinition };
 use crate::trans::*;
+use crate::traits::*;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Type {
@@ -77,6 +78,8 @@ pub struct TypeEquation {
 
 #[derive(Debug)]
 pub struct TypeEquations {
+    traits: HashMap<TraitId, TraitDefinition>,
+    impls: HashMap<TraitId, Vec<ImplTrait>>,
     func: HashMap<Variable, FuncDefinitionInfo>,
     pub cnt: usize,
     variables: Vec<HashMap<Variable, Type>>,
@@ -96,7 +99,16 @@ pub trait GenType {
 }
 
 impl TypeEquations {
-    pub fn new() -> Self { Self { func: HashMap::new(), equs: Vec::new(), cnt: 0, variables: Vec::new() } }
+    pub fn new() -> Self {
+        Self {
+            traits: HashMap::new(),
+            impls: HashMap::new(),
+            func: HashMap::new(),
+            equs: Vec::new(),
+            cnt: 0,
+            variables: Vec::new()
+        }
+    }
     pub fn add_equation(&mut self, left: Type, right: Type) {
         self.equs.push(TypeEquation { left, right });
     }
@@ -118,6 +130,21 @@ impl TypeEquations {
     pub fn regist_func_info(&mut self, func: &FuncDefinition) {
         let (fvar, finfo) = func.get_func_info();
         self.func.insert(fvar, finfo);
+    }
+    pub fn regist_trait(&mut self, tr: &TraitDefinition) {
+        let (trait_id, trait_def) = tr.get_trait_id_pair();
+        self.traits.insert(trait_id, trait_def);
+    }
+    pub fn regist_trait_impl(&mut self, ti: &ImplTrait) {
+        let (trait_id, trait_impl) = ti.get_impl_trait_pair();
+        match self.impls.get_mut(&trait_id) {
+            Some(v) => {
+                v.push(trait_impl);
+            }
+            None => {
+                self.impls.insert(trait_id, vec![trait_impl]);
+            }
+        }
     }
     pub fn get_type_from_variable(&mut self, var: &Variable) -> TResult {
         if let Some(func) = self.func.get(var).cloned() {
