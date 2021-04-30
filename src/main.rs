@@ -21,6 +21,8 @@ pub mod unify;
 
 pub mod trans;
 
+pub mod traits;
+
 fn main() {
     //println!("{:?}", parse_function_apply("func()"));
     //println!("{:?}", parse_function_apply("func(1, 2)"));

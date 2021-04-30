@@ -79,6 +79,16 @@ fn main() {
 }
 ```
 
+参考: https://rustc-dev-guide.rust-lang.org/traits/resolution.html
+
+まずは
+```
+trait MyTrait {
+  type Output;
+}
+```
+だけの実装を目指す.
+
 ## Progress
 
 ### literal
