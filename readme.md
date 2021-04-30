@@ -89,6 +89,13 @@ trait MyTrait {
 ```
 だけの実装を目指す.
 
+- `i64#Mytrait::Output`の実装
+  - `fn i64_mytrait() -> i64#Mytrait::Output { }`をかけるようにする.
+  - TypeIdの改修
+- トレイト境界チェックの遅延を実装する.
+  - `fn func<T: MyTrait>(t: T) -> T#Mytrait::Output {}`をかけるようにする.
+  
+
 ## Progress
 
 ### literal
