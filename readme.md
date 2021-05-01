@@ -92,6 +92,9 @@ trait MyTrait {
 - `i64#Mytrait::Output`の実装
   - `fn i64_mytrait() -> i64#Mytrait::Output { }`をかけるようにする.
   - TypeIdの改修 -> TypeSpec
+  - `solve_associated_type`によるAssociatedTypeの解決
+  - `T#MyTrait::Output`は解決しようがない（解決の方法が違う）
+    - Solvedのような扱いにして型変数で置き換える
 - トレイト境界チェックの遅延を実装する.
   - `fn func<T: MyTrait>(t: T) -> T#Mytrait::Output {}`をかけるようにする.
   

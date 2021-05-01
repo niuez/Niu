@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use nom::IResult;
 use nom::character::complete::*;
 use nom::sequence::*;
@@ -6,11 +8,28 @@ use crate::type_id::*;
 use crate::traits::*;
 
 use crate::unify::*;
+use crate::trans::*;
 
 #[derive(Debug, Clone)]
 pub enum TypeSpec {
     TypeId(TypeId),
     Associated(Box<TypeSpec>, AssociatedType),
+}
+
+impl TypeSpec {
+    pub fn generics_to_type(&self, mp: &HashMap<TypeId, Type>, equs: &mut TypeEquations) -> TResult {
+        match *self {
+            TypeSpec::TypeId(ref id) => {
+                match mp.get(id).cloned() {
+                    Some(t) => Ok(t),
+                    None => self.gen_type(equs),
+                }
+            }
+            TypeSpec::Associated(ref spec, ref asso) => {
+                Ok(Type::AssociatedType(Box::new(spec.as_ref().generics_to_type(mp, equs)?), asso.clone()))
+            }
+        }
+    }
 }
 
 pub fn parse_type_spec(s: &str) -> IResult<&str, TypeSpec> {
@@ -33,6 +52,18 @@ impl GenType for TypeSpec {
                 Ok(Type::AssociatedType(Box::new(specs_type), asso.clone()))
             }
         }
+    }
+}
+
+impl Transpile for TypeSpec {
+    fn transpile(&self, ta: &mut TypeAnnotation) -> String {
+        match *self {
+            TypeSpec::TypeId(ref id) => id.transpile(ta),
+            TypeSpec::Associated(ref spec, AssociatedType { ref trait_id, ref type_id } ) => {
+                format!("{}<{}>::{}", trait_id.transpile(ta), type_id.transpile(ta), spec.transpile(ta))
+            }
+        }
+                
     }
 }
 

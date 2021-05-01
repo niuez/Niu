@@ -11,14 +11,20 @@ use nom::sequence::*;
 use nom::IResult;
 
 use crate::identifier::{ Identifier, parse_identifier };
-use crate::type_id::{ TypeId, parse_type_id };
+use crate::type_spec::*;
 //use crate::unify::*;
 //use crate::unary_expr::Variable;
-//use crate::trans::*;
+use crate::trans::*;
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct TraitId {
     pub id: Identifier,
+}
+
+impl Transpile for TraitId {
+    fn transpile(&self, _: &mut TypeAnnotation) -> String {
+        self.id.into_string()
+    }
 }
 
 pub fn parse_trait_id(s: &str) -> IResult<&str, TraitId> {
@@ -51,8 +57,8 @@ pub fn parse_trait_definition(s: &str) -> IResult<&str, TraitDefinition> {
 #[derive(Debug, Clone)]
 pub struct ImplTrait {
     pub trait_id: TraitId,
-    pub impl_ty: TypeId,
-    pub asso_defs: HashMap<AssociatedTypeIdentifier, TypeId>,
+    pub impl_ty: TypeSpec,
+    pub asso_defs: HashMap<AssociatedTypeIdentifier, TypeSpec>,
 }
 
 impl ImplTrait {
@@ -64,9 +70,9 @@ impl ImplTrait {
 pub fn parse_impl_trait(s: &str) -> IResult<&str, ImplTrait> {
     let (s, (_, _, trait_id, _, _, _, impl_ty, _, _, _, many_types, _, _)) = 
         tuple((tag("impl"), space1, parse_trait_id,
-            space1, tag("for"), space1, parse_type_id,
+            space1, tag("for"), space1, parse_type_spec,
             space0, char('{'), space0,
-            many0(tuple((tag("type"), space1, parse_associated_type_identifier, space0, char('='), space0, parse_type_id, space0, char(';'), space0))),
+            many0(tuple((tag("type"), space1, parse_associated_type_identifier, space0, char('='), space0, parse_type_spec, space0, char(';'), space0))),
             space0, char('}')))(s)?;
     let asso_defs = many_types.into_iter().map(|(_, _, id, _, _, _, ty, _, _, _)| (id, ty)).collect();
     Ok((s, ImplTrait { trait_id, impl_ty, asso_defs }))

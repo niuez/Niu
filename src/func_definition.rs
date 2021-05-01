@@ -13,21 +13,22 @@ use crate::block::{ Block, parse_block };
 use crate::unify::*;
 use crate::unary_expr::Variable;
 use crate::trans::*;
+use crate::type_spec::*;
 
 #[derive(Debug)]
 pub struct FuncDefinition {
     pub func_id: Identifier,
     pub generics: Vec<TypeId>,
-    pub args: Vec<(Identifier, TypeId)>,
-    pub return_type: TypeId,
+    pub args: Vec<(Identifier, TypeSpec)>,
+    pub return_type: TypeSpec,
     pub block: Block,
 }
 
 #[derive(Debug, Clone)]
 pub struct FuncDefinitionInfo {
     pub generics: Vec<TypeId>,
-    pub args: Vec<(Identifier, TypeId)>,
-    pub return_type: TypeId,
+    pub args: Vec<(Identifier, TypeSpec)>,
+    pub return_type: TypeSpec,
 }
 
 impl FuncDefinitionInfo {
@@ -36,14 +37,8 @@ impl FuncDefinitionInfo {
         for gt in self.generics.iter() {
             mp.insert(gt.clone(), equs.get_type_variable());
         }
-        let mut generics_to_type = |t: &TypeId| {
-            match mp.get(t).cloned() {
-                Some(t) => Ok(t),
-                None => t.gen_type(equs)
-            }
-        };
-        let args = self.args.iter().map(|(_, t)| generics_to_type(t)).collect::<Result<Vec<Type>, String>>()?;
-        let return_type = generics_to_type(&self.return_type)?;
+        let args = self.args.iter().map(|(_, t)| t.generics_to_type(&mp, equs)).collect::<Result<Vec<Type>, String>>()?;
+        let return_type = self.return_type.generics_to_type(&mp, equs)?;
         Ok(Type::Func(args, Box::new(return_type)))
     }
 
@@ -114,8 +109,8 @@ pub fn parse_func_definition(s: &str) -> IResult<&str, FuncDefinition> {
     let (s, (_, _, func_id, _, generics_opt, _, _, op, _, _, _, _, return_type, _, _, block, _)) = 
         tuple((tag("fn"), space1, parse_identifier, space0, opt(tuple((char('<'), space0, opt(tuple((parse_type_id, space0, many0(tuple((char(','), space0, parse_type_id, space0))), opt(char(',')), space0))), char('>'), space0))),
                char('('), space0,
-            opt(tuple((parse_identifier, space0, char(':'), space0, parse_type_id, space0, many0(tuple((char(','), space0, parse_identifier, space0, char(':'), space0, parse_type_id, space0))), opt(char(',')), space0))),
-            char(')'), space0, tag("->"), space0, parse_type_id, space0, char('{'), parse_block, char('}')))(s)?;
+            opt(tuple((parse_identifier, space0, char(':'), space0, parse_type_spec, space0, many0(tuple((char(','), space0, parse_identifier, space0, char(':'), space0, parse_type_spec, space0))), opt(char(',')), space0))),
+            char(')'), space0, tag("->"), space0, parse_type_spec, space0, char('{'), parse_block, char('}')))(s)?;
     let generics = match generics_opt {
         Some((_, _, generics_opt, _, _)) => {
             match generics_opt {

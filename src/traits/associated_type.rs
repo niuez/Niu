@@ -4,10 +4,19 @@ use nom::sequence::*;
 use crate::identifier::*;
 use crate::traits::*;
 
+use crate::trans::*;
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct AssociatedTypeIdentifier {
     pub id: Identifier,
 }
+
+impl Transpile for AssociatedTypeIdentifier {
+    fn transpile(&self, _: &mut TypeAnnotation) -> String {
+        self.id.into_string()
+    }
+}
+
 
 pub fn parse_associated_type_identifier(s: &str) -> IResult<&str, AssociatedTypeIdentifier> {
     let (s, id) = parse_identifier(s)?;
