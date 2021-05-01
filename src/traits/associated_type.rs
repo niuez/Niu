@@ -4,7 +4,7 @@ use nom::sequence::*;
 use crate::identifier::*;
 use crate::traits::*;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct AssociatedTypeIdentifier {
     pub id: Identifier,
 }
@@ -15,7 +15,7 @@ pub fn parse_associated_type_identifier(s: &str) -> IResult<&str, AssociatedType
 }
 
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct AssociatedType {
     pub trait_id: TraitId,
     pub type_id: AssociatedTypeIdentifier,

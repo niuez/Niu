@@ -1,7 +1,7 @@
 pub mod associated_type;
 pub use associated_type::*;
 
-//use std::collections::HashMap;
+use std::collections::HashMap;
 
 use nom::bytes::complete::*;
 use nom::character::complete::*;
@@ -29,7 +29,7 @@ pub fn parse_trait_id(s: &str) -> IResult<&str, TraitId> {
 #[derive(Debug, Clone)]
 pub struct TraitDefinition {
     pub trait_id: TraitId,
-    pub types: Vec<Identifier>,
+    pub asso_ids: Vec<AssociatedTypeIdentifier>,
 }
 
 impl TraitDefinition {
@@ -42,17 +42,17 @@ pub fn parse_trait_definition(s: &str) -> IResult<&str, TraitDefinition> {
     let (s, (_, _, trait_id, _, _, _, many_types, _, _)) = 
         tuple((tag("trait"), space1, parse_trait_id,
             space0, char('{'), space0,
-            many0(tuple((tag("type"), space1, parse_identifier, space0, char(';'), space0))),
+            many0(tuple((tag("type"), space1, parse_associated_type_identifier, space0, char(';'), space0))),
             space0, char('}')))(s)?;
-    let types = many_types.into_iter().map(|(_, _, id, _, _, _)| id).collect();
-    Ok((s, TraitDefinition { trait_id, types }))
+    let asso_ids = many_types.into_iter().map(|(_, _, id, _, _, _)| id).collect();
+    Ok((s, TraitDefinition { trait_id, asso_ids }))
 }
 
 #[derive(Debug, Clone)]
 pub struct ImplTrait {
     pub trait_id: TraitId,
     pub impl_ty: TypeId,
-    pub types: Vec<(Identifier, TypeId)>,
+    pub asso_defs: HashMap<AssociatedTypeIdentifier, TypeId>,
 }
 
 impl ImplTrait {
@@ -66,10 +66,10 @@ pub fn parse_impl_trait(s: &str) -> IResult<&str, ImplTrait> {
         tuple((tag("impl"), space1, parse_trait_id,
             space1, tag("for"), space1, parse_type_id,
             space0, char('{'), space0,
-            many0(tuple((tag("type"), space1, parse_identifier, space0, char('='), space0, parse_type_id, space0, char(';'), space0))),
+            many0(tuple((tag("type"), space1, parse_associated_type_identifier, space0, char('='), space0, parse_type_id, space0, char(';'), space0))),
             space0, char('}')))(s)?;
-    let types = many_types.into_iter().map(|(_, _, id, _, _, _, ty, _, _, _)| (id, ty)).collect();
-    Ok((s, ImplTrait { trait_id, impl_ty, types }))
+    let asso_defs = many_types.into_iter().map(|(_, _, id, _, _, _, ty, _, _, _)| (id, ty)).collect();
+    Ok((s, ImplTrait { trait_id, impl_ty, asso_defs }))
 }
 
 

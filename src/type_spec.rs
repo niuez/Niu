@@ -1,10 +1,11 @@
 use nom::IResult;
-use nom::branch::*;
 use nom::character::complete::*;
 use nom::sequence::*;
 
 use crate::type_id::*;
 use crate::traits::*;
+
+use crate::unify::*;
 
 #[derive(Debug, Clone)]
 pub enum TypeSpec {
@@ -21,6 +22,18 @@ pub fn parse_type_spec(s: &str) -> IResult<&str, TypeSpec> {
         prev = TypeSpec::Associated(Box::new(prev), asso_ty);
     }
     Ok((now, prev))
+}
+
+impl GenType for TypeSpec {
+    fn gen_type(&self, equs: &mut TypeEquations) -> TResult {
+        match *self {
+            TypeSpec::TypeId(ref id) => id.gen_type(equs),
+            TypeSpec::Associated(ref specs, ref asso) => {
+                let specs_type = specs.gen_type(equs)?;
+                Ok(Type::AssociatedType(Box::new(specs_type), asso.clone()))
+            }
+        }
+    }
 }
 
 #[test]

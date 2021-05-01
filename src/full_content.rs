@@ -2,26 +2,47 @@ use nom::IResult;
 use nom::character::complete::*;
 use nom::sequence::*;
 use nom::multi::*;
+use nom::branch::*;
 
 
 use crate::func_definition::{ FuncDefinition, parse_func_definition };
+use crate::traits::*;
 use crate::unify::*;
 use crate::trans::*;
 
 #[derive(Debug)]
 pub struct FullContent {
+    pub traits: Vec<TraitDefinition>,
+    pub impls: Vec<ImplTrait>,
     pub funcs: Vec<FuncDefinition>,
 }
 
 impl FullContent {
+    fn regist_traits(&mut self, trs: &mut TraitsInfo) -> Result<(), String> {
+        for tr in self.traits.iter() {
+            trs.regist_trait(tr)?;
+        }
+        Ok(())
+    }
+    fn regist_impls(&mut self, trs: &mut TraitsInfo) -> Result<(), String> {
+        for im in self.impls.iter() {
+            trs.regist_trait_impl(im)?;
+        }
+        Ok(())
+    }
     pub fn type_check(&mut self) -> Result<TypeAnnotation, String> {
         let mut equs = TypeEquations::new();
         let mut ta = TypeAnnotation::new();
+        let mut trs = TraitsInfo::new();
+
+        self.regist_traits(&mut trs)?;
+        self.regist_impls(&mut trs)?;
+
         for f in self.funcs.iter() {
             equs.regist_func_info(f);
             ta.regist_func_info(f);
             f.gen_type(&mut equs)?;
-            for TypeSubst { tv, t } in equs.unify()? {
+            for TypeSubst { tv, t } in equs.unify(&trs)? {
                 ta.insert(tv, t);
             }
             equs.clear_equations();
@@ -50,9 +71,46 @@ impl Transpile for FullContent {
     }
 }
 
+#[derive(Debug)]
+enum ContentElement {
+    Func(FuncDefinition),
+    Trait(TraitDefinition),
+    ImplTrait(ImplTrait),
+}
+
+fn parse_element_func(s: &str) -> IResult<&str, ContentElement> {
+    let (s, f) = parse_func_definition(s)?;
+    Ok((s, ContentElement::Func(f)))
+}
+
+fn parse_element_trait(s: &str) -> IResult<&str, ContentElement> {
+    let (s, t) = parse_trait_definition(s)?;
+    Ok((s, ContentElement::Trait(t)))
+}
+
+fn parse_element_impl_trait(s: &str) -> IResult<&str, ContentElement> {
+    let (s, it) = parse_impl_trait(s)?;
+    Ok((s, ContentElement::ImplTrait(it)))
+}
+
+fn parse_content_element(s: &str) -> IResult<&str, ContentElement> {
+    alt((parse_element_func, parse_element_trait, parse_element_impl_trait))(s)
+}
+
 pub fn parse_full_content(s: &str) -> IResult<&str, FullContent> {
-    let (s, (_, funcs, _)) = tuple((space0, many0(tuple((parse_func_definition, space0))), space0))(s)?;
-    Ok((s, FullContent { funcs: funcs.into_iter().map(|(f, _)| f ).collect() }))
+    let (s, (_, elems, _)) = tuple((space0, many0(tuple((parse_content_element, space0))), space0))(s)?;
+
+    let mut funcs = Vec::new();
+    let mut traits = Vec::new();
+    let mut impls = Vec::new();
+    for (e, _) in elems {
+        match e {
+            ContentElement::Func(f) => funcs.push(f),
+            ContentElement::Trait(t) => traits.push(t),
+            ContentElement::ImplTrait(it) => impls.push(it),
+        }
+    }
+    Ok((s, FullContent { funcs, traits, impls, }))
 }
 
 #[test]
@@ -134,3 +192,8 @@ fn gentype_full_test6() {
     println!("```cpp\n{}```\n", t.transpile(&mut ta));
 }
 
+
+#[test]
+fn parse_content_element_test() {
+    println!("{:?}", parse_full_content("trait MyTrait { type Output; } impl MyTrait for i64 { type Output = u64; } fn equ(a: i64) -> i64 { a }"));
+}
