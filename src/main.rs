@@ -13,6 +13,7 @@ pub mod let_declaration;
 pub mod block;
 
 pub mod type_id;
+pub mod type_spec;
 pub mod func_definition;
 
 pub mod full_content;

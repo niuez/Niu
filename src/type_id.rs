@@ -4,6 +4,7 @@ use crate::identifier::{ Identifier, parse_identifier };
 use crate::unify::*;
 use crate::trans::*;
 
+
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct TypeId {
     pub id: Identifier,
