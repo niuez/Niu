@@ -97,6 +97,7 @@ trait MyTrait {
     - Solvedのような扱いにして型変数で置き換える
 - トレイト境界チェックの遅延を実装する.
   - `fn func<T: MyTrait>(t: T) -> T#Mytrait::Output {}`をかけるようにする.
+  - T: MyTrait -> ImplTraitではなく、別の型を用意して, enumとする
   
 
 ## Progress

@@ -66,6 +66,27 @@ impl FuncDefinition {
          FuncDefinitionInfo { generics: self.generics.clone(), args: self.args.clone(), return_type: self.return_type.clone() }
          )
     }
+    fn gen_type_definition(&self, equs: &mut TypeEquations, trs: &mut TraitsInfo) -> TResult {
+        equs.into_scope();
+        trs.into_scope();
+
+        for (ty_id, trait_id) in self.generics.iter() {
+        }
+
+        for (i, t) in self.args.iter() {
+            let alpha = equs.get_type_variable();
+            let t_type = t.gen_type(equs)?; 
+            equs.regist_variable(Variable::from_identifier(i.clone()), alpha.clone());
+            equs.add_equation(alpha, t_type);
+        }
+        let result_type = self.block.gen_type(equs)?;
+        let return_t = self.return_type.gen_type(equs)?;
+        equs.add_equation(result_type, return_t);
+        
+        trs.out_scope();
+        equs.out_scope();
+        Ok(Type::End)
+    }
 }
 
 impl GenType for FuncDefinition {
