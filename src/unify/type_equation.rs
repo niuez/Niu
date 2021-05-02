@@ -161,21 +161,28 @@ impl TypeEquations {
             let inner_ty = self.solve_associated_type(*inner_ty, trs);
             if let Type::Type(_) = inner_ty {
                 let AssociatedType { ref trait_id, ref type_id } = asso;
-                for ImplTrait { trait_id: _, ref impl_ty, ref asso_defs }
-                    in trs.impls.get(trait_id).unwrap().iter() {
-                        if let Some(_substs) = impl_ty.gen_type(self).ok().map_or(None, |im_ty| {
+                let substs = trs.impls.get(trait_id).unwrap().iter()
+                    .map(|ImplTrait { trait_id: _, ref impl_ty, asso_defs }| {
+                        impl_ty.gen_type(self).ok().map_or(None, |im_ty| {
                             let mut equs = TypeEquations::new();
                             equs.add_equation(inner_ty.clone(), im_ty);
-                            equs.unify(trs).ok()
-                        }) {
-                            // TODO: use substs for generics
-                            // TODO: only first time -> if matched not once, err
-                            return asso_defs.get(type_id).unwrap().gen_type(self).unwrap()
-                        }
-                    }
-
+                            equs.unify(trs).ok().map(|sub| (sub, asso_defs))
+                        })
+                    })
+                    .filter_map(|x| x)
+                    .collect::<Vec<_>>();
+                if substs.len() == 1 {
+                    let mut substs = substs;
+                    let (_subst, asso_defs) = substs.pop().unwrap();
+                    asso_defs.get(type_id).unwrap().gen_type(self).unwrap()
+                }
+                else {
+                    Type::AssociatedType(Box::new(inner_ty), asso)
+                }
             }
-            Type::AssociatedType(Box::new(inner_ty), asso)
+            else {
+                    Type::AssociatedType(Box::new(inner_ty), asso)
+            }
         }
         else {
             ty
