@@ -12,7 +12,7 @@ use nom::IResult;
 
 use crate::identifier::{ Identifier, parse_identifier };
 use crate::type_spec::*;
-//use crate::unify::*;
+use crate::unify::*;
 //use crate::unary_expr::Variable;
 use crate::trans::*;
 
@@ -64,6 +64,16 @@ pub struct ImplTrait {
 impl ImplTrait {
     pub fn get_impl_trait_pair(&self) -> (TraitId, ImplTrait) {
         (self.trait_id.clone(), self.clone())
+    }
+    pub fn match_impl_for_ty(&self, ty: &Type, trs: &TraitsInfo) -> Option<(Vec<TypeSubst>, &Self)> {
+        let mut equs = TypeEquations::new();
+        let impl_ty = self.impl_ty.gen_type(&mut equs).unwrap();
+        equs.add_equation(ty.clone(), impl_ty);
+        equs.unify(trs).ok().map(|sub| (sub, self))
+    }
+
+    pub fn get_associated_from_id(&self, equs: &mut TypeEquations, asso_id: &AssociatedTypeIdentifier, _subst: &Vec<TypeSubst>) -> Type {
+        self.asso_defs.get(asso_id).unwrap().gen_type(equs).unwrap()
     }
 }
 

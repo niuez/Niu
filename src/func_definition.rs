@@ -14,11 +14,12 @@ use crate::unify::*;
 use crate::unary_expr::Variable;
 use crate::trans::*;
 use crate::type_spec::*;
+use crate::traits::*;
 
 #[derive(Debug)]
 pub struct FuncDefinition {
     pub func_id: Identifier,
-    pub generics: Vec<TypeId>,
+    pub generics: Vec<(TypeId, Option<TraitId>)>,
     pub args: Vec<(Identifier, TypeSpec)>,
     pub return_type: TypeSpec,
     pub block: Block,
@@ -26,7 +27,7 @@ pub struct FuncDefinition {
 
 #[derive(Debug, Clone)]
 pub struct FuncDefinitionInfo {
-    pub generics: Vec<TypeId>,
+    pub generics: Vec<(TypeId, Option<TraitId>)>,
     pub args: Vec<(Identifier, TypeSpec)>,
     pub return_type: TypeSpec,
 }
@@ -35,7 +36,12 @@ impl FuncDefinitionInfo {
     pub fn generate_type(&self, equs: &mut TypeEquations) -> TResult {
         let mut mp = HashMap::new();
         for gt in self.generics.iter() {
-            mp.insert(gt.clone(), equs.get_type_variable());
+            let (id, tr) = gt.clone();
+            let ty_var = equs.get_type_variable();
+            mp.insert(id, ty_var.clone());
+            if let Some(tr) = tr {
+                equs.add_has_trait(ty_var, tr);
+            }
         }
         let args = self.args.iter().map(|(_, t)| t.generics_to_type(&mp, equs)).collect::<Result<Vec<Type>, String>>()?;
         let return_type = self.return_type.generics_to_type(&mp, equs)?;
@@ -85,7 +91,7 @@ impl Transpile for FuncDefinition {
     fn transpile(&self, ta: &mut TypeAnnotation) -> String {
         let template_str =
             if self.generics.len() > 0 {
-                let gen = self.generics.iter().map(|g| format!("class {}", g.transpile(ta))).collect::<Vec<_>>().join(", ");
+                let gen = self.generics.iter().map(|g| format!("class {}", g.0.transpile(ta))).collect::<Vec<_>>().join(", ");
                 format!("template<{}> ", gen)
             } 
             else {
@@ -105,9 +111,14 @@ impl Transpile for FuncDefinition {
     }
 }
 
+fn parse_generics_arg(s: &str) -> IResult<&str, (TypeId, Option<TraitId>)> {
+    let (s, (id, _, opt)) = tuple((parse_type_id, space0, opt(tuple((char(':'), space0, parse_trait_id)))))(s)?;
+    Ok((s, (id, opt.map(|(_, _, tr)| tr))))
+}
+
 pub fn parse_func_definition(s: &str) -> IResult<&str, FuncDefinition> {
     let (s, (_, _, func_id, _, generics_opt, _, _, op, _, _, _, _, return_type, _, _, block, _)) = 
-        tuple((tag("fn"), space1, parse_identifier, space0, opt(tuple((char('<'), space0, opt(tuple((parse_type_id, space0, many0(tuple((char(','), space0, parse_type_id, space0))), opt(char(',')), space0))), char('>'), space0))),
+        tuple((tag("fn"), space1, parse_identifier, space0, opt(tuple((char('<'), space0, opt(tuple((parse_generics_arg, space0, many0(tuple((char(','), space0, parse_generics_arg, space0))), opt(char(',')), space0))), char('>'), space0))),
                char('('), space0,
             opt(tuple((parse_identifier, space0, char(':'), space0, parse_type_spec, space0, many0(tuple((char(','), space0, parse_identifier, space0, char(':'), space0, parse_type_spec, space0))), opt(char(',')), space0))),
             char(')'), space0, tag("->"), space0, parse_type_spec, space0, char('{'), parse_block, char('}')))(s)?;
@@ -143,8 +154,12 @@ pub fn parse_func_definition(s: &str) -> IResult<&str, FuncDefinition> {
 #[test]
 fn parse_func_definition_test() {
     println!("{:?}", parse_func_definition("fn func(x: i64) -> i64 { let y = x * x; y + x }"));
-    println!("{:?}", parse_func_definition("fn func2<T>(x: T) -> T { x }"));
-    println!("{:?}", parse_func_definition("fn func3<X, Y, Z>(x: X) -> Z { x }"));
+    println!("{:?}", parse_func_definition("fn func2<t>(x: t) -> t { x }"));
+    println!("{:?}", parse_func_definition("fn func3<x, y, z>(x: x) -> z { x }"));
+}
+#[test]
+fn parse_func_definition2_test() {
+    println!("{:?}", parse_func_definition("fn func2<t: MyTrait>(x: t) -> t { x }"));
 }
 #[test]
 fn gentype_func_definition_test() {

@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use crate::traits::*;
+use crate::unify::*;
 
 #[derive(Debug)]
 pub struct TraitsInfo {
@@ -32,6 +33,15 @@ impl TraitsInfo {
                 Err(format!("trait {:?} is not defined", trait_id))
             }
         }
+    }
+
+    pub fn match_to_impls_for_type(&self, trait_id: &TraitId, ty: &Type) -> Vec<(Vec<TypeSubst>, &ImplTrait)> {
+        self.impls.get(trait_id).unwrap().iter()
+            .map(|impl_trait| {
+                impl_trait.match_impl_for_ty(&ty, self)
+            })
+            .filter_map(|x| x)
+            .collect::<Vec<_>>()
     }
 }
 

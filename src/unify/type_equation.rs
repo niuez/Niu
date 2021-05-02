@@ -79,9 +79,9 @@ pub enum TypeVariable {
 }
 
 #[derive(Debug)]
-pub struct TypeEquation {
-    pub left: Type,
-    pub right: Type,
+pub enum TypeEquation {
+    HasTrait(Type, TraitId),
+    Equal(Type, Type),
 }
 
 #[derive(Debug)]
@@ -113,8 +113,11 @@ impl TypeEquations {
             variables: Vec::new()
         }
     }
+    pub fn add_has_trait(&mut self, ty: Type, tr: TraitId) {
+        self.equs.push(TypeEquation::HasTrait(ty, tr));
+    }
     pub fn add_equation(&mut self, left: Type, right: Type) {
-        self.equs.push(TypeEquation { left, right });
+        self.equs.push(TypeEquation::Equal(left, right));
     }
     pub fn get_type_variable(&mut self) -> Type {
         let i = self.cnt;
@@ -150,9 +153,16 @@ impl TypeEquations {
         self.equs.clear();
     }
     fn subst(&mut self, theta: &TypeSubst) {
-        for TypeEquation { left, right } in self.equs.iter_mut() {
-            left.subst(theta);
-            right.subst(theta);
+        for equation in self.equs.iter_mut() {
+            match *equation {
+                TypeEquation::Equal(ref mut left, ref mut right) => {
+                    left.subst(theta);
+                    right.subst(theta);
+                }
+                TypeEquation::HasTrait(ref mut ty, _) => {
+                    ty.subst(theta)
+                }
+            }
         }
     }
 
@@ -161,20 +171,11 @@ impl TypeEquations {
             let inner_ty = self.solve_associated_type(*inner_ty, trs);
             if let Type::Type(_) = inner_ty {
                 let AssociatedType { ref trait_id, ref type_id } = asso;
-                let substs = trs.impls.get(trait_id).unwrap().iter()
-                    .map(|ImplTrait { trait_id: _, ref impl_ty, asso_defs }| {
-                        impl_ty.gen_type(self).ok().map_or(None, |im_ty| {
-                            let mut equs = TypeEquations::new();
-                            equs.add_equation(inner_ty.clone(), im_ty);
-                            equs.unify(trs).ok().map(|sub| (sub, asso_defs))
-                        })
-                    })
-                    .filter_map(|x| x)
-                    .collect::<Vec<_>>();
+                let substs = trs.match_to_impls_for_type(trait_id, &inner_ty);
                 if substs.len() == 1 {
                     let mut substs = substs;
-                    let (_subst, asso_defs) = substs.pop().unwrap();
-                    asso_defs.get(type_id).unwrap().gen_type(self).unwrap()
+                    let (subst, impl_trait) = substs.pop().unwrap();
+                    impl_trait.get_associated_from_id(self, type_id, &subst)
                 }
                 else {
                     Type::AssociatedType(Box::new(inner_ty), asso)
@@ -189,55 +190,71 @@ impl TypeEquations {
         }
     }
 
+    fn solve_has_trait(&mut self, ty: &Type, tr_id: &TraitId, trs: &TraitsInfo) -> bool {
+        if let Type::Type(_) = *ty {
+            let substs = trs.match_to_impls_for_type(tr_id, ty);
+            substs.len() == 1
+        }
+        else {
+            false
+        }
+    }
+
     pub fn unify(&mut self, trs: &TraitsInfo) -> Result<Vec<TypeSubst>, String> {
         let mut thetas = Vec::new();
-        while let Some(TypeEquation { left, right }) = self.equs.pop() {
-            let left = self.solve_associated_type(left, trs);
-            let right = self.solve_associated_type(right, trs);
-            match (left, right) {
-                (l, r) if l == r => {}
-                (Type::AssociatedType(b, a), right) => {
-                    self.equs.push(TypeEquation { left: Type::AssociatedType(b, a), right });
+        while let Some(equation) = self.equs.pop() {
+            match equation {
+                TypeEquation::HasTrait(ty, tr) => {
+                    if !self.solve_has_trait(&ty, &tr, trs) {
+                        self.equs.push(TypeEquation::HasTrait(ty, tr))
+                    }
                 }
-                (left, Type::AssociatedType(b, a)) => {
-                    self.equs.push(TypeEquation { left, right: Type::AssociatedType(b, a) });
-                }
-                (Type::Func(l_args, l_return), Type::Func(r_args, r_return)) => {
-                    if l_args.len() != r_args.len() {
-                        Err("length of args is not equal.")?;
+                TypeEquation::Equal(left, right) => {
+                    let left = self.solve_associated_type(left, trs);
+                    let right = self.solve_associated_type(right, trs);
+                    match (left, right) {
+                        (l, r) if l == r => {}
+                        (Type::AssociatedType(b, a), right) => {
+                            self.equs.push(TypeEquation::Equal(Type::AssociatedType(b, a), right));
+                        }
+                        (left, Type::AssociatedType(b, a)) => {
+                            self.equs.push(TypeEquation::Equal(left, Type::AssociatedType(b, a)));
+                        }
+                        (Type::Func(l_args, l_return), Type::Func(r_args, r_return)) => {
+                            if l_args.len() != r_args.len() {
+                                Err("length of args is not equal.")?;
+                            }
+                            for (l, r) in l_args.into_iter().zip(r_args.into_iter()) {
+                                self.equs.push(TypeEquation::Equal(l, r ));
+                            }
+                            self.equs.push(TypeEquation::Equal(*l_return, *r_return));
+                        }
+                        (Type::TypeVariable(lv), rt) => {
+                            if rt.occurs(&lv) {
+                                Err("unification failed, occurs")?;
+                            }
+                            let th = TypeSubst { tv: lv.clone(), t: rt.clone() };
+                            self.subst(&th);
+                            for TypeSubst { t, .. } in thetas.iter_mut() {
+                                t.subst(&th);
+                            }
+                            thetas.push(th);
+                        }
+                        (rt, Type::TypeVariable(lv)) => {
+                            if rt.occurs(&lv) {
+                                Err("unification failed, occurs")?;
+                            }
+                            let th = TypeSubst { tv: lv.clone(), t: rt.clone() };
+                            self.subst(&th);
+                            for TypeSubst { t, .. } in thetas.iter_mut() {
+                                t.subst(&th);
+                            }
+                            thetas.push(th);
+                        }
+                        (l, r) => {
+                            Err(format!("unfication failed, {:?} != {:?}", l, r))?
+                        }
                     }
-                    for (l, r) in l_args.into_iter().zip(r_args.into_iter()) {
-                        self.equs.push(TypeEquation { left: l, right: r });
-                    }
-                    self.equs.push(
-                        TypeEquation { left: *l_return,
-                        right: *r_return }
-                        );
-                }
-                (Type::TypeVariable(lv), rt) => {
-                    if rt.occurs(&lv) {
-                        Err("unification failed, occurs")?;
-                    }
-                    let th = TypeSubst { tv: lv.clone(), t: rt.clone() };
-                    self.subst(&th);
-                    for TypeSubst { t, .. } in thetas.iter_mut() {
-                        t.subst(&th);
-                    }
-                    thetas.push(th);
-                }
-                (rt, Type::TypeVariable(lv)) => {
-                    if rt.occurs(&lv) {
-                        Err("unification failed, occurs")?;
-                    }
-                    let th = TypeSubst { tv: lv.clone(), t: rt.clone() };
-                    self.subst(&th);
-                    for TypeSubst { t, .. } in thetas.iter_mut() {
-                        t.subst(&th);
-                    }
-                    thetas.push(th);
-                }
-                (l, r) => {
-                    Err(format!("unfication failed, {:?} != {:?}", l, r))?
                 }
             }
         }
