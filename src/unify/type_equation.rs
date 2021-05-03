@@ -260,7 +260,7 @@ impl TypeEquations {
     }
 }
 
-#[test]
+/*#[test]
 fn test_unify() {
     let mut traits_info = TraitsInfo::new();
     traits_info.regist_trait(&parse_trait_definition("trait MyTrait { type Output; }").unwrap().1);
@@ -270,5 +270,5 @@ fn test_unify() {
     let right = crate::type_spec::parse_type_spec("i64#MyTrait::Output").unwrap().1.gen_type(&mut equs).unwrap();
     equs.add_equation(left, right);
     println!("{:?}", equs.unify(&traits_info));
-}
+}*/
 

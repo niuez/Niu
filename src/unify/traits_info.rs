@@ -6,7 +6,7 @@ use crate::unify::*;
 
 #[derive(Debug)]
 pub struct TraitsInfo {
-    pub traits: HashMap<TraitId, TraitDefinition>,
+    pub traits: HashMap<TraitId, TraitDefinitionInfo>,
     pub impls: Vec<HashMap<TraitId, Vec<SelectionCandidate>>>,
 
 }
@@ -35,7 +35,7 @@ impl TraitsInfo {
         }
     }
 
-    pub fn regist_impl_candidate(&mut self, ti: &ImplCandidate) -> Result<(), String> {
+    pub fn regist_impl_candidate(&mut self, ti: &ImplDefinition) -> Result<(), String> {
         let (trait_id, cand) = ti.get_impl_trait_pair();
         if self.traits.get(&trait_id).is_none() {
             Err(format!("trait {:?} is not defined", trait_id))

@@ -1,7 +1,9 @@
 pub mod associated_type;
 pub use associated_type::*;
 
-use std::collections::HashMap;
+pub mod candidate;
+pub use candidate::*;
+
 
 use nom::bytes::complete::*;
 use nom::character::complete::*;
@@ -11,10 +13,11 @@ use nom::sequence::*;
 use nom::IResult;
 
 use crate::identifier::{ Identifier, parse_identifier };
-use crate::type_spec::*;
-use crate::unify::*;
 //use crate::unary_expr::Variable;
 use crate::trans::*;
+use crate::block::*;
+use crate::type_spec::*;
+use crate::type_id::*;
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct TraitId {
@@ -32,15 +35,33 @@ pub fn parse_trait_id(s: &str) -> IResult<&str, TraitId> {
     Ok((s, TraitId { id }))
 }
 
+#[derive(Debug)]
+pub struct RequiredMethodDefinition {
+    pub func_id: Identifier,
+    pub generics: Vec<(TypeId, Option<TraitId>)>,
+    pub args: Vec<(Identifier, TypeSpec)>,
+    pub return_type: TypeSpec,
+    pub block: Block,
+}
+
 #[derive(Debug, Clone)]
 pub struct TraitDefinition {
     pub trait_id: TraitId,
     pub asso_ids: Vec<AssociatedTypeIdentifier>,
 }
 
+#[derive(Debug, Clone)]
+pub struct TraitDefinitionInfo {
+    pub trait_id: TraitId,
+    pub asso_ids: Vec<AssociatedTypeIdentifier>,
+}
+
 impl TraitDefinition {
-    pub fn get_trait_id_pair(&self) -> (TraitId, TraitDefinition) {
-        (self.trait_id.clone(), self.clone())
+    pub fn get_trait_id_pair(&self) -> (TraitId, TraitDefinitionInfo) {
+        (self.trait_id.clone(), TraitDefinitionInfo {
+            trait_id: self.trait_id.clone(),
+            asso_ids: self.asso_ids.clone(),
+        })
     }
 }
 
@@ -60,107 +81,6 @@ pub fn parse_trait_definition(s: &str) -> IResult<&str, TraitDefinition> {
     Ok((s, TraitDefinition { trait_id, asso_ids }))
 }
 
-#[derive(Debug, Clone)]
-pub enum SelectionCandidate {
-    ImplCandidate(ImplCandidate),
-    ParamCandidate(ParamCandidate),
-}
-
-impl SelectionCandidate {
-    pub fn match_impl_for_ty(&self, ty: &Type, trs: &TraitsInfo) -> Option<(Vec<TypeSubst>, &Self)> {
-        match *self {
-            SelectionCandidate::ImplCandidate(ref cand) => {
-                cand.match_impl_for_ty(ty, trs).map(|sub| (sub, self))
-            }
-            SelectionCandidate::ParamCandidate(ref cand) => {
-                cand.match_impl_for_ty(ty, trs).map(|sub| (sub, self))
-            }
-        }
-    }
-    pub fn get_associated_from_id(&self, equs: &mut TypeEquations, asso_id: &AssociatedTypeIdentifier, subst: &Vec<TypeSubst>) -> Type {
-        match *self {
-            SelectionCandidate::ImplCandidate(ref cand) => {
-                cand.get_associated_from_id(equs, asso_id, subst)
-            }
-            SelectionCandidate::ParamCandidate(ref cand) => {
-                cand.get_associated_from_id(equs, asso_id, subst)
-            }
-        }
-    }
-
-}
-
-#[derive(Debug, Clone)]
-pub struct ImplCandidate {
-    pub trait_id: TraitId,
-    pub impl_ty: TypeSpec,
-    pub asso_defs: HashMap<AssociatedTypeIdentifier, TypeSpec>,
-}
-
-impl Transpile for ImplCandidate {
-    fn transpile(&self, ta: &mut TypeAnnotation) -> String {
-        let impl_def = format!("template<> class {}<{}>", self.trait_id.transpile(ta), self.impl_ty.transpile(ta));
-        let asso_defs = self.asso_defs.iter().map(|(id, spec)| {
-            format!("using {} = {};\n", id.transpile(ta), spec.transpile(ta))
-        }).collect::<Vec<_>>().join(" ");
-        format!("{} {{\n static constexpr bool value = true;\n{}}};\n", impl_def, asso_defs)
-    }
-}
-
-impl ImplCandidate {
-    pub fn get_impl_trait_pair(&self) -> (TraitId, SelectionCandidate) {
-        (self.trait_id.clone(), SelectionCandidate::ImplCandidate(self.clone()))
-    }
-    pub fn match_impl_for_ty(&self, ty: &Type, trs: &TraitsInfo) -> Option<Vec<TypeSubst>> {
-        let mut equs = TypeEquations::new();
-        let impl_ty = self.impl_ty.gen_type(&mut equs).unwrap();
-        equs.add_equation(ty.clone(), impl_ty);
-        equs.unify(trs).ok()
-    }
-
-    pub fn get_associated_from_id(&self, equs: &mut TypeEquations, asso_id: &AssociatedTypeIdentifier, _subst: &Vec<TypeSubst>) -> Type {
-        self.asso_defs.get(asso_id).unwrap().gen_type(equs).unwrap()
-    }
-}
-
-
-pub fn parse_impl_candidate(s: &str) -> IResult<&str, ImplCandidate> {
-    let (s, (_, _, trait_id, _, _, _, impl_ty, _, _, _, many_types, _, _)) = 
-        tuple((tag("impl"), space1, parse_trait_id,
-            space1, tag("for"), space1, parse_type_spec,
-            space0, char('{'), space0,
-            many0(tuple((tag("type"), space1, parse_associated_type_identifier, space0, char('='), space0, parse_type_spec, space0, char(';'), space0))),
-            space0, char('}')))(s)?;
-    let asso_defs = many_types.into_iter().map(|(_, _, id, _, _, _, ty, _, _, _)| (id, ty)).collect();
-    Ok((s, ImplCandidate { trait_id, impl_ty, asso_defs }))
-}
-
-#[derive(Debug, Clone)]
-pub struct ParamCandidate {
-    pub trait_id: TraitId,
-    pub impl_ty: Type,
-    pub asso_defs: HashMap<AssociatedTypeIdentifier, Type>,
-}
-
-impl ParamCandidate {
-    pub fn new(trait_id: TraitId, impl_ty: Type, asso_defs: HashMap<AssociatedTypeIdentifier, Type>) -> SelectionCandidate {
-        SelectionCandidate::ParamCandidate(ParamCandidate {
-            trait_id, impl_ty, asso_defs,
-        })
-    }
-    pub fn match_impl_for_ty(&self, ty: &Type, trs: &TraitsInfo) -> Option<Vec<TypeSubst>> {
-        println!("{:?}, {:?}", self, ty);
-        if self.impl_ty == *ty {
-            Some(Vec::new())
-        }
-        else {
-            None
-        }
-    }
-    pub fn get_associated_from_id(&self, _equs: &mut TypeEquations, asso_id: &AssociatedTypeIdentifier, _subst: &Vec<TypeSubst>) -> Type {
-        self.asso_defs.get(asso_id).unwrap().clone()
-    }
-}
 
 
 #[test]

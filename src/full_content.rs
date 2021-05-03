@@ -13,7 +13,7 @@ use crate::trans::*;
 #[derive(Debug)]
 pub struct FullContent {
     pub traits: Vec<TraitDefinition>,
-    pub impls: Vec<ImplCandidate>,
+    pub impls: Vec<ImplDefinition>,
     pub funcs: Vec<FuncDefinition>,
 }
 
@@ -74,7 +74,7 @@ impl Transpile for FullContent {
 enum ContentElement {
     Func(FuncDefinition),
     Trait(TraitDefinition),
-    ImplTrait(ImplCandidate),
+    ImplTrait(ImplDefinition),
 }
 
 fn parse_element_func(s: &str) -> IResult<&str, ContentElement> {
@@ -88,7 +88,7 @@ fn parse_element_trait(s: &str) -> IResult<&str, ContentElement> {
 }
 
 fn parse_element_impl_trait(s: &str) -> IResult<&str, ContentElement> {
-    let (s, it) = parse_impl_candidate(s)?;
+    let (s, it) = parse_impl_definition(s)?;
     Ok((s, ContentElement::ImplTrait(it)))
 }
 
