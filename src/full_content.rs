@@ -41,22 +41,13 @@ impl FullContent {
         for f in self.funcs.iter() {
             equs.regist_func_info(f);
             ta.regist_func_info(f);
-            f.gen_type(&mut equs)?;
-            for TypeSubst { tv, t } in equs.unify(&trs)? {
+            for TypeSubst { tv, t } in f.unify_definition(&mut equs, &mut trs)? {
                 ta.insert(tv, t);
             }
             equs.clear_equations();
             println!("{:?}", equs);
         }
         Ok(ta)
-    }
-}
-
-impl GenType for FullContent { fn gen_type(&self, equs: &mut TypeEquations) -> TResult {
-        for f in self.funcs.iter() {
-            f.gen_type(equs)?;
-        }
-        Ok(Type::End)
     }
 }
 
@@ -201,7 +192,7 @@ fn parse_content_element_test() {
 
 #[test]
 fn unify_test_for_selection_candidate() {
-    let prog = "trait MyTrait { type Output; } impl MyTrait for i64 { type Output = u64; } fn equ<T: MyTrait>(t: T) -> T { t } fn apply(a: i64) -> i64 { equ(a) }";
+    let prog = "trait MyTrait { type Output; } impl MyTrait for u64 { type Output = u64; } fn equ<T: MyTrait>(t: T) -> T { t } fn apply<A: MyTrait>(a: A) -> A { equ(a) }";
     
     let (s, mut t) = parse_full_content(prog).unwrap();
     println!("{:?}", s);

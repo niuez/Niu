@@ -133,6 +133,7 @@ impl ParamCandidate {
         })
     }
     pub fn match_impl_for_ty(&self, ty: &Type, trs: &TraitsInfo) -> Option<Vec<TypeSubst>> {
+        println!("{:?}, {:?}", self, ty);
         if self.impl_ty == *ty {
             Some(Vec::new())
         }

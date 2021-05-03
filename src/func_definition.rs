@@ -66,7 +66,7 @@ impl FuncDefinition {
          FuncDefinitionInfo { generics: self.generics.clone(), args: self.args.clone(), return_type: self.return_type.clone() }
          )
     }
-    fn gen_type_definition(&self, equs: &mut TypeEquations, trs: &mut TraitsInfo) -> TResult {
+    pub fn unify_definition(&self, equs: &mut TypeEquations, trs: &mut TraitsInfo) -> Result<Vec<TypeSubst>, String> {
         equs.into_scope();
         trs.into_scope();
 
@@ -76,6 +76,8 @@ impl FuncDefinition {
             }
         }
 
+        println!("trs = {:?}", trs);
+
         for (i, t) in self.args.iter() {
             let alpha = equs.get_type_variable();
             let t_type = t.gen_type(equs)?; 
@@ -85,31 +87,15 @@ impl FuncDefinition {
         let result_type = self.block.gen_type(equs)?;
         let return_t = self.return_type.gen_type(equs)?;
         equs.add_equation(result_type, return_t);
+
+        let result = equs.unify(trs);
         
         trs.out_scope();
         equs.out_scope();
-        Ok(Type::End)
+        result
     }
 }
 
-impl GenType for FuncDefinition {
-    fn gen_type(&self, equs: &mut TypeEquations) -> TResult {
-        equs.into_scope();
-
-        for (i, t) in self.args.iter() {
-            let alpha = equs.get_type_variable();
-            let t_type = t.gen_type(equs)?; 
-            equs.regist_variable(Variable::from_identifier(i.clone()), alpha.clone());
-            equs.add_equation(alpha, t_type);
-        }
-        let result_type = self.block.gen_type(equs)?;
-        let return_t = self.return_type.gen_type(equs)?;
-        equs.add_equation(result_type, return_t);
-
-        equs.out_scope();
-        Ok(Type::End)
-    }
-}
 
 impl Transpile for FuncDefinition {
     fn transpile(&self, ta: &mut TypeAnnotation) -> String {
@@ -184,12 +170,4 @@ fn parse_func_definition_test() {
 #[test]
 fn parse_func_definition2_test() {
     println!("{:?}", parse_func_definition("fn func2<t: MyTrait>(x: t) -> t { x }"));
-}
-#[test]
-fn gentype_func_definition_test() {
-    let (_, t) = parse_func_definition("fn func(x: i64) -> i64 { let y = x * x; y + x }").unwrap();
-    println!("{:?}", t);
-    let mut equs = TypeEquations::new();
-    t.gen_type(&mut equs).unwrap();
-    println!("{:#?}", equs);
 }

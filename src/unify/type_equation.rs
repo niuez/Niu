@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 
 use crate::unary_expr::Variable;
-use crate::type_id::TypeId;
 use crate::func_definition::{ FuncDefinitionInfo, FuncDefinition };
 use crate::trans::*;
 use crate::traits::*;
@@ -167,52 +166,50 @@ impl TypeEquations {
         }
     }
 
-    fn solve_associated_type(&mut self, ty: Type, trs: &TraitsInfo) -> Type {
+    fn solve_associated_type(&mut self, ty: Type, trs: &TraitsInfo) -> Result<Type, String> {
         if let Type::AssociatedType(inner_ty, asso) = ty {
-            let inner_ty = self.solve_associated_type(*inner_ty, trs);
+            let inner_ty = self.solve_associated_type(*inner_ty, trs)?;
             if let Type::Type(_) = inner_ty {
                 let AssociatedType { ref trait_id, ref type_id } = asso;
                 let substs = trs.match_to_impls_for_type(trait_id, &inner_ty);
                 if substs.len() == 1 {
                     let mut substs = substs;
                     let (subst, impl_trait) = substs.pop().unwrap();
-                    impl_trait.get_associated_from_id(self, type_id, &subst)
+                    Ok(impl_trait.get_associated_from_id(self, type_id, &subst))
                 }
                 else {
-                    Type::AssociatedType(Box::new(inner_ty), asso)
+                    Err(format!("type {:?} is not implemented trait {:?}", inner_ty, trait_id))
                 }
             }
             else {
-                    Type::AssociatedType(Box::new(inner_ty), asso)
+                Ok(Type::AssociatedType(Box::new(inner_ty), asso))
             }
         }
         else {
-            ty
+            Ok(ty)
         }
     }
 
     fn solve_has_trait(&mut self, ty: &Type, tr_id: &TraitId, trs: &TraitsInfo) -> bool {
-        if let Type::Type(_) = *ty {
-            let substs = trs.match_to_impls_for_type(tr_id, ty);
-            substs.len() == 1
-        }
-        else {
-            false
-        }
+        let substs = trs.match_to_impls_for_type(tr_id, ty);
+        substs.len() == 1
     }
 
     pub fn unify(&mut self, trs: &TraitsInfo) -> Result<Vec<TypeSubst>, String> {
         let mut thetas = Vec::new();
         while let Some(equation) = self.equs.pop() {
             match equation {
-                TypeEquation::HasTrait(ty, tr) => {
-                    if !self.solve_has_trait(&ty, &tr, trs) {
-                        self.equs.push(TypeEquation::HasTrait(ty, tr))
+                TypeEquation::HasTrait(Type::Type(ty_spec), tr) => {
+                    if !self.solve_has_trait(&Type::Type(ty_spec.clone()), &tr, trs) {
+                        Err(format!("type {:?} is not implemented trait {:?}", ty_spec, tr))?;
                     }
                 }
+                TypeEquation::HasTrait(left, right) => {
+                    self.equs.push(TypeEquation::HasTrait(left, right));
+                }
                 TypeEquation::Equal(left, right) => {
-                    let left = self.solve_associated_type(left, trs);
-                    let right = self.solve_associated_type(right, trs);
+                    let left = self.solve_associated_type(left, trs)?;
+                    let right = self.solve_associated_type(right, trs)?;
                     match (left, right) {
                         (l, r) if l == r => {}
                         (Type::AssociatedType(b, a), right) => {

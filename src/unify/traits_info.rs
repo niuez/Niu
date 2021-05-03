@@ -45,7 +45,7 @@ impl TraitsInfo {
             Ok(())
         }
     }
-    pub fn regist_param_candidate(&mut self, equs: &mut TypeEquations, ty_spec: &TypeSpec, trait_id: &TraitId) -> Result<(), String> {
+    pub fn regist_param_candidate(&mut self, _equs: &mut TypeEquations, ty_spec: &TypeSpec, trait_id: &TraitId) -> Result<(), String> {
         match self.traits.get(trait_id) {
             None => Err(format!("trait {:?} is not defined", trait_id)),
             Some(tr_def) => {
@@ -72,6 +72,7 @@ impl TraitsInfo {
     pub fn match_to_impls_for_type(&self, trait_id: &TraitId, ty: &Type) -> Vec<(Vec<TypeSubst>, &SelectionCandidate)> {
         let mut ans = Vec::new();
         for impls in self.impls.iter() {
+            println!("impl get {:?}", impls.get(trait_id));
             let mut vs = impls.get(trait_id).unwrap().iter()
                 .map(|impl_trait| {
                     impl_trait.match_impl_for_ty(&ty, self)
