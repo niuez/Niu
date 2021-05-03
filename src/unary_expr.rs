@@ -1,7 +1,7 @@
-use nom::branch::*;
 use nom::IResult;
 use nom::character::complete::*;
 use nom::sequence::*;
+use nom::branch::*;
 
 use crate::literal::{ Literal, parse_literal };
 use crate::identifier::{ Identifier, parse_identifier };
@@ -10,6 +10,8 @@ use crate::subseq::{ Subseq, parse_subseq, subseq_gen_type, subseq_transpile };
 use crate::block::{ parse_block, Block };
 use crate::unify::*;
 use crate::trans::*;
+use crate::type_spec::*;
+use crate::traits::*;
 
 #[derive(Debug)]
 pub enum UnaryExpr {
@@ -18,6 +20,7 @@ pub enum UnaryExpr {
     Parentheses(Parentheses),
     Block(Block),
     Subseq(Box<UnaryExpr>, Subseq),
+    TraitMethod(TypeSpec, TraitMethod),
 }
 
 impl GenType for UnaryExpr {
@@ -27,7 +30,8 @@ impl GenType for UnaryExpr {
             UnaryExpr::Literal(ref l) => l.gen_type(equs),
             UnaryExpr::Parentheses(ref p) => p.gen_type(equs),
             UnaryExpr::Block(ref b) => b.gen_type(equs),
-            UnaryExpr::Subseq(ref expr, ref s) => subseq_gen_type(expr.as_ref(), s, equs)
+            UnaryExpr::Subseq(ref expr, ref s) => subseq_gen_type(expr.as_ref(), s, equs),
+            UnaryExpr::TraitMethod(ref spec, ref tr_id) => Ok(Type::TraitMethod(Box::new(spec.gen_type(equs)?), tr_id.clone())),
         }
     }
 }
@@ -40,12 +44,16 @@ impl Transpile for UnaryExpr {
             UnaryExpr::Parentheses(ref p) => p.transpile(ta),
             UnaryExpr::Block(ref b) => format!("[&](){{ {} }}()", b.transpile(ta)),
             UnaryExpr::Subseq(ref expr, ref s) => subseq_transpile(expr.as_ref(), s, ta),
+            UnaryExpr::TraitMethod(ref spec, TraitMethod { ref trait_id, ref method_id }) => {
+                format!("{}<{}>::{}", trait_id.transpile(ta), spec.transpile(ta), method_id.transpile(ta))
+            }
         }
     }
 }
 
 pub fn parse_unary_expr(s: &str) -> IResult<&str, UnaryExpr> {
     let (s, x) = alt((
+            parse_unary_trait_method,
             parse_literal,
             parse_parentheses,
             parse_bracket_block,
@@ -115,6 +123,11 @@ pub fn parse_bracket_block(s: &str) -> IResult<&str, UnaryExpr> {
     Ok((s, UnaryExpr::Block(block)))
 }
 
+pub fn parse_unary_trait_method(s: &str) -> IResult<&str, UnaryExpr> {
+    let(s, (spec, _, _, _, trait_method)) = tuple((parse_type_spec, space0, char('#'), space0, parse_trait_method))(s)?;
+    Ok((s, UnaryExpr::TraitMethod(spec, trait_method)))
+}
+
 #[test]
 fn parse_unary_expr_test() {
     println!("{:?}", parse_unary_expr("func(1, 2, 3)"));
@@ -125,4 +138,8 @@ fn parse_unary_expr_test() {
 #[test]
 fn parse_parentheses_expr_test() {
     println!("{:?}", parse_unary_expr("(1 + 2 + 3)"));
+}
+#[test]
+fn parse_trait_method_test() {
+    println!("{:?}", parse_unary_expr("i64#MyTrait.out"));
 }

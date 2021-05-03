@@ -6,6 +6,9 @@ pub use associated_type::*;
 pub mod candidate;
 pub use candidate::*;
 
+pub mod trait_method;
+pub use trait_method::*;
+
 
 use nom::bytes::complete::*;
 use nom::character::complete::*;

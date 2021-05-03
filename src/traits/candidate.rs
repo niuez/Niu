@@ -42,6 +42,16 @@ impl SelectionCandidate {
         }
     }
 
+    pub fn get_trait_method_from_id(&self, equs: &mut TypeEquations, method_id: &TraitMethodIdentifier, subst: &Vec<TypeSubst>) -> Type {
+        match *self {
+            SelectionCandidate::ImplCandidate(ref cand) => {
+                cand.get_trait_method_from_id(equs, method_id, subst)
+            }
+            SelectionCandidate::ParamCandidate(ref cand) => {
+                cand.get_trait_method_from_id(equs, method_id, subst)
+            }
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -58,8 +68,10 @@ impl ImplDefinition {
             trait_id: self.trait_id.clone(),
             impl_ty: self.impl_ty.clone(),
             asso_defs: self.asso_defs.clone(),
+            require_methods: self.require_methods.iter().map(|(id, func)| (id.clone(), func.get_func_info().1)).collect(),
         }))
     }
+
 }
 
 pub fn parse_impl_definition(s: &str) -> IResult<&str, ImplDefinition> {
@@ -81,6 +93,7 @@ pub struct ImplCandidate {
     pub trait_id: TraitId,
     pub impl_ty: TypeSpec,
     pub asso_defs: HashMap<AssociatedTypeIdentifier, TypeSpec>,
+    pub require_methods: HashMap<Identifier, FuncDefinitionInfo>,
 }
 
 impl Transpile for ImplDefinition {
@@ -103,6 +116,10 @@ impl ImplCandidate {
 
     pub fn get_associated_from_id(&self, equs: &mut TypeEquations, asso_id: &AssociatedTypeIdentifier, _subst: &Vec<TypeSubst>) -> Type {
         self.asso_defs.get(asso_id).unwrap().gen_type(equs).unwrap()
+    }
+
+    pub fn get_trait_method_from_id(&self, equs: &mut TypeEquations, method_id: &TraitMethodIdentifier, subst: &Vec<TypeSubst>) -> Type {
+        self.require_methods.get(&method_id.id).unwrap().generate_type(equs).unwrap()
     }
 }
 
@@ -131,5 +148,9 @@ impl ParamCandidate {
     }
     pub fn get_associated_from_id(&self, _equs: &mut TypeEquations, asso_id: &AssociatedTypeIdentifier, _subst: &Vec<TypeSubst>) -> Type {
         self.asso_defs.get(asso_id).unwrap().clone()
+    }
+
+    pub fn get_trait_method_from_id(&self, equs: &mut TypeEquations, method_id: &TraitMethodIdentifier, subst: &Vec<TypeSubst>) -> Type {
+        unimplemented!("unimplemented")
     }
 }

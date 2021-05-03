@@ -46,10 +46,12 @@ impl TraitsInfo {
                     match ti.require_methods.get(id) {
                         None => Err(format!("method {:?}::{:?} is not defined for {:?}", tr, id, ti.impl_ty))?,
                         Some(impl_method) => {
-                            let mut equs = TypeEquations::new();
-                            let impl_ty = ti.impl_ty.gen_type(&mut equs)?;
-                            equs.set_self_type(Some(impl_ty));
-                            info.check_equal(&impl_method.get_func_info().1, &mut equs, self)?;
+                            {
+                                let mut equs = TypeEquations::new();
+                                let impl_ty = ti.impl_ty.gen_type(&mut equs)?;
+                                equs.set_self_type(Some(impl_ty));
+                                info.check_equal(&impl_method.get_func_info().1, &mut equs, self)?;
+                            }
                         }
                     }
                 }
@@ -85,13 +87,15 @@ impl TraitsInfo {
         let mut ans = Vec::new();
         for impls in self.impls.iter() {
             println!("impl get {:?}", impls.get(trait_id));
-            let mut vs = impls.get(trait_id).unwrap().iter()
-                .map(|impl_trait| {
-                    impl_trait.match_impl_for_ty(&ty, self)
-                })
-                .filter_map(|x| x)
-                .collect::<Vec<_>>();
-            ans.append(&mut vs);
+            if let Some(impls) = impls.get(trait_id) {
+                let mut vs = impls.iter()
+                    .map(|impl_trait| {
+                        impl_trait.match_impl_for_ty(&ty, self)
+                    })
+                    .filter_map(|x| x)
+                    .collect::<Vec<_>>();
+                ans.append(&mut vs);
+            }
         }
         ans
     }

@@ -13,6 +13,7 @@ pub enum Type {
     Func(Vec<Type>, Box<Type>),
     TypeVariable(TypeVariable),
     AssociatedType(Box<Type>, AssociatedType),
+    TraitMethod(Box<Type>, TraitMethod),
     End,
 }
 
@@ -30,6 +31,9 @@ impl Type {
             Type::AssociatedType(ref ty, _) => {
                 ty.as_ref().occurs(t)
             }
+            Type::TraitMethod(ref ty, _) => {
+                ty.as_ref().occurs(t)
+            }
             _ => false,
         }
     }
@@ -44,6 +48,9 @@ impl Type {
             }
             Type::Type(_) => {},
             Type::AssociatedType(ref mut ty, _) => {
+                ty.as_mut().subst(theta)
+            }
+            Type::TraitMethod(ref mut ty, _) => {
                 ty.as_mut().subst(theta)
             }
             Type::End => {},
@@ -175,32 +182,59 @@ impl TypeEquations {
     }
 
     fn solve_associated_type(&mut self, ty: Type, trs: &TraitsInfo) -> Result<Type, String> {
-        if let Type::AssociatedType(inner_ty, asso) = ty {
-            let inner_ty = self.solve_associated_type(*inner_ty, trs)?;
-            if let Type::Type(_) = inner_ty {
-                let AssociatedType { ref trait_id, ref type_id } = asso;
-                let substs = trs.match_to_impls_for_type(trait_id, &inner_ty);
-                if substs.len() == 1 {
-                    let mut substs = substs;
-                    let (subst, impl_trait) = substs.pop().unwrap();
-                    Ok(impl_trait.get_associated_from_id(self, type_id, &subst))
+        match ty {
+            Type::AssociatedType(inner_ty, asso) => {
+                let inner_ty = self.solve_associated_type(*inner_ty, trs)?;
+                if let Type::Type(_) = inner_ty {
+                    let AssociatedType { ref trait_id, ref type_id } = asso;
+                    let substs = trs.match_to_impls_for_type(trait_id, &inner_ty);
+                    if substs.len() == 1 {
+                        let mut substs = substs;
+                        let (subst, impl_trait) = substs.pop().unwrap();
+                        Ok(impl_trait.get_associated_from_id(self, type_id, &subst))
+                    }
+                    else {
+                        Err(format!("type {:?} is not implemented trait {:?}", inner_ty, trait_id))
+                    }
                 }
                 else {
-                    Err(format!("type {:?} is not implemented trait {:?}", inner_ty, trait_id))
+                    Ok(Type::AssociatedType(Box::new(inner_ty), asso))
                 }
             }
-            else {
-                Ok(Type::AssociatedType(Box::new(inner_ty), asso))
+            Type::TraitMethod(inner_ty, tr_method) => {
+                Ok(Type::TraitMethod(Box::new(self.solve_associated_type(*inner_ty, trs)?), tr_method))
             }
-        }
-        else {
-            Ok(ty)
+            _ => Ok(ty),
         }
     }
 
     fn solve_has_trait(&mut self, ty: &Type, tr_id: &TraitId, trs: &TraitsInfo) -> bool {
         let substs = trs.match_to_impls_for_type(tr_id, ty);
         substs.len() == 1
+    }
+
+    fn solve_trait_method(&mut self, ty: Type, trs: &TraitsInfo) -> Result<Type, String> {
+        if let Type::TraitMethod(inner_ty, tr_method) = ty {
+            let inner_ty = *inner_ty;
+            if let Type::Type(_) = inner_ty {
+                let TraitMethod { trait_id, method_id } = tr_method;
+                let substs = trs.match_to_impls_for_type(&trait_id, &inner_ty);
+                if substs.len() == 1 {
+                    let mut substs = substs;
+                    let (subst, impl_trait) = substs.pop().unwrap();
+                    Ok(impl_trait.get_trait_method_from_id(self, &method_id, &subst))
+                }
+                else {
+                    Err(format!("type {:?} is not implemented trait {:?}", inner_ty, trait_id))
+                }
+            }
+            else {
+                Ok(Type::TraitMethod(Box::new(inner_ty), tr_method))
+            }
+        }
+        else {
+            Ok(ty)
+        }
     }
 
     pub fn unify(&mut self, trs: &TraitsInfo) -> Result<Vec<TypeSubst>, String> {
@@ -217,7 +251,9 @@ impl TypeEquations {
                 }
                 TypeEquation::Equal(left, right) => {
                     let left = self.solve_associated_type(left, trs)?;
+                    let left = self.solve_trait_method(left, trs)?;
                     let right = self.solve_associated_type(right, trs)?;
+                    let right = self.solve_trait_method(right, trs)?;
                     match (left, right) {
                         (l, r) if l == r => {}
                         (Type::AssociatedType(b, a), right) => {
@@ -225,6 +261,12 @@ impl TypeEquations {
                         }
                         (left, Type::AssociatedType(b, a)) => {
                             self.equs.push(TypeEquation::Equal(left, Type::AssociatedType(b, a)));
+                        }
+                        (Type::TraitMethod(b, a), right) => {
+                            self.equs.push(TypeEquation::Equal(Type::TraitMethod(b, a), right));
+                        }
+                        (left, Type::TraitMethod(b, a)) => {
+                            self.equs.push(TypeEquation::Equal(left, Type::TraitMethod(b, a)));
                         }
                         (Type::Func(l_args, l_return), Type::Func(r_args, r_return)) => {
                             if l_args.len() != r_args.len() {

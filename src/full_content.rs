@@ -212,7 +212,7 @@ fn unify_test_for_selection_candidate() {
 
 #[test]
 fn unify_test_for_impl() {
-    let prog = "trait MyTrait { type Output; fn out(a: Self) -> Self#MyTrait::Output; } impl MyTrait for i64 { type Output = u64; fn out(a: i64) -> u64 { 1u64 }}";
+    let prog = "trait MyTrait { type Output; fn out(a: Self) -> Self#MyTrait::Output; } impl MyTrait for i64 { type Output = u64; fn out(a: i64) -> u64 { 1u64 }} fn apply() -> u64 { i64#MyTrait.out(1i64) }";
     let (s, mut t) = parse_full_content(prog).unwrap();
     println!("{:?}", s);
     println!("{:?}", t);
