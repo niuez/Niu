@@ -98,6 +98,10 @@ trait MyTrait {
 - トレイト境界チェックの遅延を実装する.
   - `fn func<T: MyTrait>(t: T) -> T#Mytrait::Output {}`をかけるようにする.
   - T: MyTrait -> ImplTraitではなく、別の型を用意して, enumとする
+    - Type::Type -> TypeSpecとして解決
+- トレイトを含めたトランスパイル
+- メンバ関数
+  
   
 
 ## Progress
