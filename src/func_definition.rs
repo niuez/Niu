@@ -27,6 +27,7 @@ pub struct FuncDefinition {
 
 #[derive(Debug, Clone)]
 pub struct FuncDefinitionInfo {
+    pub func_id: Identifier,
     pub generics: Vec<(TypeId, Option<TraitId>)>,
     pub args: Vec<(Identifier, TypeSpec)>,
     pub return_type: TypeSpec,
@@ -63,7 +64,7 @@ impl FuncDefinitionInfo {
 impl FuncDefinition {
     pub fn get_func_info(&self) -> (Variable, FuncDefinitionInfo) {
         (Variable { name: self.func_id.clone() },
-         FuncDefinitionInfo { generics: self.generics.clone(), args: self.args.clone(), return_type: self.return_type.clone() }
+         FuncDefinitionInfo { func_id: self.func_id.clone(), generics: self.generics.clone(), args: self.args.clone(), return_type: self.return_type.clone() }
          )
     }
     pub fn unify_definition(&self, equs: &mut TypeEquations, trs: &mut TraitsInfo) -> Result<Vec<TypeSubst>, String> {
@@ -126,12 +127,12 @@ fn parse_generics_arg(s: &str) -> IResult<&str, (TypeId, Option<TraitId>)> {
     Ok((s, (id, opt.map(|(_, _, tr)| tr))))
 }
 
-pub fn parse_func_definition(s: &str) -> IResult<&str, FuncDefinition> {
-    let (s, (_, _, func_id, _, generics_opt, _, _, op, _, _, _, _, return_type, _, _, block, _)) = 
+pub fn parse_func_definition_info(s: &str) -> IResult<&str, FuncDefinitionInfo> {
+    let (s, (_, _, func_id, _, generics_opt, _, _, op, _, _, _, _, return_type)) = 
         tuple((tag("fn"), space1, parse_identifier, space0, opt(tuple((char('<'), space0, opt(tuple((parse_generics_arg, space0, many0(tuple((char(','), space0, parse_generics_arg, space0))), opt(char(',')), space0))), char('>'), space0))),
                char('('), space0,
             opt(tuple((parse_identifier, space0, char(':'), space0, parse_type_spec, space0, many0(tuple((char(','), space0, parse_identifier, space0, char(':'), space0, parse_type_spec, space0))), opt(char(',')), space0))),
-            char(')'), space0, tag("->"), space0, parse_type_spec, space0, char('{'), parse_block, char('}')))(s)?;
+            char(')'), space0, tag("->"), space0, parse_type_spec))(s)?;
     let generics = match generics_opt {
         Some((_, _, generics_opt, _, _)) => {
             match generics_opt {
@@ -157,7 +158,12 @@ pub fn parse_func_definition(s: &str) -> IResult<&str, FuncDefinition> {
         }
         None => Vec::new(),
     };
-    Ok((s, FuncDefinition { func_id, generics, args, return_type, block }))
+    Ok((s, FuncDefinitionInfo { func_id, generics, args, return_type }))
+}
+
+pub fn parse_func_definition(s: &str) -> IResult<&str, FuncDefinition> {
+    let (s, (info, _, _, block, _)) = tuple((parse_func_definition_info, space0, char('{'), parse_block, char('}')))(s)?;
+    Ok((s, FuncDefinition { func_id: info.func_id, generics: info.generics, args: info.args, return_type: info.return_type, block }))
 }
 
 

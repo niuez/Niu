@@ -101,6 +101,7 @@ trait MyTrait {
     - Type::Type -> TypeSpecとして解決
 - トレイトを含めたトランスパイル
 - メンバ関数
+  - traitとimplで定義に矛盾がないかのチェック
   
   
 
