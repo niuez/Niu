@@ -10,7 +10,7 @@ use crate::traits::*;
 use crate::unify::*;
 use crate::trans::*;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TypeSpec {
     TypeId(TypeId),
     Associated(Box<TypeSpec>, AssociatedType),

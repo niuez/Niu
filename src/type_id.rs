@@ -3,7 +3,7 @@ use nom::IResult;
 use crate::identifier::{ Identifier, parse_identifier };
 use crate::unify::*;
 use crate::trans::*;
-
+use crate::type_spec::*;
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct TypeId {
@@ -18,7 +18,7 @@ impl TypeId {
 
 impl GenType for TypeId {
     fn gen_type(&self, _: &mut TypeEquations) -> TResult {
-        Ok(Type::Type(self.clone()))
+        Ok(Type::Type(TypeSpec::TypeId(self.clone())))
     }
 }
 

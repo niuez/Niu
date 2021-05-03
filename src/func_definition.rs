@@ -71,6 +71,9 @@ impl FuncDefinition {
         trs.into_scope();
 
         for (ty_id, trait_id) in self.generics.iter() {
+            if let Some(trait_id) = trait_id {
+                trs.regist_param_candidate(equs, &TypeSpec::TypeId(ty_id.clone()), trait_id)?;
+            }
         }
 
         for (i, t) in self.args.iter() {

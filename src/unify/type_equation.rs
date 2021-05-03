@@ -6,10 +6,11 @@ use crate::func_definition::{ FuncDefinitionInfo, FuncDefinition };
 use crate::trans::*;
 use crate::traits::*;
 use crate::unify::*;
+use crate::type_spec::*;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Type {
-    Type(TypeId),
+    Type(TypeSpec),
     Func(Vec<Type>, Box<Type>),
     TypeVariable(TypeVariable),
     AssociatedType(Box<Type>, AssociatedType),
@@ -266,7 +267,7 @@ impl TypeEquations {
 fn test_unify() {
     let mut traits_info = TraitsInfo::new();
     traits_info.regist_trait(&parse_trait_definition("trait MyTrait { type Output; }").unwrap().1);
-    traits_info.regist_trait_impl(&parse_impl_trait("impl MyTrait for i64 { type Output = bool; }").unwrap().1);
+    traits_info.regist_impl_candidate(&parse_impl_candidate("impl MyTrait for i64 { type Output = bool; }").unwrap().1);
     let mut equs = TypeEquations::new();
     let left = equs.get_type_variable();
     let right = crate::type_spec::parse_type_spec("i64#MyTrait::Output").unwrap().1.gen_type(&mut equs).unwrap();

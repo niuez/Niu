@@ -13,7 +13,7 @@ use crate::trans::*;
 #[derive(Debug)]
 pub struct FullContent {
     pub traits: Vec<TraitDefinition>,
-    pub impls: Vec<ImplTrait>,
+    pub impls: Vec<ImplCandidate>,
     pub funcs: Vec<FuncDefinition>,
 }
 
@@ -26,7 +26,7 @@ impl FullContent {
     }
     fn regist_impls(&mut self, trs: &mut TraitsInfo) -> Result<(), String> {
         for im in self.impls.iter() {
-            trs.regist_trait_impl(im)?;
+            trs.regist_impl_candidate(im)?;
         }
         Ok(())
     }
@@ -75,7 +75,7 @@ impl Transpile for FullContent {
 enum ContentElement {
     Func(FuncDefinition),
     Trait(TraitDefinition),
-    ImplTrait(ImplTrait),
+    ImplTrait(ImplCandidate),
 }
 
 fn parse_element_func(s: &str) -> IResult<&str, ContentElement> {
@@ -89,7 +89,7 @@ fn parse_element_trait(s: &str) -> IResult<&str, ContentElement> {
 }
 
 fn parse_element_impl_trait(s: &str) -> IResult<&str, ContentElement> {
-    let (s, it) = parse_impl_trait(s)?;
+    let (s, it) = parse_impl_candidate(s)?;
     Ok((s, ContentElement::ImplTrait(it)))
 }
 
@@ -196,4 +196,16 @@ fn gentype_full_test6() {
 #[test]
 fn parse_content_element_test() {
     println!("{:?}", parse_full_content("trait MyTrait { type Output; } impl MyTrait for i64 { type Output = u64; } fn equ(a: i64) -> i64 { a }"));
+}
+
+
+#[test]
+fn unify_test_for_selection_candidate() {
+    let prog = "trait MyTrait { type Output; } impl MyTrait for i64 { type Output = u64; } fn equ<T: MyTrait>(t: T) -> T { t } fn apply(a: i64) -> i64 { equ(a) }";
+    
+    let (s, mut t) = parse_full_content(prog).unwrap();
+    println!("{:?}", s);
+    println!("{:?}", t);
+    let ta = t.type_check().unwrap();
+    println!("{:#?}", ta);
 }

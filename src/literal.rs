@@ -11,6 +11,7 @@ use crate::unary_expr::UnaryExpr;
 use crate::type_id::TypeId;
 use crate::unify::*;
 use crate::trans::*;
+use crate::type_spec::TypeSpec;
 
 #[derive(Debug)]
 pub enum Literal {
@@ -22,9 +23,9 @@ pub enum Literal {
 impl GenType for Literal {
     fn gen_type(&self, _: &mut TypeEquations) -> TResult {
         match *self {
-            Literal::U64(_) => Ok(Type::Type(TypeId::from_str("u64"))),
-            Literal::I64(_) => Ok(Type::Type(TypeId::from_str("i64"))),
-            Literal::Boolean(_) => Ok(Type::Type(TypeId::from_str("bool"))),
+            Literal::U64(_) => Ok(Type::Type(TypeSpec::TypeId(TypeId::from_str("u64")))),
+            Literal::I64(_) => Ok(Type::Type(TypeSpec::TypeId(TypeId::from_str("i64")))),
+            Literal::Boolean(_) => Ok(Type::Type(TypeSpec::TypeId(TypeId::from_str("bool")))),
         }
     }
 }
