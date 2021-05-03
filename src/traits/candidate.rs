@@ -12,6 +12,7 @@ use crate::unify::*;
 //use crate::unary_expr::Variable;
 use crate::trans::*;
 use crate::traits::*;
+use crate::func_definition::*;
 
 #[derive(Debug, Clone)]
 pub enum SelectionCandidate {
@@ -43,11 +44,12 @@ impl SelectionCandidate {
 
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct ImplDefinition {
     pub trait_id: TraitId,
     pub impl_ty: TypeSpec,
     pub asso_defs: HashMap<AssociatedTypeIdentifier, TypeSpec>,
+    pub require_methods: HashMap<Identifier, FuncDefinition>,
 }
 
 impl ImplDefinition {
@@ -59,6 +61,20 @@ impl ImplDefinition {
         }))
     }
 }
+
+pub fn parse_impl_definition(s: &str) -> IResult<&str, ImplDefinition> {
+    let (s, (_, _, trait_id, _, _, _, impl_ty, _, _, _, many_types, many_methods, _, _)) = 
+        tuple((tag("impl"), space1, parse_trait_id,
+            space1, tag("for"), space1, parse_type_spec,
+            space0, char('{'), space0,
+            many0(tuple((tag("type"), space1, parse_associated_type_identifier, space0, char('='), space0, parse_type_spec, space0, char(';'), space0))),
+            many0(tuple((parse_func_definition, space0))),
+            space0, char('}')))(s)?;
+    let asso_defs = many_types.into_iter().map(|(_, _, id, _, _, _, ty, _, _, _)| (id, ty)).collect();
+    let require_methods = many_methods.into_iter().map(|(func, _)| (func.func_id.clone(), func)).collect();
+    Ok((s, ImplDefinition { trait_id, impl_ty, asso_defs, require_methods }))
+}
+
 
 #[derive(Debug, Clone)]
 pub struct ImplCandidate {
@@ -90,17 +106,6 @@ impl ImplCandidate {
     }
 }
 
-
-pub fn parse_impl_definition(s: &str) -> IResult<&str, ImplDefinition> {
-    let (s, (_, _, trait_id, _, _, _, impl_ty, _, _, _, many_types, _, _)) = 
-        tuple((tag("impl"), space1, parse_trait_id,
-            space1, tag("for"), space1, parse_type_spec,
-            space0, char('{'), space0,
-            many0(tuple((tag("type"), space1, parse_associated_type_identifier, space0, char('='), space0, parse_type_spec, space0, char(';'), space0))),
-            space0, char('}')))(s)?;
-    let asso_defs = many_types.into_iter().map(|(_, _, id, _, _, _, ty, _, _, _)| (id, ty)).collect();
-    Ok((s, ImplDefinition { trait_id, impl_ty, asso_defs }))
-}
 
 #[derive(Debug, Clone)]
 pub struct ParamCandidate {

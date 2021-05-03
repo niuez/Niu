@@ -49,6 +49,28 @@ impl FuncDefinitionInfo {
         Ok(Type::Func(args, Box::new(return_type)))
     }
 
+    pub fn check_equal(&self, right: &Self, equs: &mut TypeEquations, trs: &TraitsInfo) -> Result<(), String> {
+        if self.generics != right.generics {
+            Err(format!("generics of method {:?} is not matched", self.func_id))?;
+        }
+        let mut mp = HashMap::new();
+        for gt in self.generics.iter() {
+            let (id, tr) = gt.clone();
+            let ty_var = equs.get_type_variable();
+            mp.insert(id, ty_var.clone());
+            if let Some(tr) = tr {
+                equs.add_has_trait(ty_var, tr);
+            }
+        }
+        let self_args = self.args.iter().map(|(_, t)| t.generics_to_type(&mp, equs)).collect::<Result<Vec<Type>, String>>()?;
+        let right_args = right.args.iter().map(|(_, t)| t.generics_to_type(&mp, equs)).collect::<Result<Vec<Type>, String>>()?;
+        let self_return_type = self.return_type.generics_to_type(&mp, equs)?;
+        let right_return_type = right.return_type.generics_to_type(&mp, equs)?;
+        equs.add_equation(Type::Func(self_args, Box::new(self_return_type)), Type::Func(right_args, Box::new(right_return_type)));
+        equs.unify(trs)?;
+        Ok(())
+    }
+
     pub fn get_generics_annotation(&self, ta: &mut TypeAnnotation) -> String {
         if self.generics.len() > 0 {
             let gen = self.generics.iter().map(|_| { let res = ta.annotation(); ta.count(); res.transpile(ta) })

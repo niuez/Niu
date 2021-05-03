@@ -90,6 +90,7 @@ pub struct TypeEquations {
     pub cnt: usize,
     variables: Vec<HashMap<Variable, Type>>,
     equs: Vec<TypeEquation>,
+    self_type: Option<Type>,
 }
 
 #[derive(Debug)]
@@ -110,8 +111,15 @@ impl TypeEquations {
             func: HashMap::new(),
             equs: Vec::new(),
             cnt: 0,
-            variables: Vec::new()
+            variables: Vec::new(),
+            self_type: None,
         }
+    }
+    pub fn set_self_type(&mut self, self_type: Option<Type>) {
+        self.self_type = self_type;
+    }
+    pub fn get_self_type(&self) -> Option<Type> {
+        self.self_type.clone()
     }
     pub fn add_has_trait(&mut self, ty: Type, tr: TraitId) {
         self.equs.push(TypeEquation::HasTrait(ty, tr));

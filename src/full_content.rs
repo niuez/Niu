@@ -209,3 +209,15 @@ fn unify_test_for_selection_candidate() {
 
     println!("```cpp\n{}```\n", t.transpile(&mut ta));
 }
+
+#[test]
+fn unify_test_for_impl() {
+    let prog = "trait MyTrait { type Output; fn out(a: Self) -> Self#MyTrait::Output; } impl MyTrait for i64 { type Output = u64; fn out(a: i64) -> u64 { 1u64 }}";
+    let (s, mut t) = parse_full_content(prog).unwrap();
+    println!("{:?}", s);
+    println!("{:?}", t);
+    let mut ta = t.type_check().unwrap();
+    println!("{:#?}", ta);
+
+    println!("```cpp\n{}```\n", t.transpile(&mut ta));
+}

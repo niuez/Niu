@@ -17,8 +17,13 @@ impl TypeId {
 }
 
 impl GenType for TypeId {
-    fn gen_type(&self, _: &mut TypeEquations) -> TResult {
-        Ok(Type::Type(TypeSpec::TypeId(self.clone())))
+    fn gen_type(&self, equs: &mut TypeEquations) -> TResult {
+        if self.id.into_string() == "Self" {
+            Ok(equs.get_self_type().unwrap())
+        }
+        else {
+            Ok(Type::Type(TypeSpec::TypeId(self.clone())))
+        }
     }
 }
 

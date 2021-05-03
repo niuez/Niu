@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 pub mod associated_type;
 pub use associated_type::*;
 
@@ -37,14 +39,14 @@ pub fn parse_trait_id(s: &str) -> IResult<&str, TraitId> {
 pub struct TraitDefinition {
     pub trait_id: TraitId,
     pub asso_ids: Vec<AssociatedTypeIdentifier>,
-    pub required_methods: Vec<FuncDefinitionInfo>,
+    pub required_methods: HashMap<Identifier, FuncDefinitionInfo>,
 }
 
 #[derive(Debug, Clone)]
 pub struct TraitDefinitionInfo {
     pub trait_id: TraitId,
     pub asso_ids: Vec<AssociatedTypeIdentifier>,
-    pub required_methods: Vec<FuncDefinitionInfo>,
+    pub required_methods: HashMap<Identifier, FuncDefinitionInfo>,
 }
 
 impl TraitDefinition {
@@ -71,7 +73,7 @@ pub fn parse_trait_definition(s: &str) -> IResult<&str, TraitDefinition> {
             many0(tuple((parse_func_definition_info, space0, char(';'), space0))),
             space0, char('}')))(s)?;
     let asso_ids = many_types.into_iter().map(|(_, _, id, _, _, _)| id).collect();
-    let required_methods = many_methods.into_iter().map(|(info, _, _, _)| info).collect();
+    let required_methods = many_methods.into_iter().map(|(info, _, _, _)| (info.func_id.clone(), info)).collect();
     Ok((s, TraitDefinition { trait_id, asso_ids, required_methods }))
 }
 

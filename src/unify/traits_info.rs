@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use crate::traits::*;
 use crate::type_spec::*;
 use crate::unify::*;
+use crate::func_definition::*;
 
 #[derive(Debug)]
 pub struct TraitsInfo {
@@ -37,12 +38,23 @@ impl TraitsInfo {
 
     pub fn regist_impl_candidate(&mut self, ti: &ImplDefinition) -> Result<(), String> {
         let (trait_id, cand) = ti.get_impl_trait_pair();
-        if self.traits.get(&trait_id).is_none() {
-            Err(format!("trait {:?} is not defined", trait_id))
-        }
-        else {
-            self.regist_selection_candidate(&trait_id, cand);
-            Ok(())
+        self.regist_selection_candidate(&trait_id, cand);
+        match self.traits.get(&trait_id) {
+            None => Err(format!("trait {:?} is not defined", trait_id)),
+            Some(tr) => {
+                for (id, info) in tr.required_methods.iter() {
+                    match ti.require_methods.get(id) {
+                        None => Err(format!("method {:?}::{:?} is not defined for {:?}", tr, id, ti.impl_ty))?,
+                        Some(impl_method) => {
+                            let mut equs = TypeEquations::new();
+                            let impl_ty = ti.impl_ty.gen_type(&mut equs)?;
+                            equs.set_self_type(Some(impl_ty));
+                            info.check_equal(&impl_method.get_func_info().1, &mut equs, self)?;
+                        }
+                    }
+                }
+                Ok(())
+            }
         }
     }
     pub fn regist_param_candidate(&mut self, _equs: &mut TypeEquations, ty_spec: &TypeSpec, trait_id: &TraitId) -> Result<(), String> {
@@ -84,4 +96,3 @@ impl TraitsInfo {
         ans
     }
 }
-
