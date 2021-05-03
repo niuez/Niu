@@ -54,6 +54,14 @@ impl FullContent {
 impl Transpile for FullContent {
     fn transpile(&self, ta: &mut TypeAnnotation) -> String {
         let mut res = "#include <bits/stdc++.h>\n\n".to_string();
+        for t in self.traits.iter() {
+            let s = t.transpile(ta);
+            res.push_str(&s);
+        }
+        for i in self.impls.iter() {
+            let s = i.transpile(ta);
+            res.push_str(&s);
+        }
         for f in self.funcs.iter() {
             let s = f.transpile(ta);
             res.push_str(&s);
@@ -193,10 +201,11 @@ fn parse_content_element_test() {
 #[test]
 fn unify_test_for_selection_candidate() {
     let prog = "trait MyTrait { type Output; } impl MyTrait for u64 { type Output = u64; } fn equ<T: MyTrait>(t: T) -> T { t } fn apply<A: MyTrait>(a: A) -> A { equ(a) }";
-    
     let (s, mut t) = parse_full_content(prog).unwrap();
     println!("{:?}", s);
     println!("{:?}", t);
-    let ta = t.type_check().unwrap();
+    let mut ta = t.type_check().unwrap();
     println!("{:#?}", ta);
+
+    println!("```cpp\n{}```\n", t.transpile(&mut ta));
 }

@@ -44,6 +44,12 @@ impl TraitDefinition {
     }
 }
 
+impl Transpile for TraitDefinition {
+    fn transpile(&self, ta: &mut TypeAnnotation) -> String {
+        format!("template<class Self, class = void> struct {} {{ }};\n", self.trait_id.transpile(ta))
+    }
+}
+
 pub fn parse_trait_definition(s: &str) -> IResult<&str, TraitDefinition> {
     let (s, (_, _, trait_id, _, _, _, many_types, _, _)) = 
         tuple((tag("trait"), space1, parse_trait_id,
@@ -91,6 +97,15 @@ pub struct ImplCandidate {
     pub asso_defs: HashMap<AssociatedTypeIdentifier, TypeSpec>,
 }
 
+impl Transpile for ImplCandidate {
+    fn transpile(&self, ta: &mut TypeAnnotation) -> String {
+        let impl_def = format!("template<> class {}<{}>", self.trait_id.transpile(ta), self.impl_ty.transpile(ta));
+        let asso_defs = self.asso_defs.iter().map(|(id, spec)| {
+            format!("using {} = {};\n", id.transpile(ta), spec.transpile(ta))
+        }).collect::<Vec<_>>().join(" ");
+        format!("{} {{\n static constexpr bool value = true;\n{}}};\n", impl_def, asso_defs)
+    }
+}
 
 impl ImplCandidate {
     pub fn get_impl_trait_pair(&self) -> (TraitId, SelectionCandidate) {
@@ -107,6 +122,7 @@ impl ImplCandidate {
         self.asso_defs.get(asso_id).unwrap().gen_type(equs).unwrap()
     }
 }
+
 
 pub fn parse_impl_candidate(s: &str) -> IResult<&str, ImplCandidate> {
     let (s, (_, _, trait_id, _, _, _, impl_ty, _, _, _, many_types, _, _)) = 
