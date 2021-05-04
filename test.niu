@@ -1,9 +1,19 @@
 trait MyTrait {
-  type Output; 
-  fn out(a: Self) -> Self#MyTrait::Output;
+  type Associated;
+  fn func(t: Self) -> Self#MyTrait::Associated;
 }
+
 impl MyTrait for i64 {
-  type Output = u64;
-  fn out(a: i64) -> u64 { 1u64 }
+  type Associated = u64;
+  fn func(t: i64) -> i64#MyTrait::Associated {
+    1u64
+  }
 }
-fn apply<T: MyTrait>(t: T) -> T#MyTrait::Output { T#MyTrait.out(t) }
+
+fn apply<T: MyTrait>(t: T) -> T#MyTrait::Associated {
+  T#MyTrait.func(t)
+}
+
+fn apply_for_i64(t: i64) -> i64#MyTrait::Associated {
+  apply(t)
+}

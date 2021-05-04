@@ -24,7 +24,9 @@ pub mod trans;
 
 pub mod traits;
 
-fn type_check() -> Result<(), String> {
+use crate::trans::Transpile;
+
+fn type_check() -> Result<String, String> {
     let args = std::env::args().collect::<Vec<_>>();
     let filename = args.get(1).ok_or("no filepath")?;
     let program = std::fs::read_to_string(filename).map_err(|_| format!("cant open {}", filename))?;
@@ -34,10 +36,14 @@ fn type_check() -> Result<(), String> {
         Err(format!("parse error, remaining -> {}", s))
     }
     else {
-        t.type_check().map(|_| ())
+        let mut ta = t.type_check()?;
+        Ok(t.transpile(&mut ta))
     }
 }
 
 fn main() {
-    println!("{:?}", type_check());
+    match type_check() {
+        Ok(prog) => println!("{}", prog),
+        err => println!("{:?}", err),
+    }
 }

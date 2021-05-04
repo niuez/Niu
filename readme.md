@@ -1,113 +1,49 @@
-## ToDo
+# Niu Language
 
-- `struct`
-- `impl`
-- `Trait`
-- `C++のインポート`
+Niu言語は, 競技プログラミングにおけるライブラリ制作のための言語です. 開発段階なので注意してください.
 
-## Trait
+## 背景
 
-### 関数呼び出しについて
+競技プログラミングではC++を使う人口が多いです. 理由としては, 
 
-`x.func(...)`を, xが持っているトレイト中の関数の呼び出しに対応させる.  
-わかりやすさのため, 最初は`x.MyTrait::func(...)`という形で実装する(自動解決はさせない).
+- 競技中は型について気を配る時間がなく, 暗黙の型変換で済んでしまう
+- 破壊的代入をしやすい
+- 標準ライブラリが豊富
+- それなりの実行速度がある
 
-### genericsのトレイト境界チェック
+また, 競技プログラミングでもC++に代わる言語としてRustが注目され始めています. 
+こちらは競技プログラミングの中でもライブラリ(コンテスト前にあらかじめ用意しておく, よく使うデータ構造・アルゴリズムを実装しておいたもの)の制作に向いています.
 
-トレイト境界チェックはいつするの
+- トレイト制約による可読性のあるコードやコンパイルエラー表示
+- デフォルトでmoveするので, 気づかないデータのコピーが起こらない
+- ライフタイムによる参照切れのチェック
+- enum, matchなどの構文
+- ブロック文が値を返すことができる
+- C++と同等の実行速度
 
-例
+使いたい言語がふたつあると, コンテスト用と観賞用の2種類のライブラリを書かなければいけません.  
+「ライブラリはRustで書きたいけど, 競技プログラミングのコンテストはC++で出たい」これを解決したいと思い, 開発し始めたのがNiu言語です.  
 
-```
-fn func<T: MyTrait>(t: Vec<T>) -> T::Output {
-  if t.is_empty() {
-    T::MyTrait::default()
-  }
-  else {
-    t[0].MyTrait::out()
-  }
-}
+- ライブラリ制作時は, Niu言語を使ってデータ構造・アルゴリズムを実装
+- コンテスト前にライブラリをC++にトランスパイル
+- コンテスト中はコピペで利用
 
-let t = Vec::new();
-let o = func(t);
-func2(o); // ここの型チェックを遅延させる必要があるかも
-t.push(T{}); // ここで型がきまる
-```
+が目標です.
 
-Rustで動作確認済み
+## 盛り込みたい機能
 
-```rust
-use std::fmt::Display;
+- C++のためのアノテーションを直す
+  - 下のようにトランスパイルする(C++で壊れないように)
+  - Niu: `let var = func(1, false)`
+  - C++: `int var = func<int, bool>(1, false)`
+- 構造体(Generics)
+- C++からの構造体・関数のインポート
+  - 例: `std::vector`
+  - Niu言語独自に`Vec`を作ってしまうと, 提出コードの肥大化が起こってしまう.
+  - Niu言語では`Vec`, トランスパイルしたC++のコードでは`std::vector`を使うコードに変換できればうれしい
+- ポインタ, 参照
 
-trait MyTrait {
-    type Output;
-    fn default() -> Self::Output;
-    fn out(&self) -> Self::Output;
-}
-
-
-fn my_func<T: MyTrait>(t: &Vec<T>) -> T::Output {
-  if t.is_empty() {
-    T::default()
-  }
-  else {
-    t[0].out()
-  }
-}
-
-struct Test {}
-
-impl MyTrait for Test {
-    type Output = i64;
-    fn default() -> Self::Output {
-        0
-    }
-    fn out(&self) -> Self::Output {
-        1
-    }
-}
-
-fn func2<T: Display>(n: T) {
-    println!("{}", n);
-}
-
-fn main() {
-    let mut t = Vec::new();
-    let o = my_func(&t);
-    func2(o); // ここの型チェックを遅延させる必要があるかも
-    t.push(Test{}); // ここで型がきまる
-}
-```
-
-参考: https://rustc-dev-guide.rust-lang.org/traits/resolution.html
-
-まずは
-```
-trait MyTrait {
-  type Output;
-}
-```
-だけの実装を目指す.
-
-- `i64#Mytrait::Output`の実装
-  - `fn i64_mytrait() -> i64#Mytrait::Output { }`をかけるようにする.
-  - TypeIdの改修 -> TypeSpec
-  - `solve_associated_type`によるAssociatedTypeの解決
-  - `T#MyTrait::Output`は解決しようがない（解決の方法が違う）
-    - Solvedのような扱いにして型変数で置き換える
-- トレイト境界チェックの遅延を実装する.
-  - `fn func<T: MyTrait>(t: T) -> T#Mytrait::Output {}`をかけるようにする.
-  - T: MyTrait -> ImplTraitではなく、別の型を用意して, enumとする
-    - Type::Type -> TypeSpecとして解決
-- トレイトを含めたトランスパイル
-- メンバ関数
-  - traitとimplで定義に矛盾がないかのチェック
-  
-
-- TypeAnotationがぶっ壊れてきたので、改修が必要
-  - アノテーションが必要な構文木に番号をたてて、それをあとで回収する
-
-## Progress
+## 現時点の機能
 
 ### literal
 
@@ -115,15 +51,7 @@ trait MyTrait {
 - `i64`: 数字 + `i64`
 - `bool`: `true`か`false` 
 
-### variable
-
-- 数字から始まっていない
-- 予約語に含まれていない
-- `a-z, A-Z, 0-9, \_` で構成される
-
-### Expression
-
-演算優先順序
+### Operator
 
 - `Or`
 - `And`
@@ -135,28 +63,54 @@ trait MyTrait {
 - `Add`, `Sub`
 - `Mul`, `Div`, `Rem`
 
-### Subseq
-
-- `Call`(関数呼び出し): `<unary_expr>(<args>)`
-
-### Parentheses
-
-`(<expression>)`
+今のところ演算に関する型チェックは, 左辺と右辺の型が同じであることしか確認してない.  
+`Or`, `And`, `Ord`については, 型が`bool`であるかのチェックも行っている.
 
 ### Block
 
-`<statement>; ... ; <expression>`
+`let var = { let a = 1 + 2; a * 2 };`  
+`void`に対応してないので返す値がないと壊れます
 
-### LetDeclaration
+### Method
 
-`let <variable> = <expression>`
+`fn func(a: i64 , b: i64) -> i64 { a + b }
+`void`に対応してないので返す値がないと壊れます
 
-### Function
+### Generics Method
 
-`fn <func-name>(<variable>: <type>) -> <type>`
+`fn func<T>(a: T) -> T { a }`
 
-### Generics
+### Trait
 
-`fn <func-name><generics>(<variable>: <type>) -> <type>`
+```
+trait MyTrait {
+  type Associated;
+  fn func(t: Self) -> Self#MyTrait::Associated;
+}
 
-### TypeCheck
+impl MyTrait for i64 {
+  type Associated = u64;
+  fn func(t: i64) -> i64#MyTrait::Associated {
+    1u64
+  }
+}
+
+fn apply<T: MyTrait>(t: T) -> T#MyTrait::Associated {
+  T#MyTrait.func(t)
+}
+
+fn apply_for_i64(t: i64) -> T#MyTrait::Associated {
+  apply(t)
+}
+```
+
+## 遊び方
+
+```
+cargo run test.niu
+```
+
+## 注意
+
+- ある条件で型チェックが無限ループする
+- Trait用のために改修したのでトランスパイルしたあとのC++のアノテーションの部分が壊れるかも

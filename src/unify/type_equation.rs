@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{ HashMap, VecDeque };
 
 use crate::unary_expr::Variable;
 use crate::func_definition::{ FuncDefinitionInfo, FuncDefinition };
@@ -96,7 +96,7 @@ pub struct TypeEquations {
     func: HashMap<Variable, FuncDefinitionInfo>,
     pub cnt: usize,
     variables: Vec<HashMap<Variable, Type>>,
-    equs: Vec<TypeEquation>,
+    equs: VecDeque<TypeEquation>,
     self_type: Option<Type>,
 }
 
@@ -116,7 +116,7 @@ impl TypeEquations {
     pub fn new() -> Self {
         Self {
             func: HashMap::new(),
-            equs: Vec::new(),
+            equs: VecDeque::new(),
             cnt: 0,
             variables: Vec::new(),
             self_type: None,
@@ -129,10 +129,10 @@ impl TypeEquations {
         self.self_type.clone()
     }
     pub fn add_has_trait(&mut self, ty: Type, tr: TraitId) {
-        self.equs.push(TypeEquation::HasTrait(ty, tr));
+        self.equs.push_back(TypeEquation::HasTrait(ty, tr));
     }
     pub fn add_equation(&mut self, left: Type, right: Type) {
-        self.equs.push(TypeEquation::Equal(left, right));
+        self.equs.push_back(TypeEquation::Equal(left, right));
     }
     pub fn get_type_variable(&mut self) -> Type {
         let i = self.cnt;
@@ -238,7 +238,7 @@ impl TypeEquations {
 
     pub fn unify(&mut self, trs: &TraitsInfo) -> Result<Vec<TypeSubst>, String> {
         let mut thetas = Vec::new();
-        while let Some(equation) = self.equs.pop() {
+        while let Some(equation) = self.equs.pop_front() {
             match equation {
                 TypeEquation::HasTrait(Type::Type(ty_spec), tr) => {
                     if !self.solve_has_trait(&Type::Type(ty_spec.clone()), &tr, trs) {
@@ -246,7 +246,7 @@ impl TypeEquations {
                     }
                 }
                 TypeEquation::HasTrait(left, right) => {
-                    self.equs.push(TypeEquation::HasTrait(left, right));
+                    self.equs.push_back(TypeEquation::HasTrait(left, right));
                 }
                 TypeEquation::Equal(left, right) => {
                     let left = self.solve_associated_type(left, trs)?;
@@ -256,25 +256,25 @@ impl TypeEquations {
                     match (left, right) {
                         (l, r) if l == r => {}
                         (Type::AssociatedType(b, a), right) => {
-                            self.equs.push(TypeEquation::Equal(Type::AssociatedType(b, a), right));
+                            self.equs.push_back(TypeEquation::Equal(Type::AssociatedType(b, a), right));
                         }
                         (left, Type::AssociatedType(b, a)) => {
-                            self.equs.push(TypeEquation::Equal(left, Type::AssociatedType(b, a)));
+                            self.equs.push_back(TypeEquation::Equal(left, Type::AssociatedType(b, a)));
                         }
                         (Type::TraitMethod(b, a), right) => {
-                            self.equs.push(TypeEquation::Equal(Type::TraitMethod(b, a), right));
+                            self.equs.push_back(TypeEquation::Equal(Type::TraitMethod(b, a), right));
                         }
                         (left, Type::TraitMethod(b, a)) => {
-                            self.equs.push(TypeEquation::Equal(left, Type::TraitMethod(b, a)));
+                            self.equs.push_back(TypeEquation::Equal(left, Type::TraitMethod(b, a)));
                         }
                         (Type::Func(l_args, l_return), Type::Func(r_args, r_return)) => {
                             if l_args.len() != r_args.len() {
                                 Err("length of args is not equal.")?;
                             }
                             for (l, r) in l_args.into_iter().zip(r_args.into_iter()) {
-                                self.equs.push(TypeEquation::Equal(l, r ));
+                                self.equs.push_back(TypeEquation::Equal(l, r ));
                             }
-                            self.equs.push(TypeEquation::Equal(*l_return, *r_return));
+                            self.equs.push_back(TypeEquation::Equal(*l_return, *r_return));
                         }
                         (Type::TypeVariable(lv), rt) => {
                             if rt.occurs(&lv) {
