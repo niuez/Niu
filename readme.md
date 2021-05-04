@@ -103,7 +103,9 @@ trait MyTrait {
 - メンバ関数
   - traitとimplで定義に矛盾がないかのチェック
   
-  
+
+- TypeAnotationがぶっ壊れてきたので、改修が必要
+  - アノテーションが必要な構文木に番号をたてて、それをあとで回収する
 
 ## Progress
 

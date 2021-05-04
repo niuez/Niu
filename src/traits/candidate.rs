@@ -59,7 +59,7 @@ pub struct ImplDefinition {
     pub trait_id: TraitId,
     pub impl_ty: TypeSpec,
     pub asso_defs: HashMap<AssociatedTypeIdentifier, TypeSpec>,
-    pub require_methods: HashMap<Identifier, FuncDefinition>,
+    pub require_methods: HashMap<TraitMethodIdentifier, FuncDefinition>,
 }
 
 impl ImplDefinition {
@@ -83,7 +83,7 @@ pub fn parse_impl_definition(s: &str) -> IResult<&str, ImplDefinition> {
             many0(tuple((parse_func_definition, space0))),
             space0, char('}')))(s)?;
     let asso_defs = many_types.into_iter().map(|(_, _, id, _, _, _, ty, _, _, _)| (id, ty)).collect();
-    let require_methods = many_methods.into_iter().map(|(func, _)| (func.func_id.clone(), func)).collect();
+    let require_methods = many_methods.into_iter().map(|(func, _)| (TraitMethodIdentifier { id: func.func_id.clone() }, func)).collect();
     Ok((s, ImplDefinition { trait_id, impl_ty, asso_defs, require_methods }))
 }
 
@@ -93,7 +93,7 @@ pub struct ImplCandidate {
     pub trait_id: TraitId,
     pub impl_ty: TypeSpec,
     pub asso_defs: HashMap<AssociatedTypeIdentifier, TypeSpec>,
-    pub require_methods: HashMap<Identifier, FuncDefinitionInfo>,
+    pub require_methods: HashMap<TraitMethodIdentifier, FuncDefinitionInfo>,
 }
 
 impl Transpile for ImplDefinition {
@@ -119,7 +119,7 @@ impl ImplCandidate {
     }
 
     pub fn get_trait_method_from_id(&self, equs: &mut TypeEquations, method_id: &TraitMethodIdentifier, subst: &Vec<TypeSubst>) -> Type {
-        self.require_methods.get(&method_id.id).unwrap().generate_type(equs).unwrap()
+        self.require_methods.get(&method_id).unwrap().generate_type(equs).unwrap()
     }
 }
 
@@ -129,12 +129,13 @@ pub struct ParamCandidate {
     pub trait_id: TraitId,
     pub impl_ty: Type,
     pub asso_defs: HashMap<AssociatedTypeIdentifier, Type>,
+    pub require_methods: HashMap<TraitMethodIdentifier, FuncDefinitionInfo>,
 }
 
 impl ParamCandidate {
-    pub fn new(trait_id: TraitId, impl_ty: Type, asso_defs: HashMap<AssociatedTypeIdentifier, Type>) -> SelectionCandidate {
+    pub fn new(trait_id: TraitId, impl_ty: Type, asso_defs: HashMap<AssociatedTypeIdentifier, Type>, require_methods: HashMap<TraitMethodIdentifier, FuncDefinitionInfo>) -> SelectionCandidate {
         SelectionCandidate::ParamCandidate(ParamCandidate {
-            trait_id, impl_ty, asso_defs,
+            trait_id, impl_ty, asso_defs, require_methods,
         })
     }
     pub fn match_impl_for_ty(&self, ty: &Type, trs: &TraitsInfo) -> Option<Vec<TypeSubst>> {
@@ -151,6 +152,9 @@ impl ParamCandidate {
     }
 
     pub fn get_trait_method_from_id(&self, equs: &mut TypeEquations, method_id: &TraitMethodIdentifier, subst: &Vec<TypeSubst>) -> Type {
-        unimplemented!("unimplemented")
+        let before_self_type = equs.set_self_type(Some(self.impl_ty.clone()));
+        let method_type = self.require_methods.get(method_id).unwrap().generate_type(equs).unwrap();
+        equs.set_self_type(before_self_type);
+        method_type
     }
 }

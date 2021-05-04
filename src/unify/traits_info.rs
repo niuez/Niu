@@ -66,9 +66,10 @@ impl TraitsInfo {
                 let cand = ParamCandidate::new(trait_id.clone(), Type::Type(ty_spec.clone()), tr_def.asso_ids.iter().map(|asso_id| {
                     (asso_id.clone(), Type::Type(TypeSpec::Associated(
                         Box::new(ty_spec.clone()), AssociatedType { trait_id: trait_id.clone(), type_id: asso_id.clone() }
-                        ))
+                        )),
                     )
-                }).collect());
+                }).collect(),
+                tr_def.required_methods.clone());
                 self.regist_selection_candidate(trait_id, cand);
                 Ok(())
             }

@@ -122,8 +122,8 @@ impl TypeEquations {
             self_type: None,
         }
     }
-    pub fn set_self_type(&mut self, self_type: Option<Type>) {
-        self.self_type = self_type;
+    pub fn set_self_type(&mut self, self_type: Option<Type>) -> Option<Type> {
+        std::mem::replace(&mut self.self_type, self_type)
     }
     pub fn get_self_type(&self) -> Option<Type> {
         self.self_type.clone()
