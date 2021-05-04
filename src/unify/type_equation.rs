@@ -146,7 +146,6 @@ impl TypeEquations {
         self.variables.pop();
     }
     pub fn regist_variable(&mut self, var: Variable, t: Type) {
-        println!("{:?} = {:?}", var, t);
         self.variables.last_mut().unwrap().insert(var.clone(), t.clone());
     }
     pub fn regist_func_info(&mut self, func: &FuncDefinition) {

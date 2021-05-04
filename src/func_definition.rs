@@ -99,8 +99,6 @@ impl FuncDefinition {
             }
         }
 
-        println!("trs = {:?}", trs);
-
         for (i, t) in self.args.iter() {
             let alpha = equs.get_type_variable();
             let t_type = t.gen_type(equs)?; 

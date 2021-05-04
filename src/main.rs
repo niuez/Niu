@@ -24,10 +24,20 @@ pub mod trans;
 
 pub mod traits;
 
+fn type_check() -> Result<(), String> {
+    let args = std::env::args().collect::<Vec<_>>();
+    let filename = args.get(1).ok_or("no filepath")?;
+    let program = std::fs::read_to_string(filename).map_err(|_| format!("cant open {}", filename))?;
+    let program = program.chars().map(|c| match c { '\n' => ' ', c => c }).collect::<String>();
+    let (s, mut t) = crate::full_content::parse_full_content(&program).map_err(|e| format!("{:?}", e))?;
+    if s != "" {
+        Err(format!("parse error, remaining -> {}", s))
+    }
+    else {
+        t.type_check().map(|_| ())
+    }
+}
+
 fn main() {
-    //println!("{:?}", parse_function_apply("func()"));
-    //println!("{:?}", parse_function_apply("func(1, 2)"));
-    //println!("{:?}", parse_function_apply("func(1, 2, 3,)"));
-    //println!("{:?}", parse_function_apply("func(   1,2,3,    )"));
-    //println!("{:?}", parse_function_apply("add(func(1), func(2), func(3))"));
+    println!("{:?}", type_check());
 }

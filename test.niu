@@ -1,0 +1,9 @@
+trait MyTrait {
+  type Output; 
+  fn out(a: Self) -> Self#MyTrait::Output;
+}
+impl MyTrait for i64 {
+  type Output = u64;
+  fn out(a: i64) -> u64 { 1u64 }
+}
+fn apply<T: MyTrait>(t: T) -> T#MyTrait::Output { T#MyTrait.out(t) }

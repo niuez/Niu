@@ -20,7 +20,6 @@ impl TraitsInfo {
         }
     }
     pub fn regist_trait(&mut self, tr: &TraitDefinition) -> Result<(), String> {
-        println!("tr = {:?}", tr);
         let (trait_id, trait_def) = tr.get_trait_id_pair();
         self.traits.insert(trait_id.clone(), trait_def)
             .map_or(Ok(()), |_| Err(format!("trait {:?} is already defined", trait_id)))
@@ -87,7 +86,6 @@ impl TraitsInfo {
     pub fn match_to_impls_for_type(&self, trait_id: &TraitId, ty: &Type) -> Vec<(Vec<TypeSubst>, &SelectionCandidate)> {
         let mut ans = Vec::new();
         for impls in self.impls.iter() {
-            println!("impl get {:?}", impls.get(trait_id));
             if let Some(impls) = impls.get(trait_id) {
                 let mut vs = impls.iter()
                     .map(|impl_trait| {
