@@ -60,7 +60,7 @@ impl Transpile for TypeSpec {
         match *self {
             TypeSpec::TypeId(ref id) => id.transpile(ta),
             TypeSpec::Associated(ref spec, AssociatedType { ref trait_id, ref type_id } ) => {
-                format!("{}<{}>::{}", trait_id.transpile(ta), type_id.transpile(ta), spec.transpile(ta))
+                format!("typename {}<{}>::{}", trait_id.transpile(ta), spec.transpile(ta), type_id.transpile(ta))
             }
         }
                 

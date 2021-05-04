@@ -38,6 +38,13 @@ impl FullContent {
         self.regist_traits(&mut trs)?;
         self.regist_impls(&mut trs)?;
 
+        for im in self.impls.iter() {
+            for TypeSubst { tv, t } in im.unify_require_methods(&mut equs, &mut trs)? {
+                ta.insert(tv, t);
+            }
+            equs.clear_equations();
+        }
+
         for f in self.funcs.iter() {
             equs.regist_func_info(f);
             ta.regist_func_info(f);
@@ -45,7 +52,6 @@ impl FullContent {
                 ta.insert(tv, t);
             }
             equs.clear_equations();
-            println!("{:?}", equs);
         }
         Ok(ta)
     }

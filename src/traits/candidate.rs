@@ -72,6 +72,17 @@ impl ImplDefinition {
         }))
     }
 
+    pub fn unify_require_methods(&self, equs: &mut TypeEquations, trs: &mut TraitsInfo) -> Result<Vec<TypeSubst>, String> {
+        let next_self_type = Some(self.impl_ty.gen_type(equs)?);
+        let before_self_type = equs.set_self_type(next_self_type);
+        let mut substs = Vec::new();
+        for def in self.require_methods.values() {
+            let mut subst = def.unify_definition(equs, trs)?;
+            substs.append(&mut subst);
+        }
+        equs.set_self_type(before_self_type);
+        Ok(substs)
+    }
 }
 
 pub fn parse_impl_definition(s: &str) -> IResult<&str, ImplDefinition> {
@@ -87,6 +98,17 @@ pub fn parse_impl_definition(s: &str) -> IResult<&str, ImplDefinition> {
     Ok((s, ImplDefinition { trait_id, impl_ty, asso_defs, require_methods }))
 }
 
+impl Transpile for ImplDefinition {
+    fn transpile(&self, ta: &mut TypeAnnotation) -> String {
+        let impl_def = format!("template<> struct {}<{}>", self.trait_id.transpile(ta), self.impl_ty.transpile(ta));
+        let asso_defs = self.asso_defs.iter().map(|(id, spec)| {
+            format!("using {} = {};\n", id.transpile(ta), spec.transpile(ta))
+        }).collect::<Vec<_>>().join(" ");
+        let require_methods = self.require_methods.iter().map(|(_, def)| format!("static {}", def.transpile(ta))).collect::<Vec<_>>().join("\n\n");
+        format!("{} {{\nstatic constexpr bool value = true;\n{}\n\n{}}};\n", impl_def, asso_defs, require_methods)
+    }
+}
+
 
 #[derive(Debug, Clone)]
 pub struct ImplCandidate {
@@ -96,15 +118,6 @@ pub struct ImplCandidate {
     pub require_methods: HashMap<TraitMethodIdentifier, FuncDefinitionInfo>,
 }
 
-impl Transpile for ImplDefinition {
-    fn transpile(&self, ta: &mut TypeAnnotation) -> String {
-        let impl_def = format!("template<> class {}<{}>", self.trait_id.transpile(ta), self.impl_ty.transpile(ta));
-        let asso_defs = self.asso_defs.iter().map(|(id, spec)| {
-            format!("using {} = {};\n", id.transpile(ta), spec.transpile(ta))
-        }).collect::<Vec<_>>().join(" ");
-        format!("{} {{\n static constexpr bool value = true;\n{}}};\n", impl_def, asso_defs)
-    }
-}
 
 impl ImplCandidate {
     pub fn match_impl_for_ty(&self, ty: &Type, trs: &TraitsInfo) -> Option<Vec<TypeSubst>> {
