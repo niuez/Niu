@@ -10,18 +10,18 @@ use nom::combinator::*;
 use crate::identifier::{ Identifier, parse_identifier };
 use crate::type_id::*;
 use crate::type_spec::*;
-use crate::statement::*;
+use crate::expression::*;
 //use crate::unary_expr::Variable;
 use crate::trans::*;
 
 #[derive(Debug)]
 pub struct StructInstantiation {
     pub struct_id: TypeId,
-    pub members: HashMap<Identifier, Statement>,
+    pub members: HashMap<Identifier, Expression>,
 }
 
-fn parse_member(s: &str) -> IResult<&str, (Identifier, Statement)> {
-    let (s, (id, _, _, _, ty)) = tuple((parse_identifier, space0, char(':'), space0, parse_statement))(s)?;
+fn parse_member(s: &str) -> IResult<&str, (Identifier, Expression)> {
+    let (s, (id, _, _, _, ty)) = tuple((parse_identifier, space0, char(':'), space0, parse_expression))(s)?;
     Ok((s, (id, ty)))
 }
 
