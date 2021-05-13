@@ -24,6 +24,8 @@ pub mod trans;
 
 pub mod traits;
 
+pub mod structs;
+
 use crate::trans::Transpile;
 
 fn type_check() -> Result<String, String> {
