@@ -1,0 +1,49 @@
+use std::collections::HashMap;
+
+use nom::IResult;
+use nom::bytes::complete::*;
+use nom::character::complete::*;
+use nom::multi::*;
+use nom::sequence::*; 
+use nom::combinator::*;
+
+use crate::identifier::{ Identifier, parse_identifier };
+use crate::type_id::*;
+use crate::type_spec::*;
+use crate::statement::*;
+//use crate::unary_expr::Variable;
+use crate::trans::*;
+
+#[derive(Debug)]
+pub struct StructInstantiation {
+    pub struct_id: TypeId,
+    pub members: HashMap<Identifier, Statement>,
+}
+
+fn parse_member(s: &str) -> IResult<&str, (Identifier, Statement)> {
+    let (s, (id, _, _, _, ty)) = tuple((parse_identifier, space0, char(':'), space0, parse_statement))(s)?;
+    Ok((s, (id, ty)))
+}
+
+
+pub fn parse_struct_definition(s: &str) -> IResult<&str, StructInstantiation> {
+    let (s, (struct_id, _, _, _, opts, _)) = tuple((parse_type_id, space0, char('{'), space0,
+                         opt(tuple((parse_member, many0(tuple((space0, char(','), space0, parse_member))), opt(tuple((space0, char(',')))), space0))),
+                         char('}')))(s)?;
+    let members = match opts {
+        None => HashMap::new(),
+        Some((mem, mems, _, _)) => {
+            let mut vec = vec![mem];
+            for (_, _, _, mem) in mems {
+                vec.push(mem);
+            }
+            vec.into_iter().collect()
+        }
+    };
+    Ok((s, StructInstantiation { struct_id, members }))
+}
+
+#[test]
+fn parse_struct_instantiation_test() {
+    println!("{:?}", parse_struct_definition("MyStruct { a: 1i64 + 2i64, b: val, }"));
+}
