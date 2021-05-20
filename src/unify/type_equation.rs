@@ -6,6 +6,8 @@ use crate::trans::*;
 use crate::traits::*;
 use crate::unify::*;
 use crate::type_spec::*;
+use crate::type_id::*;
+use crate::structs::*;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Type {
@@ -91,9 +93,17 @@ pub enum TypeEquation {
     Equal(Type, Type),
 }
 
+#[derive(Debug, Clone)]
+pub enum StructDefinitionInfo {
+    Def(StructDefinition),
+    Generics,
+    Primitive
+}
+
 #[derive(Debug)]
 pub struct TypeEquations {
     func: HashMap<Variable, FuncDefinitionInfo>,
+    typeids: HashMap<TypeId, StructDefinitionInfo>,
     pub cnt: usize,
     variables: Vec<HashMap<Variable, Type>>,
     equs: VecDeque<TypeEquation>,
@@ -116,6 +126,10 @@ impl TypeEquations {
     pub fn new() -> Self {
         Self {
             func: HashMap::new(),
+            typeids: vec![
+                (TypeId::from_str("i64"), StructDefinitionInfo::Primitive),
+                (TypeId::from_str("u64"), StructDefinitionInfo::Primitive),
+                (TypeId::from_str("bool"), StructDefinitionInfo::Primitive)].into_iter().collect(),
             equs: VecDeque::new(),
             cnt: 0,
             variables: Vec::new(),
@@ -152,6 +166,22 @@ impl TypeEquations {
         let (fvar, finfo) = func.get_func_info();
         self.func.insert(fvar, finfo);
     }
+    pub fn regist_structs_info(&mut self, st: &StructDefinition) -> Result<(), String> {
+        let id = st.get_id();
+        match self.typeids.insert(id.clone(), StructDefinitionInfo::Def(st.clone())) {
+            Some(_) => Err(format!("duplicate struct definition: {:?}", id)),
+            None => Ok(()),
+        }
+    }
+    pub fn regist_generics_type(&mut self, generics_id: &TypeId) -> Result<(), String> {
+        match self.typeids.insert(generics_id.clone(), StructDefinitionInfo::Generics) {
+            Some(_) => Err(format!("duplicate generics definition: {:?}", generics_id)),
+            None => Ok(()),
+        }
+    }
+    pub fn delete_generics_type(&mut self, generics_id: &TypeId) {
+        self.typeids.remove(generics_id);
+    }
     pub fn get_type_from_variable(&mut self, var: &Variable) -> TResult {
         if let Some(func) = self.func.get(var).cloned() {
             return func.generate_type(self);
@@ -162,6 +192,12 @@ impl TypeEquations {
             }
         }
         Err(format!("Variable {:?} is not found", var))
+    }
+    pub fn check_typeid_exist(&self, id: &TypeId) -> TResult {
+       match self.typeids.contains_key(id) {
+           true => Ok(Type::Type(TypeSpec::TypeId(id.clone()))),
+           false => Err(format!("not exist definition: {:?}", id)),
+       }
     }
     pub fn clear_equations(&mut self) {
         self.equs.clear();

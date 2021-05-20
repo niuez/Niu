@@ -107,6 +107,19 @@ trait MyTrait {
 - TypeAnotationがぶっ壊れてきたので、改修が必要
   - アノテーションが必要な構文木に番号をたてて、それをあとで回収する
 
+### Let Destruct
+
+`let Hoge { a: a, b: Huga { c: c } } = hoge`は,
+
+```
+let tmp: Hoge = hoge;
+let a = tmp.a;
+let tmp1 = tmp.b;
+let c = tmp1.c;
+```
+
+というように型変数を定義していく
+
 ## Progress
 
 ### literal

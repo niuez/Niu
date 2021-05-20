@@ -11,8 +11,7 @@ use crate::identifier::{ Identifier, parse_identifier };
 use crate::type_id::*;
 use crate::type_spec::*;
 //use crate::unary_expr::Variable;
-use crate::trans::*;
-use crate::func_definition::*;
+use crate::unify::*;
 
 #[derive(Debug, Clone)]
 pub struct StructDefinition {
@@ -20,11 +19,16 @@ pub struct StructDefinition {
     pub members: HashMap<Identifier, TypeSpec>,
 }
 
+impl StructDefinition {
+    pub fn get_id(&self) -> TypeId {
+        self.struct_id.clone()
+    }
+}
+
 fn parse_member(s: &str) -> IResult<&str, (Identifier, TypeSpec)> {
     let (s, (id, _, _, _, ty)) = tuple((parse_identifier, space0, char(':'), space0, parse_type_spec))(s)?;
     Ok((s, (id, ty)))
 }
-
 
 pub fn parse_struct_definition(s: &str) -> IResult<&str, StructDefinition> {
     let (s, (_, _, struct_id, _, _, _, opts, _)) = tuple((tag("struct"), space1, parse_type_id, space0, char('{'), space0,

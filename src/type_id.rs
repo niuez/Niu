@@ -22,7 +22,7 @@ impl GenType for TypeId {
             Ok(equs.get_self_type().unwrap())
         }
         else {
-            Ok(Type::Type(TypeSpec::TypeId(self.clone())))
+            equs.check_typeid_exist(self)
         }
     }
 }
