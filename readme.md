@@ -104,6 +104,34 @@ fn apply_for_i64(t: i64) -> T#MyTrait::Associated {
 }
 ```
 
+### Struct
+
+```
+struct Pair {
+  a: i64,
+  b: i64,
+}
+
+trait Sum {
+  type Output;
+  fn sum(self: Self) -> Self#Sum::Output;
+}
+
+impl Sum for Pair {
+  type Output = i64;
+  fn sum(self: Pair) -> Pair#Sum::Output {
+    self.a + self.b
+  }
+}
+
+fn apply() -> i64 {
+  let p = Pair { a: 9i64, b: 1i64, };
+  Pair#Sum.sum(p)
+}
+
+```
+
+
 ## 遊び方
 
 ```
