@@ -23,6 +23,12 @@ impl StructDefinition {
     pub fn get_id(&self) -> TypeId {
         self.struct_id.clone()
     }
+    pub fn get_member_type(&self, equs: &mut TypeEquations, id: &Identifier) -> TResult {
+        match self.members.get(id) {
+            Some(spec) => spec.gen_type(equs),
+            None => Err(format!("{:?} doesnt have member {:?}", self.struct_id, id)),
+        }
+    }
 }
 
 fn parse_member(s: &str) -> IResult<&str, (Identifier, TypeSpec)> {

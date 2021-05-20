@@ -8,6 +8,7 @@ use crate::identifier::{ Identifier, parse_identifier };
 use crate::expression::{ Expression, parse_expression };
 use crate::subseq::{ Subseq, parse_subseq, subseq_gen_type, subseq_transpile };
 use crate::block::{ parse_block, Block };
+use crate::structs::*;
 use crate::unify::*;
 use crate::trans::*;
 use crate::type_spec::*;
@@ -20,6 +21,7 @@ pub enum UnaryExpr {
     Parentheses(Parentheses),
     Block(Block),
     Subseq(Box<UnaryExpr>, Subseq),
+    StructInst(StructInstantiation),
     TraitMethod(TypeSpec, TraitMethod),
 }
 
@@ -31,6 +33,7 @@ impl GenType for UnaryExpr {
             UnaryExpr::Parentheses(ref p) => p.gen_type(equs),
             UnaryExpr::Block(ref b) => b.gen_type(equs),
             UnaryExpr::Subseq(ref expr, ref s) => subseq_gen_type(expr.as_ref(), s, equs),
+            UnaryExpr::StructInst(ref inst) => inst.gen_type(equs),
             UnaryExpr::TraitMethod(ref spec, ref tr_id) => Ok(Type::TraitMethod(Box::new(spec.gen_type(equs)?), tr_id.clone())),
         }
     }
@@ -44,6 +47,7 @@ impl Transpile for UnaryExpr {
             UnaryExpr::Parentheses(ref p) => p.transpile(ta),
             UnaryExpr::Block(ref b) => format!("[&](){{ {} }}()", b.transpile(ta)),
             UnaryExpr::Subseq(ref expr, ref s) => subseq_transpile(expr.as_ref(), s, ta),
+            UnaryExpr::StructInst(ref inst) => format!("!!!instantiation is unimplemented!!!"),
             UnaryExpr::TraitMethod(ref spec, TraitMethod { ref trait_id, ref method_id }) => {
                 format!("{}<{}>::{}", trait_id.transpile(ta), spec.transpile(ta), method_id.transpile(ta))
             }
@@ -54,6 +58,7 @@ impl Transpile for UnaryExpr {
 pub fn parse_unary_expr(s: &str) -> IResult<&str, UnaryExpr> {
     let (s, x) = alt((
             parse_unary_trait_method,
+            parse_struct_instantiation,
             parse_literal,
             parse_parentheses,
             parse_bracket_block,
@@ -133,6 +138,7 @@ fn parse_unary_expr_test() {
     println!("{:?}", parse_unary_expr("func(1, 2, 3)"));
     println!("{:?}", parse_unary_expr("add(1, add(2, 3), 4)"));
     println!("{:?}", parse_unary_expr("generate_func(91)(1333)"));
+    println!("{:?}", parse_unary_expr("MyStruct { a: 1i64 + 2i64, b: val, }"));
     println!("{:?}", parse_unary_expr("generate_func(31 * 91, 210)(1333 / 5 * 3)"));
 }
 #[test]

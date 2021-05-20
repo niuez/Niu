@@ -9,9 +9,11 @@ use crate::func_definition::{ FuncDefinition, parse_func_definition };
 use crate::traits::*;
 use crate::unify::*;
 use crate::trans::*;
+use crate::structs::*;
 
 #[derive(Debug)]
 pub struct FullContent {
+    pub structs: Vec<StructDefinition>,
     pub traits: Vec<TraitDefinition>,
     pub impls: Vec<ImplDefinition>,
     pub funcs: Vec<FuncDefinition>,
@@ -34,6 +36,11 @@ impl FullContent {
         let mut equs = TypeEquations::new();
         let mut ta = TypeAnnotation::new();
         let mut trs = TraitsInfo::new();
+
+        for st in self.structs.iter() {
+            println!("regist {:?}", st);
+            equs.regist_structs_info(&st)?;
+        }
 
         self.regist_traits(&mut trs)?;
         self.regist_impls(&mut trs)?;
@@ -78,9 +85,15 @@ impl Transpile for FullContent {
 
 #[derive(Debug)]
 enum ContentElement {
+    Struct(StructDefinition),
     Func(FuncDefinition),
     Trait(TraitDefinition),
     ImplTrait(ImplDefinition),
+}
+
+fn parse_element_struct(s: &str) -> IResult<&str, ContentElement> {
+    let (s, f) = parse_struct_definition(s)?;
+    Ok((s, ContentElement::Struct(f)))
 }
 
 fn parse_element_func(s: &str) -> IResult<&str, ContentElement> {
@@ -99,23 +112,25 @@ fn parse_element_impl_trait(s: &str) -> IResult<&str, ContentElement> {
 }
 
 fn parse_content_element(s: &str) -> IResult<&str, ContentElement> {
-    alt((parse_element_func, parse_element_trait, parse_element_impl_trait))(s)
+    alt((parse_element_struct, parse_element_func, parse_element_trait, parse_element_impl_trait))(s)
 }
 
 pub fn parse_full_content(s: &str) -> IResult<&str, FullContent> {
     let (s, (_, elems, _)) = tuple((space0, many0(tuple((parse_content_element, space0))), space0))(s)?;
-
+    
+    let mut structs = Vec::new();
     let mut funcs = Vec::new();
     let mut traits = Vec::new();
     let mut impls = Vec::new();
     for (e, _) in elems {
         match e {
+            ContentElement::Struct(s) => structs.push(s),
             ContentElement::Func(f) => funcs.push(f),
             ContentElement::Trait(t) => traits.push(t),
             ContentElement::ImplTrait(it) => impls.push(it),
         }
     }
-    Ok((s, FullContent { funcs, traits, impls, }))
+    Ok((s, FullContent { structs, funcs, traits, impls, }))
 }
 
 #[test]

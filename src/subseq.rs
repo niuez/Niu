@@ -27,7 +27,8 @@ pub fn subseq_gen_type(uexpr: &UnaryExpr, subseq: &Subseq, equs: &mut TypeEquati
             Ok(return_type)
         }
         Subseq::Member(ref mem) => {
-            unimplemented!()
+            let st = uexpr.gen_type(equs)?;
+            Ok(Type::Member(Box::new(st), mem.mem_id.clone()))
         }
     }
 
@@ -42,7 +43,8 @@ pub fn subseq_transpile(uexpr: &UnaryExpr, subseq: &Subseq, ta: &mut TypeAnnotat
             format!("{}({})", caller, args)
         }
         Subseq::Member(ref mem) => {
-            unimplemented!()
+            let caller = uexpr.transpile(ta);
+            format!("{}.{}", caller, mem.mem_id.into_string())
         }
     }
 }
