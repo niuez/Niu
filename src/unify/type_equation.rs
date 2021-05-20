@@ -75,6 +75,28 @@ impl Type {
         }
     }
 
+    fn check_typeid(self, trs: &TraitsInfo) -> TResult {
+        let res = match self {
+            Type::Func(args, ret) => 
+                Type::Func(
+                    args.into_iter().map(|a| a.check_typeid(trs)).collect::<Result<_,_>>()?,
+                    Box::new((*ret).check_typeid(trs)?)
+                ),
+            Type::Type(ty) => ty.check_typeid(trs)?,
+            Type::AssociatedType(ty, asso) =>
+                Type::AssociatedType(Box::new(ty.check_typeid(trs)?), asso),
+            Type::TraitMethod(ty, tr) =>
+                Type::TraitMethod(Box::new(ty.check_typeid(trs)?), tr),
+            Type::Member(ty, id) =>
+                Type::Member(Box::new(ty.check_typeid(trs)?), id),
+            Type::End =>
+                Type::End,
+            // TypeVariable
+            t => t,
+        };
+        Ok(res)
+    }
+
     fn clone_type_variable(&self) -> TypeVariable {
         if let Type::TypeVariable(ref tv) = *self { tv.clone() }
         else { unreachable!("it is not TypeVariable") }
@@ -101,17 +123,9 @@ pub enum TypeEquation {
     Equal(Type, Type),
 }
 
-#[derive(Debug, Clone)]
-pub enum StructDefinitionInfo {
-    Def(StructDefinition),
-    Generics,
-    Primitive
-}
-
 #[derive(Debug)]
 pub struct TypeEquations {
     func: HashMap<Variable, FuncDefinitionInfo>,
-    typeids: HashMap<TypeId, StructDefinitionInfo>,
     pub cnt: usize,
     variables: Vec<HashMap<Variable, Type>>,
     equs: VecDeque<TypeEquation>,
@@ -134,10 +148,6 @@ impl TypeEquations {
     pub fn new() -> Self {
         Self {
             func: HashMap::new(),
-            typeids: vec![
-                (TypeId::from_str("i64"), StructDefinitionInfo::Primitive),
-                (TypeId::from_str("u64"), StructDefinitionInfo::Primitive),
-                (TypeId::from_str("bool"), StructDefinitionInfo::Primitive)].into_iter().collect(),
             equs: VecDeque::new(),
             cnt: 0,
             variables: Vec::new(),
@@ -147,8 +157,11 @@ impl TypeEquations {
     pub fn set_self_type(&mut self, self_type: Option<Type>) -> Option<Type> {
         std::mem::replace(&mut self.self_type, self_type)
     }
-    pub fn get_self_type(&self) -> Option<Type> {
-        self.self_type.clone()
+    pub fn get_self_type(&self) -> TResult {
+        match self.self_type.clone() {
+            Some(ty) => Ok(ty),
+            None => Err(format!("cant use Self")),
+        }
     }
     pub fn add_has_trait(&mut self, ty: Type, tr: TraitId) {
         self.equs.push_back(TypeEquation::HasTrait(ty, tr));
@@ -174,22 +187,6 @@ impl TypeEquations {
         let (fvar, finfo) = func.get_func_info();
         self.func.insert(fvar, finfo);
     }
-    pub fn regist_structs_info(&mut self, st: &StructDefinition) -> Result<(), String> {
-        let id = st.get_id();
-        match self.typeids.insert(id.clone(), StructDefinitionInfo::Def(st.clone())) {
-            Some(_) => Err(format!("duplicate struct definition: {:?}", id)),
-            None => Ok(()),
-        }
-    }
-    pub fn regist_generics_type(&mut self, generics_id: &TypeId) -> Result<(), String> {
-        match self.typeids.insert(generics_id.clone(), StructDefinitionInfo::Generics) {
-            Some(_) => Err(format!("duplicate generics definition: {:?}", generics_id)),
-            None => Ok(()),
-        }
-    }
-    pub fn delete_generics_type(&mut self, generics_id: &TypeId) {
-        self.typeids.remove(generics_id);
-    }
     pub fn get_type_from_variable(&mut self, var: &Variable) -> TResult {
         if let Some(func) = self.func.get(var).cloned() {
             return func.generate_type(self);
@@ -200,13 +197,6 @@ impl TypeEquations {
             }
         }
         Err(format!("Variable {:?} is not found", var))
-    }
-    pub fn check_typeid_exist(&self, id: &TypeId) -> TResult {
-       println!("{:?}", self.typeids);
-       match self.typeids.contains_key(id) {
-           true => Ok(Type::Type(TypeSpec::TypeId(id.clone()))),
-           false => Err(format!("not exist definition: {:?}", id)),
-       }
     }
     pub fn clear_equations(&mut self) {
         self.equs.clear();
@@ -273,7 +263,7 @@ impl TypeEquations {
                 if substs.len() == 1 {
                     let mut substs = substs;
                     let (subst, impl_trait) = substs.pop().unwrap();
-                    Ok(impl_trait.get_trait_method_from_id(self, &method_id, &subst))
+                    Ok(impl_trait.get_trait_method_from_id(self, trs, &method_id, &subst))
                 }
                 else {
                     Err(format!("type {:?} is not implemented trait {:?}", inner_ty, trait_id))
@@ -293,7 +283,7 @@ impl TypeEquations {
             let inner_ty = self.solve_relations(*inner_ty, trs)?;
             if let Type::Type(spec) = inner_ty {
                 if let TypeSpec::TypeId(ref typeid) = spec {
-                    match self.typeids.get(typeid).cloned().unwrap() {
+                    match trs.typeids.get(typeid).cloned().unwrap() {
                         StructDefinitionInfo::Def(def)  => def.get_member_type(self, &id),
                         StructDefinitionInfo::Generics  => Err(format!("generics type has no member: {:?}", typeid)),
                         StructDefinitionInfo::Primitive => Err(format!("primitive type has no member: {:?}", typeid)),
@@ -312,8 +302,20 @@ impl TypeEquations {
         }
     }
 
+    fn check_all_typeid_exist(&mut self, trs: &TraitsInfo) -> Result<(), String> {
+        self.equs = std::mem::take(&mut self.equs).into_iter().map(|equ| {
+            match equ {
+                TypeEquation::HasTrait(left, right) =>
+                    Ok(TypeEquation::HasTrait(left.check_typeid(trs)?, right)),
+                TypeEquation::Equal(left, right) =>
+                    Ok(TypeEquation::Equal(left.check_typeid(trs)?, right.check_typeid(trs)?)),
+            }}).collect::<Result<VecDeque<_>, String>>()?;
+        Ok(())
+    }
+
     pub fn unify(&mut self, trs: &TraitsInfo) -> Result<Vec<TypeSubst>, String> {
         let mut thetas = Vec::new();
+        self.check_all_typeid_exist(trs)?;
         while let Some(equation) = self.equs.pop_front() {
             match equation {
                 TypeEquation::HasTrait(Type::Type(ty_spec), tr) => {

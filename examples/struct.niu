@@ -10,8 +10,8 @@ trait Sum {
 
 impl Sum for Pair {
   type Output = i64;
-  fn sum(self: Self) -> Self#Sum::Output {
-    a.a + a.b
+  fn sum(self: Pair) -> Pair#Sum::Output {
+    self.a + self.b
   }
 }
 

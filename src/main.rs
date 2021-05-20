@@ -34,7 +34,6 @@ fn type_check() -> Result<String, String> {
     let program = std::fs::read_to_string(filename).map_err(|_| format!("cant open {}", filename))?;
     let program = program.chars().map(|c| match c { '\n' => ' ', c => c }).collect::<String>();
     let (s, mut t) = crate::full_content::parse_full_content(&program).map_err(|e| format!("{:?}", e))?;
-    println!("{:?}", t);
     if s != "" {
         Err(format!("parse error, remaining -> {}", s))
     }

@@ -38,8 +38,7 @@ impl FullContent {
         let mut trs = TraitsInfo::new();
 
         for st in self.structs.iter() {
-            println!("regist {:?}", st);
-            equs.regist_structs_info(&st)?;
+            trs.regist_structs_info(&st)?;
         }
 
         self.regist_traits(&mut trs)?;

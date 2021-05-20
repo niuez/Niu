@@ -94,7 +94,7 @@ impl FuncDefinition {
         trs.into_scope();
 
         for (ty_id, trait_id) in self.generics.iter() {
-            equs.regist_generics_type(ty_id)?;
+            trs.regist_generics_type(ty_id)?;
             if let Some(trait_id) = trait_id {
                 trs.regist_param_candidate(equs, &TypeSpec::TypeId(ty_id.clone()), trait_id)?;
             }
@@ -113,7 +113,7 @@ impl FuncDefinition {
         let result = equs.unify(trs);
 
         for (ty_id, _) in self.generics.iter() {
-            equs.delete_generics_type(ty_id);
+            trs.delete_generics_type(ty_id);
         }
         
         trs.out_scope();

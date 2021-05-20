@@ -14,15 +14,18 @@ impl TypeId {
     pub fn from_str(s: &str) -> Self {
         TypeId { id: Identifier::from_str(s) }
     }
+    pub fn check_typeid(self, trs: &TraitsInfo) -> TResult {
+        trs.check_typeid_exist(&self)
+    }
 }
 
 impl GenType for TypeId {
     fn gen_type(&self, equs: &mut TypeEquations) -> TResult {
         if self.id.into_string() == "Self" {
-            Ok(equs.get_self_type().unwrap())
+            equs.get_self_type()
         }
         else {
-            equs.check_typeid_exist(self)
+            Ok(Type::Type(TypeSpec::TypeId(self.clone())))
         }
     }
 }

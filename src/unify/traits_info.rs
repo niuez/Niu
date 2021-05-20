@@ -1,23 +1,60 @@
 use std::collections::HashMap;
 
+use crate::structs::*;
 use crate::traits::*;
 use crate::type_spec::*;
 use crate::unify::*;
+use crate::type_id::*;
 use crate::func_definition::*;
+
+#[derive(Debug, Clone)]
+pub enum StructDefinitionInfo {
+    Def(StructDefinition),
+    Generics,
+    Primitive
+}
+
 
 #[derive(Debug)]
 pub struct TraitsInfo {
+    pub typeids: HashMap<TypeId, StructDefinitionInfo>,
     pub traits: HashMap<TraitId, TraitDefinitionInfo>,
     pub impls: Vec<HashMap<TraitId, Vec<SelectionCandidate>>>,
-
 }
 
 impl TraitsInfo {
     pub fn new() -> Self {
         TraitsInfo {
+            typeids: vec![
+                (TypeId::from_str("i64"), StructDefinitionInfo::Primitive),
+                (TypeId::from_str("u64"), StructDefinitionInfo::Primitive),
+                (TypeId::from_str("bool"), StructDefinitionInfo::Primitive)].into_iter().collect(),
             traits: HashMap::new(),
             impls: vec![HashMap::new()],
         }
+    }
+    pub fn regist_structs_info(&mut self, st: &StructDefinition) -> Result<(), String> {
+        let id = st.get_id();
+        match self.typeids.insert(id.clone(), StructDefinitionInfo::Def(st.clone())) {
+            Some(_) => Err(format!("duplicate struct definition: {:?}", id)),
+            None => Ok(()),
+        }
+    }
+    pub fn regist_generics_type(&mut self, generics_id: &TypeId) -> Result<(), String> {
+        match self.typeids.insert(generics_id.clone(), StructDefinitionInfo::Generics) {
+            Some(_) => Err(format!("duplicate generics definition: {:?}", generics_id)),
+            None => Ok(()),
+        }
+    }
+    pub fn delete_generics_type(&mut self, generics_id: &TypeId) {
+        self.typeids.remove(generics_id);
+    }
+
+    pub fn check_typeid_exist(&self, id: &TypeId) -> TResult {
+       match self.typeids.contains_key(id) {
+           true => Ok(Type::Type(TypeSpec::TypeId(id.clone()))),
+           false => Err(format!("not exist definition: {:?}", id)),
+       }
     }
     pub fn regist_trait(&mut self, tr: &TraitDefinition) -> Result<(), String> {
         let (trait_id, trait_def) = tr.get_trait_id_pair();

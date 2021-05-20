@@ -42,7 +42,7 @@ impl SelectionCandidate {
         }
     }
 
-    pub fn get_trait_method_from_id(&self, equs: &mut TypeEquations, method_id: &TraitMethodIdentifier, subst: &Vec<TypeSubst>) -> Type {
+    pub fn get_trait_method_from_id(&self, equs: &mut TypeEquations, trs: &TraitsInfo, method_id: &TraitMethodIdentifier, subst: &Vec<TypeSubst>) -> Type {
         match *self {
             SelectionCandidate::ImplCandidate(ref cand) => {
                 cand.get_trait_method_from_id(equs, method_id, subst)

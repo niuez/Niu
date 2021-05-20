@@ -30,6 +30,15 @@ impl TypeSpec {
             }
         }
     }
+
+    pub fn check_typeid(self, trs: &TraitsInfo) -> TResult {
+        match self {
+            TypeSpec::TypeId(id) =>
+                id.check_typeid(trs),
+            TypeSpec::Associated(spec, asso) =>
+                unreachable!("do not check_typeid TypeSpec::Associated"),
+        }
+    }
 }
 
 pub fn parse_type_spec(s: &str) -> IResult<&str, TypeSpec> {
