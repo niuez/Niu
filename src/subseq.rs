@@ -2,16 +2,19 @@ use nom::character::complete::*;
 use nom::combinator::*;
 use nom::multi::*;
 use nom::sequence::*;
+use nom::branch::*;
 use nom::IResult;
 
 use crate::expression::{ Expression, parse_expression };
 use crate::unary_expr::UnaryExpr;
 use crate::unify::*;
 use crate::trans::*;
+use crate::identifier::*;
 
 #[derive(Debug)]
 pub enum Subseq {
     Call(Call),
+    Member(Member),
 }
 
 pub fn subseq_gen_type(uexpr: &UnaryExpr, subseq: &Subseq, equs: &mut TypeEquations) -> TResult {
@@ -22,6 +25,9 @@ pub fn subseq_gen_type(uexpr: &UnaryExpr, subseq: &Subseq, equs: &mut TypeEquati
             let return_type = equs.get_type_variable();
             equs.add_equation(caller, Type::Func(args, Box::new(return_type.clone())));
             Ok(return_type)
+        }
+        Subseq::Member(ref mem) => {
+            unimplemented!()
         }
     }
 
@@ -35,17 +41,20 @@ pub fn subseq_transpile(uexpr: &UnaryExpr, subseq: &Subseq, ta: &mut TypeAnnotat
             ta.count();
             format!("{}({})", caller, args)
         }
+        Subseq::Member(ref mem) => {
+            unimplemented!()
+        }
     }
+}
+
+pub fn parse_subseq(s: &str) -> IResult<&str, Subseq> {
+    let (s, (_, x)) = tuple((space0, alt((parse_call, parse_member))))(s)?;
+    Ok((s, x))
 }
 
 #[derive(Debug)]
 pub struct Call {
     pub args: Vec<Expression>,
-}
-
-pub fn parse_subseq(s: &str) -> IResult<&str, Subseq> {
-    let (s, (_, x)) = tuple((space0, parse_call))(s)?;
-    Ok((s, x))
 }
 
 pub fn parse_call(s: &str) -> IResult<&str, Subseq> {
@@ -65,6 +74,16 @@ pub fn parse_call(s: &str) -> IResult<&str, Subseq> {
         None => Vec::new(),
     };
     Ok((s, (Subseq::Call(Call{ args }))))
+}
+
+#[derive(Debug)]
+pub struct Member {
+    pub mem_id: Identifier,
+}
+
+fn parse_member(s: &str) -> IResult<&str, Subseq> {
+    let (s, (_, _, mem_id)) = tuple((char('.'), space0, parse_identifier))(s)?;
+    Ok((s, Subseq::Member(Member { mem_id })))
 }
 
 #[test]
