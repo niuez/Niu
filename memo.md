@@ -120,6 +120,18 @@ let c = tmp1.c;
 
 というように型変数を定義していく
 
+### Generic Struct
+
+```
+struct Hoge<S, T> {
+  s: S,
+  t: T,
+}
+```
+
+`Type`が`TypeId`だけでは足りなくなった.
+
+
 ## Progress
 
 ### literal
