@@ -22,7 +22,7 @@ pub fn subseq_gen_type(uexpr: &UnaryExpr, subseq: &Subseq, equs: &mut TypeEquati
         Subseq::Call(ref call) => {
             let caller = uexpr.gen_type(equs)?;
             let args = call.args.iter().map(|arg| arg.gen_type(equs)).collect::<Result<Vec<_>, String>>()?;
-            let return_type = equs.get_type_variable();
+            let return_type = new_type_variable();
             equs.add_equation(caller, Type::Func(args, Box::new(return_type.clone())));
             Ok(return_type)
         }

@@ -17,7 +17,7 @@ impl TypeAnnotation {
         Self { func: HashMap::new(), theta: HashMap::new(), cnt: 0 }
     }
     pub fn insert(&mut self, tv: TypeVariable, t: Type) {
-        let TypeVariable::Counter(i) = tv;
+        let TypeVariable::Counter(i, num) = tv;
         self.theta.insert(i, t);
     }
     pub fn regist_func_info(&mut self, func: &FuncDefinition) {
@@ -32,10 +32,10 @@ impl TypeAnnotation {
     }
     pub fn trans_variable(&mut self, var: &Variable) -> String {
         if let Some(f) = self.func.get(var).cloned() {
-            format!("{}{}", var.name.into_string(), f.get_generics_annotation(self))
+            format!("{}{}", var.id.into_string(), f.get_generics_annotation(self))
         }
         else {
-            var.name.into_string()
+            var.id.into_string()
         }
     }
     pub fn count(&mut self) {

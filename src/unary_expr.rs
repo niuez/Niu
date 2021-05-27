@@ -75,12 +75,12 @@ pub fn parse_unary_expr(s: &str) -> IResult<&str, UnaryExpr> {
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone)]
 pub struct Variable {
-    pub name: Identifier,
+    pub id: Identifier,
 }
 
 impl Variable {
     pub fn from_identifier(id: Identifier) -> Self {
-        Variable { name: id }
+        Variable { id }
     }
 }
 
@@ -97,8 +97,8 @@ impl Transpile for Variable {
 }
 
 pub fn parse_variable(s: &str) -> IResult<&str, UnaryExpr> {
-    let(s, name) = parse_identifier(s)?;
-    Ok((s, UnaryExpr::Variable(Variable { name })))
+    let(s, id) = parse_identifier(s)?;
+    Ok((s, UnaryExpr::Variable(Variable { id })))
 }
 
 #[derive(Debug)]

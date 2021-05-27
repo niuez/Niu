@@ -55,7 +55,7 @@ impl TraitsInfo {
            Some(def_info) => {
                 match *def_info {
                     StructDefinitionInfo::Def(ref def) => {
-                        Ok(Type::Generics(id.clone(), (0..def.get_generics_len()).map(|_| equs.get_type_variable()).collect()))
+                        Ok(Type::Generics(id.clone(), (0..def.get_generics_len()).map(|i| id.id.generate_type_variable(i)).collect()))
                     }
                     StructDefinitionInfo::Primitive => {
                         Ok(Type::Type(TypeSpec::from_id(id)))

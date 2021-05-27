@@ -132,7 +132,7 @@ impl ImplCandidate {
     }
 
     pub fn get_trait_method_from_id(&self, equs: &mut TypeEquations, method_id: &TraitMethodIdentifier, subst: &Vec<TypeSubst>) -> Type {
-        self.require_methods.get(&method_id).unwrap().generate_type(equs).unwrap()
+        self.require_methods.get(&method_id).unwrap().generate_type(equs, &method_id.id).unwrap()
     }
 }
 
@@ -165,7 +165,7 @@ impl ParamCandidate {
 
     pub fn get_trait_method_from_id(&self, equs: &mut TypeEquations, method_id: &TraitMethodIdentifier, subst: &Vec<TypeSubst>) -> Type {
         let before_self_type = equs.set_self_type(Some(self.impl_ty.clone()));
-        let method_type = self.require_methods.get(method_id).unwrap().generate_type(equs).unwrap();
+        let method_type = self.require_methods.get(method_id).unwrap().generate_type(equs, &method_id.id).unwrap();
         equs.set_self_type(before_self_type);
         method_type
     }

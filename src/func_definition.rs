@@ -36,9 +36,9 @@ pub struct FuncDefinitionInfo {
 impl FuncDefinitionInfo {
     pub fn generate_type(&self, equs: &mut TypeEquations, call_id: &Identifier) -> TResult {
         let mut mp = HashMap::new();
-        for gt in self.generics.iter() {
+        for (i, gt) in self.generics.iter().enumerate() {
             let (id, tr) = gt.clone();
-            let ty_var = equs.get_type_variable();
+            let ty_var = call_id.generate_type_variable(i);
             mp.insert(id, ty_var.clone());
             if let Some(tr) = tr {
                 equs.add_has_trait(ty_var, tr);
@@ -56,7 +56,7 @@ impl FuncDefinitionInfo {
         let mut mp = HashMap::new();
         for gt in self.generics.iter() {
             let (id, tr) = gt.clone();
-            let ty_var = equs.get_type_variable();
+            let ty_var = id.id.generate_type_variable(0);
             mp.insert(id, ty_var.clone());
             if let Some(tr) = tr {
                 equs.add_has_trait(ty_var, tr);
@@ -85,7 +85,7 @@ impl FuncDefinitionInfo {
 
 impl FuncDefinition {
     pub fn get_func_info(&self) -> (Variable, FuncDefinitionInfo) {
-        (Variable { name: self.func_id.clone() },
+        (Variable { id: self.func_id.clone() },
          FuncDefinitionInfo { func_id: self.func_id.clone(), generics: self.generics.clone(), args: self.args.clone(), return_type: self.return_type.clone() }
          )
     }
@@ -101,7 +101,7 @@ impl FuncDefinition {
         }
 
         for (i, t) in self.args.iter() {
-            let alpha = equs.get_type_variable();
+            let alpha = i.generate_type_variable(0);
             let t_type = t.gen_type(equs)?; 
             equs.regist_variable(Variable::from_identifier(i.clone()), alpha.clone());
             equs.add_equation(alpha, t_type);

@@ -10,6 +10,11 @@ use crate::type_id::*;
 use crate::structs::*;
 use crate::identifier::*;
 
+pub fn new_type_variable() -> Type {
+    let i = get_identifier_counter();
+    Type::TypeVariable(TypeVariable::Counter(i, 0))
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Type {
     Type(TypeSpec),
@@ -183,11 +188,6 @@ impl TypeEquations {
     pub fn add_equation(&mut self, left: Type, right: Type) {
         self.equs.push_back(TypeEquation::Equal(left, right));
     }
-    pub fn get_type_variable(&mut self) -> Type {
-        let i = self.cnt;
-        self.cnt += 1;
-        Type::TypeVariable(TypeVariable::Counter(i))
-    }
     pub fn into_scope(&mut self) {
         self.variables.push(HashMap::new());
     }
@@ -203,7 +203,7 @@ impl TypeEquations {
     }
     pub fn get_type_from_variable(&mut self, var: &Variable) -> TResult {
         if let Some(func) = self.func.get(var).cloned() {
-            return func.generate_type(self);
+            return func.generate_type(self, &var.id);
         }
         for mp in self.variables.iter().rev() {
             if let Some(t) = mp.get(var) {
@@ -411,16 +411,4 @@ impl TypeEquations {
         Ok(thetas)
     }
 }
-
-/*#[test]
-fn test_unify() {
-    let mut traits_info = TraitsInfo::new();
-    traits_info.regist_trait(&parse_trait_definition("trait MyTrait { type Output; }").unwrap().1);
-    traits_info.regist_impl_candidate(&parse_impl_candidate("impl MyTrait for i64 { type Output = bool; }").unwrap().1);
-    let mut equs = TypeEquations::new();
-    let left = equs.get_type_variable();
-    let right = crate::type_spec::parse_type_spec("i64#MyTrait::Output").unwrap().1.gen_type(&mut equs).unwrap();
-    equs.add_equation(left, right);
-    println!("{:?}", equs.unify(&traits_info));
-}*/
 

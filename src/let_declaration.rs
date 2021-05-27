@@ -21,7 +21,7 @@ pub struct LetDeclaration {
 
 impl GenType for LetDeclaration {
     fn gen_type(&self, equs: &mut TypeEquations) -> TResult {
-        let alpha = equs.get_type_variable();
+        let alpha = self.id.generate_type_variable(0);
         equs.regist_variable(Variable::from_identifier(self.id.clone()), alpha.clone());
         let value_type = self.value.gen_type(equs)?;
         equs.add_equation(alpha.clone(), value_type);
