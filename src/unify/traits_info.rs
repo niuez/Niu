@@ -51,9 +51,21 @@ impl TraitsInfo {
     }
 
     pub fn check_typeid_exist(&self, id: &TypeId) -> TResult {
-       match self.typeids.contains_key(id) {
-           true => Ok(Type::Type(TypeSpec::TypeId(id.clone()))),
-           false => Err(format!("not exist definition: {:?}", id)),
+       match self.typeids.get(id) {
+           Some(def_info) => {
+                match *def_info {
+                    StructDefinitionInfo::Def(ref def) => {
+                        Ok(Type::Generics(id.clone(), (0..def.get_generics_len()).map(|_| equs.get_type_variable()).collect()))
+                    }
+                    StructDefinitionInfo::Primitive => {
+                        Ok(Type::Type(TypeSpec::from_id(id)))
+                    }
+                    StructDefinitionInfo::Generics => {
+                        Ok(Type::Type(TypeSpec::from_id(id)))
+                    }
+                }
+           }
+           None => Err(format!("not exist definition: {:?}", id)),
        }
     }
     

@@ -366,6 +366,19 @@ impl TypeEquations {
                             }
                             self.equs.push_back(TypeEquation::Equal(*l_return, *r_return));
                         }
+                        (Type::Generics(l_id, l_gens), Type::Generics(r_id, r_gens)) => {
+                            if l_id != r_id {
+                                Err(format!("generics type id is not equal. {:?} != {:?}", l_id, r_id))?;
+                            }
+                            else if l_gens.len() != r_gens.len() {
+                                Err(format!("unreachable, generics lengths are checked"))?;
+                            }
+                            else {
+                                for (l, r) in l_gens.into_iter().zip(r_gens.into_iter()) {
+                                    self.equs.push_back(TypeEquation::Equal(l, r));
+                                }
+                            }
+                        }
                         (Type::TypeVariable(lv), rt) => {
                             if rt.occurs(&lv) {
                                 Err("unification failed, occurs")?;

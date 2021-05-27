@@ -79,9 +79,9 @@ impl GenType for ExpOr {
         if self.terms.len() > 1 {
             for t in self.terms.iter() {
                 let ty = t.gen_type(equs)?;
-                equs.add_equation(ty, Type::Type(TypeSpec::TypeId(TypeId::from_str("bool"))));
+                equs.add_equation(ty, Type::Type(TypeSpec::from_str("bool")));
             }
-            Ok(Type::Type(TypeSpec::TypeId(TypeId::from_str("bool"))))
+            Ok(Type::Type(TypeSpec::from_str("bool")))
         }
         else {
             self.terms[0].gen_type(equs)
@@ -139,9 +139,9 @@ impl GenType for ExpAnd {
         if self.terms.len() > 1 {
             for t in self.terms.iter() {
                 let ty = t.gen_type(equs)?;
-                equs.add_equation(ty, Type::Type(TypeSpec::TypeId(TypeId::from_str("bool"))));
+                equs.add_equation(ty, Type::Type(TypeSpec::from_str("bool")));
             }
-            Ok(Type::Type(TypeSpec::TypeId(TypeId::from_str("bool"))))
+            Ok(Type::Type(TypeSpec::from_str("bool")))
         }
         else {
             self.terms[0].gen_type(equs)
@@ -201,7 +201,7 @@ impl GenType for ExpOrd {
                 let t0 = self.terms[0].gen_type(equs)?;
                 let t1 = self.terms[1].gen_type(equs)?;
                 equs.add_equation(t0, t1);
-                Ok(Type::Type(TypeSpec::TypeId(TypeId::from_str("bool"))))
+                Ok(Type::Type(TypeSpec::from_str("bool")))
             }
             None => self.terms[0].gen_type(equs),
 

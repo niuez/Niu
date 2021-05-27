@@ -21,12 +21,7 @@ impl TypeId {
 
 impl GenType for TypeId {
     fn gen_type(&self, equs: &mut TypeEquations) -> TResult {
-        if self.id.into_string() == "Self" {
-            equs.get_self_type()
-        }
-        else {
-            Ok(Type::Type(TypeSpec::TypeId(self.clone())))
-        }
+        unreachable!("TypeID gen_type {:?}", self);
     }
 }
 
