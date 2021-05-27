@@ -1,3 +1,5 @@
+use std::sync::atomic::{self, AtomicUsize};
+
 use nom::branch::*;
 use nom::bytes::complete::*;
 use nom::character::complete::*;
@@ -6,20 +8,32 @@ use nom::multi::*;
 use nom::sequence::*;
 use nom::IResult;
 
+use crate::unify::*;
+
+static IDENTIFIER_COUNTER: AtomicUsize = AtomicUsize::new(0);
+
+pub fn get_identifier_counter() -> usize {
+    IDENTIFIER_COUNTER.fetch_add(1, atomic::Ordering::SeqCst)
+}
+
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct Identifier {
     pub name: String,
+    pub identifier_cnt: usize,
 }
 
 impl<'a> Identifier {
     pub fn from_str(s: &str) -> Self {
-        Identifier { name: s.to_string() }
+        Identifier { name: s.to_string(), identifier_cnt: get_identifier_counter() }
     }
     pub fn from_vec_str(vec: Vec<&str>) -> Self {
-        Identifier { name: vec.join("") }
+        Identifier { name: vec.join(""), identifier_cnt: get_identifier_counter() }
     }
     pub fn into_string(&self) -> String {
         self.name.clone()
+    }
+    pub fn generate_type_variable(&self, num: usize) -> Type {
+        Type::TypeVariable(TypeVariable::Counter(self.identifier_cnt, num))
     }
 }
 

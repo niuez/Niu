@@ -128,7 +128,7 @@ impl Transpile for Type {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum TypeVariable {
-    Counter(usize),
+    Counter(usize, usize),
 }
 
 #[derive(Debug)]

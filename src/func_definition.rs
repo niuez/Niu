@@ -34,7 +34,7 @@ pub struct FuncDefinitionInfo {
 }
 
 impl FuncDefinitionInfo {
-    pub fn generate_type(&self, equs: &mut TypeEquations) -> TResult {
+    pub fn generate_type(&self, equs: &mut TypeEquations, call_id: &Identifier) -> TResult {
         let mut mp = HashMap::new();
         for gt in self.generics.iter() {
             let (id, tr) = gt.clone();
