@@ -16,6 +16,7 @@ use crate::unify::*;
 #[derive(Debug, Clone)]
 pub struct StructDefinition {
     pub struct_id: TypeId,
+    pub generics: Vec<TypeId>,
     pub members: HashMap<Identifier, TypeSpec>,
 }
 
@@ -23,9 +24,15 @@ impl StructDefinition {
     pub fn get_id(&self) -> TypeId {
         self.struct_id.clone()
     }
-    pub fn get_member_type(&self, equs: &mut TypeEquations, id: &Identifier) -> TResult {
+    pub fn get_generics_len(&self) -> usize {
+        self.generics.len()
+    }
+    pub fn get_member_type(&self, equs: &mut TypeEquations, gens: &Vec<Type>, id: &Identifier) -> TResult {
         match self.members.get(id) {
-            Some(spec) => spec.gen_type(equs),
+            Some(spec) => {
+                let mp = self.generics.iter().cloned().zip(gens.iter().cloned()).collect();
+                spec.generics_to_type(&mp, equs)
+            }
             None => Err(format!("{:?} doesnt have member {:?}", self.struct_id, id)),
         }
     }
@@ -50,7 +57,7 @@ pub fn parse_struct_definition(s: &str) -> IResult<&str, StructDefinition> {
             vec.into_iter().collect()
         }
     };
-    Ok((s, StructDefinition { struct_id, members }))
+    Ok((s, StructDefinition { struct_id, generics: Vec::new(), members }))
 }
 
 
@@ -58,4 +65,16 @@ pub fn parse_struct_definition(s: &str) -> IResult<&str, StructDefinition> {
 #[test]
 fn parse_struct_definition_test() {
     println!("{:?}", parse_struct_definition("struct MyStruct { a: i64, b: u64, }"));
+}
+
+#[test]
+fn get_member_type_test() {
+    let def = StructDefinition {
+        struct_id: parse_type_id("Hoge").unwrap().1,
+        generics: vec![parse_type_id("S").unwrap().1, parse_type_id("T").unwrap().1],
+        members: vec![parse_member("s: S").unwrap().1, parse_member("t: T").unwrap().1].into_iter().collect()
+    };
+    let gens = vec![Type::Generics(TypeId::from_str("i64"), Vec::new()), Type::Generics(TypeId::from_str("u64"), Vec::new())];
+    let res = def.get_member_type(&mut TypeEquations::new(), &gens, &Identifier::from_str("s"));
+    println!("{:?}", res);
 }

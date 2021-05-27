@@ -56,6 +56,32 @@ impl TraitsInfo {
            false => Err(format!("not exist definition: {:?}", id)),
        }
     }
+    
+    pub fn check_typeid_with_generics(&self, id: TypeId, gens: Vec<Type>) -> TResult {
+        match self.typeids.get(&id) {
+            Some(def_info) => {
+                match *def_info {
+                    StructDefinitionInfo::Def(ref def) => {
+                        if def.get_generics_len() == gens.len() {
+                            let gens = gens.into_iter().map(|ty| ty.check_typeid(self)).collect::<Result<Vec<_>, _>>()?;
+                            Ok(Type::Generics(id, gens))
+                        }
+                        else {
+                            Err(format!("type {:?} has {:?} generics but not match to {:?}", id, def.get_generics_len(), gens))
+                        }
+                    }
+                    StructDefinitionInfo::Primitive => {
+                        Err(format!("primitive type {:?} doesnt have generics argument", id))
+                    }
+                    StructDefinitionInfo::Generics => {
+                        Err(format!("generics type {:?} doesnt have generics argument", id))
+                    }
+                }
+            }
+            None => Err(format!("not exist definition: {:?}", id)),
+        }
+    }
+
     pub fn regist_trait(&mut self, tr: &TraitDefinition) -> Result<(), String> {
         let (trait_id, trait_def) = tr.get_trait_id_pair();
         self.traits.insert(trait_id.clone(), trait_def)

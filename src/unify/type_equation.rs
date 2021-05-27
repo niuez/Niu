@@ -15,6 +15,7 @@ pub enum Type {
     Type(TypeSpec),
     Func(Vec<Type>, Box<Type>),
     TypeVariable(TypeVariable),
+    Generics(TypeId, Vec<Type>),
     AssociatedType(Box<Type>, AssociatedType),
     TraitMethod(Box<Type>, TraitMethod),
     Member(Box<Type>, Identifier),
@@ -30,6 +31,12 @@ impl Type {
                     if arg.occurs(t) { return true; }
                 }
                 if ret.occurs(t) { return true; }
+                false
+            }
+            Type::Generics(_, ref gens) => {
+                for gen in gens.iter() {
+                    if gen.occurs(t) { return true; }
+                }
                 false
             }
             Type::AssociatedType(ref ty, _) => {
@@ -53,6 +60,11 @@ impl Type {
                 }
                 ret.subst(theta);
             }
+            Type::Generics(_, ref mut gens) => {
+                for gen in gens.iter_mut() {
+                    gen.subst(theta);
+                }
+            }
             Type::Type(_) => {},
             Type::AssociatedType(ref mut ty, _) => {
                 ty.as_mut().subst(theta)
@@ -75,13 +87,15 @@ impl Type {
         }
     }
 
-    fn check_typeid(self, trs: &TraitsInfo) -> TResult {
+    pub fn check_typeid(self, trs: &TraitsInfo) -> TResult {
         let res = match self {
             Type::Func(args, ret) => 
                 Type::Func(
                     args.into_iter().map(|a| a.check_typeid(trs)).collect::<Result<_,_>>()?,
                     Box::new((*ret).check_typeid(trs)?)
                 ),
+            Type::Generics(id, gens) =>
+                trs.check_typeid_with_generics(id, gens)?,
             Type::Type(ty) => ty.check_typeid(trs)?,
             Type::AssociatedType(ty, asso) =>
                 Type::AssociatedType(Box::new(ty.check_typeid(trs)?), asso),
@@ -284,7 +298,7 @@ impl TypeEquations {
             if let Type::Type(spec) = inner_ty {
                 if let TypeSpec::TypeId(ref typeid) = spec {
                     match trs.typeids.get(typeid).cloned().unwrap() {
-                        StructDefinitionInfo::Def(def)  => def.get_member_type(self, &id),
+                        StructDefinitionInfo::Def(def)  => def.get_member_type(self, &Vec::new(), &id),
                         StructDefinitionInfo::Generics  => Err(format!("generics type has no member: {:?}", typeid)),
                         StructDefinitionInfo::Primitive => Err(format!("primitive type has no member: {:?}", typeid)),
                     }
