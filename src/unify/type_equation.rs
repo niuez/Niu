@@ -57,38 +57,59 @@ impl Type {
         }
     }
 
-    fn subst(&mut self, theta: &TypeSubst) {
+    fn is_solved(&self) -> Option<TypeSpec> {
         match *self {
+            Type::Type(spec) => Some(spec),
+            _ => None,
+        }
+    }
+
+    fn subst(&mut self, theta: &TypeSubst) {
+        let res = match *self {
             Type::Func(ref mut args, ref mut ret) => {
                 for arg in args.iter_mut() {
                     arg.subst(theta);
                 }
                 ret.subst(theta);
+                None
             }
-            Type::Generics(_, ref mut gens) => {
-                for gen in gens.iter_mut() {
-                    gen.subst(theta);
+            Type::Generics(ref ty, ref mut gens) => {
+                if let Some(gens_spec) = gens.iter_mut().map(|gen| { gen.subst(theta); gen.is_solved() }).collect::<Option<_>>() {
+                    Some(Type::Type(TypeSpec::TypeSign(
+                            TypeSign { id: ty.clone(), gens: gens_spec }
+                        )))
+                }
+                else {
+                    None
                 }
             }
-            Type::Type(_) => {},
+            Type::Type(_) => { None },
             Type::AssociatedType(ref mut ty, _) => {
-                ty.as_mut().subst(theta)
+                ty.as_mut().subst(theta);
+                None
             }
             Type::TraitMethod(ref mut ty, _) => {
-                ty.as_mut().subst(theta)
+                ty.as_mut().subst(theta);
+                None
             }
             Type::Member(ref mut ty, _) => {
-                ty.as_mut().subst(theta)
+                ty.as_mut().subst(theta);
+                None
             }
-            Type::End => {},
+            Type::End => { None },
             // TypeVariable
-            ref mut t => {
-                let x = t.clone_type_variable();
+            Type::TypeVariable(ref t) => {
                 let TypeSubst { tv: y, t: into_t } = theta;
-                if x == *y {
-                    *t = into_t.clone();
+                if *t == *y {
+                    Some(into_t.clone())
+                }
+                else {
+                    None
                 }
             }
+        };
+        if let Some(res) = res {
+            *self = res;
         }
     }
 
@@ -309,6 +330,23 @@ impl TypeEquations {
             }
             else {
                 Ok(Type::Member(Box::new(inner_ty), id))
+            }
+        }
+        else {
+            Ok(ty)
+        }
+    }
+
+    fn solve_generics(&mut self, ty: Type, trs: &TraitsInfo) -> Result<Type, String> {
+        if let Type::Generics(id, gens) = ty {
+            let try_solve = gens.into_iter().map(|gen| { self.solve_relations(gen, trs) }).collect::<Result<Vec<_>, _>>()?;
+            if let Some(gens_spec) = try_solve.into_iter().map(|gen| gen.is_solved()).collect() {
+                Ok(Type::Type(TypeSpec::TypeSign(
+                        TypeSign { id, gens: gens_spec }
+                        )))
+            }
+            else {
+                Ok(Type::Generics(id, gens))
             }
         }
         else {

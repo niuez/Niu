@@ -12,8 +12,8 @@ use crate::trans::*;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TypeSign {
-    id: TypeId,
-    gens: Vec<TypeSpec>,
+    pub id: TypeId,
+    pub gens: Vec<TypeSpec>,
 }
 
 impl TypeSign {
