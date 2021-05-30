@@ -28,6 +28,9 @@ pub enum Type {
 }
 
 impl Type {
+    pub fn from_str(s: &str) -> Self {
+        Type::Generics(TypeId::from_str(s), vec![])
+    }
     fn occurs(&self, t: &TypeVariable) -> bool {
         match *self {
             Type::TypeVariable(ref s) if s == t => true,
@@ -107,8 +110,9 @@ impl Type {
                     args.into_iter().map(|a| a.check_typeid(trs)).collect::<Result<_,_>>()?,
                     Box::new((*ret).check_typeid(trs)?)
                 ),
-            Type::Generics(id, gens) =>
-                trs.check_typeid_with_generics(id, gens)?,
+            Type::Generics(id, gens) => {
+                trs.check_typeid_with_generics(id, gens)?
+            }
             Type::Type(ty) => ty.check_typeid(trs)?,
             Type::AssociatedType(ty, asso) =>
                 Type::AssociatedType(Box::new(ty.check_typeid(trs)?), asso),
@@ -249,7 +253,7 @@ impl TypeEquations {
         match ty {
             Type::AssociatedType(inner_ty, asso) => {
                 let inner_ty = self.solve_relations(*inner_ty, trs)?;
-                if let Type::Type(_) = inner_ty {
+                if let Type::Generics(_, _) = inner_ty {
                     let AssociatedType { ref trait_id, ref type_id } = asso;
                     let substs = trs.match_to_impls_for_type(trait_id, &inner_ty);
                     if substs.len() == 1 {
@@ -277,7 +281,7 @@ impl TypeEquations {
     fn solve_trait_method(&mut self, ty: Type, trs: &TraitsInfo) -> Result<Type, String> {
         if let Type::TraitMethod(inner_ty, tr_method) = ty {
             let inner_ty = self.solve_relations(*inner_ty, trs)?;
-            if let Type::Type(_) = inner_ty {
+            if let Type::Generics(_, _) = inner_ty {
                 let TraitMethod { trait_id, method_id } = tr_method;
                 let substs = trs.match_to_impls_for_type(&trait_id, &inner_ty);
                 if substs.len() == 1 {
@@ -301,25 +305,8 @@ impl TypeEquations {
     fn solve_member(&mut self, ty: Type, trs: &TraitsInfo) -> Result<Type, String> {
         if let Type::Member(inner_ty, mem_id) = ty {
             let inner_ty = self.solve_relations(*inner_ty, trs)?;
-            if let Type::Type(spec) = inner_ty {
-                if let TypeSpec::TypeSign(TypeSign { ref id, ref gens }) = spec {
-                    if gens.len() == 0 {
-                        match trs.typeids.get(id).cloned().unwrap() {
-                            StructDefinitionInfo::Def(def)  => def.get_member_type(self, &Vec::new(), &mem_id),
-                            StructDefinitionInfo::Generics  => Err(format!("generics type has no member: {:?}", id)),
-                            StructDefinitionInfo::Primitive => Err(format!("primitive type has no member: {:?}", id)),
-                        }
-                    }
-                    else {
-                        unreachable!(format!("solve_member cant solve TypeSign with generics: {:?}", spec));
-                    }
-                }
-                else {
-                    Err(format!("associated type has no member: {:?}", spec))
-                }
-            }
-            else if let Type::Generics(ref id, ref gens) = inner_ty {
-                match trs.typeids.get(id).cloned().unwrap() {
+            if let Type::Generics(ref id, ref gens) = inner_ty {
+                match trs.search_typeid(id)? {
                     StructDefinitionInfo::Def(def)  => def.get_member_type(self, gens, &mem_id),
                     StructDefinitionInfo::Generics  => Err(format!("generics type has no member: {:?}", id)),
                     StructDefinitionInfo::Primitive => Err(format!("primitive type has no member: {:?}", id)),
@@ -346,7 +333,6 @@ impl TypeEquations {
 
     fn check_all_typeid_exist(&mut self, trs: &TraitsInfo) -> Result<(), String> {
         self.equs = std::mem::take(&mut self.equs).into_iter().map(|equ| {
-            println!("equ: {:?}", equ);
             match equ {
                 TypeEquation::HasTrait(left, right) =>
                     Ok(TypeEquation::HasTrait(left.check_typeid(trs)?, right)),
@@ -360,10 +346,16 @@ impl TypeEquations {
         let mut thetas = Vec::new();
         self.check_all_typeid_exist(trs)?;
         while let Some(equation) = self.equs.pop_front() {
+            println!("equ: {:?}", equation);
             match equation {
                 TypeEquation::HasTrait(Type::Type(ty_spec), tr) => {
                     if !self.solve_has_trait(&Type::Type(ty_spec.clone()), &tr, trs) {
                         Err(format!("type {:?} is not implemented trait {:?}", ty_spec, tr))?;
+                    }
+                }
+                TypeEquation::HasTrait(Type::Generics(ty, gens), tr) => {
+                    if !self.solve_has_trait(&Type::Generics(ty, gens), &tr, trs) {
+                        Err(format!("type {:?} is not implemented trait", tr))?;
                     }
                 }
                 TypeEquation::HasTrait(left, right) => {
@@ -455,7 +447,7 @@ fn unify_test1() {
         members: vec![(Identifier::from_str("x"), TypeSpec::from_id(&TypeId::from_str("T")))].into_iter().collect(),
     }).unwrap();
     println!("trs: {:?}", trs);
-    equs.add_equation(t.clone(), Type::Generics(TypeId::from_str("Hoge"), vec![Type::Type(TypeSpec::from_id(&TypeId::from_str("i64")))]));
+    equs.add_equation(t.clone(), Type::Generics(TypeId::from_str("Hoge"), vec![Type::from_str("i64")]));
     equs.add_equation(a, Type::Member(Box::new(t), Identifier::from_str("x")));
     println!("{:?}", equs.unify(&trs));
 }
@@ -471,7 +463,7 @@ fn unify_test2() {
         members: vec![(Identifier::from_str("x"), TypeSpec::from_id(&TypeId::from_str("T")))].into_iter().collect(),
     }).unwrap();
     println!("trs: {:?}", trs);
-    equs.add_equation(t.clone(), Type::Type(TypeSpec::from_id(&TypeId::from_str("Hoge"))));
+    equs.add_equation(t.clone(), Type::from_str("Hoge"));
     equs.add_equation(Type::Type(TypeSpec::from_id(&TypeId::from_str("i64"))), Type::Member(Box::new(t), Identifier::from_str("x")));
     println!("{:?}", equs.unify(&trs));
 }

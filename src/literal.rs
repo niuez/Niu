@@ -23,9 +23,9 @@ pub enum Literal {
 impl GenType for Literal {
     fn gen_type(&self, _: &mut TypeEquations) -> TResult {
         match *self {
-            Literal::U64(_) => Ok(Type::Type(TypeSpec::from_str("u64"))),
-            Literal::I64(_) => Ok(Type::Type(TypeSpec::from_str("i64"))),
-            Literal::Boolean(_) => Ok(Type::Type(TypeSpec::from_str("bool"))),
+            Literal::U64(_) => Ok(Type::from_str("u64")),
+            Literal::I64(_) => Ok(Type::from_str("i64")),
+            Literal::Boolean(_) => Ok(Type::from_str("bool")),
         }
     }
 }

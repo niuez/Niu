@@ -72,7 +72,7 @@ impl ImplDefinition {
         }))
     }
 
-    pub fn unify_require_methods(&self, equs: &mut TypeEquations, trs: &mut TraitsInfo) -> Result<Vec<TypeSubst>, String> {
+    pub fn unify_require_methods(&self, equs: &mut TypeEquations, trs: &TraitsInfo) -> Result<Vec<TypeSubst>, String> {
         let next_self_type = Some(self.impl_ty.gen_type(equs)?);
         let before_self_type = equs.set_self_type(next_self_type);
         let mut substs = Vec::new();

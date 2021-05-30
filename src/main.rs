@@ -39,7 +39,7 @@ fn type_check() -> Result<String, String> {
     }
     else {
         let mut ta = t.type_check()?;
-        Ok(t.transpile(&mut ta))
+        Ok(format!("transpile is not work now"))
     }
 }
 

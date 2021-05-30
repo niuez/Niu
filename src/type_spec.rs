@@ -24,10 +24,20 @@ impl TypeSign {
                 else { Err(format!("generics type cant have generics argument")) }
             }
             None => {
-                Ok(Type::Generics(
-                        self.id.clone(),
-                        self.gens.iter().map(|gen| gen.generics_to_type(mp, equs)).collect::<Result<_, _>>()?
-                        ))
+                if self.id == TypeId::from_str("Self") {
+                    if self.gens.len() == 0 {
+                        equs.get_self_type()
+                    }
+                    else {
+                        Err(format!("Self cant have generics arg"))
+                    }
+                }
+                else {
+                    Ok(Type::Generics(
+                            self.id.clone(),
+                            self.gens.iter().map(|gen| gen.generics_to_type(mp, equs)).collect::<Result<_, _>>()?
+                            ))
+                }
             }
         }
     }
@@ -50,7 +60,17 @@ pub fn parse_type_sign(s: &str) -> IResult<&str, TypeSign> {
 
 impl GenType for TypeSign {
     fn gen_type(&self, equs: &mut TypeEquations) -> TResult {
-        Ok(Type::Generics(self.id.clone(), self.gens.iter().map(|gen| gen.gen_type(equs)).collect::<Result<_, _>>()?))
+        if self.id == TypeId::from_str("Self") {
+            if self.gens.len() == 0 {
+                equs.get_self_type()
+            }
+            else {
+                Err(format!("Self cant have generics arg"))
+            }
+        }
+        else {
+            Ok(Type::Generics(self.id.clone(), self.gens.iter().map(|gen| gen.gen_type(equs)).collect::<Result<_, _>>()?))
+        }
     }
 }
 

@@ -89,14 +89,15 @@ impl FuncDefinition {
          FuncDefinitionInfo { func_id: self.func_id.clone(), generics: self.generics.clone(), args: self.args.clone(), return_type: self.return_type.clone() }
          )
     }
-    pub fn unify_definition(&self, equs: &mut TypeEquations, trs: &mut TraitsInfo) -> Result<Vec<TypeSubst>, String> {
+    pub fn unify_definition(&self, equs: &mut TypeEquations, trs: &TraitsInfo) -> Result<Vec<TypeSubst>, String> {
         equs.into_scope();
-        trs.into_scope();
+
+        let mut trs = trs.into_scope();
 
         for (ty_id, trait_id) in self.generics.iter() {
             trs.regist_generics_type(ty_id)?;
             if let Some(trait_id) = trait_id {
-                trs.regist_param_candidate(equs, &TypeSpec::from_id(ty_id), trait_id)?;
+                trs.regist_param_candidate(equs, ty_id, trait_id)?;
             }
         }
 
@@ -110,13 +111,8 @@ impl FuncDefinition {
         let return_t = self.return_type.gen_type(equs)?;
         equs.add_equation(result_type, return_t);
 
-        let result = equs.unify(trs);
-
-        for (ty_id, _) in self.generics.iter() {
-            trs.delete_generics_type(ty_id);
-        }
+        let result = equs.unify(&mut trs);
         
-        trs.out_scope();
         equs.out_scope();
         result
     }

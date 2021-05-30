@@ -25,11 +25,11 @@ pub struct StructInstantiation {
 impl GenType for StructInstantiation {
     fn gen_type(&self, equs: &mut TypeEquations) -> TResult {
         for (id, expr) in self.members.iter() {
-            let st = Box::new(self.struct_id.gen_type(equs)?);
+            let st = Box::new(TypeSpec::from_id(&self.struct_id).gen_type(equs)?);
             let right = expr.gen_type(equs)?;
             equs.add_equation(Type::Member(st, id.clone()), right);
         }
-        self.struct_id.gen_type(equs)
+        TypeSpec::from_id(&self.struct_id).gen_type(equs)
     }
 }
 

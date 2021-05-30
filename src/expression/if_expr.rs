@@ -29,11 +29,11 @@ impl GenType for IfExpr {
     fn gen_type(&self, equs: &mut TypeEquations) -> TResult {
         let cond_type = self.ifp.cond.gen_type(equs)?;
         let bl_type = self.ifp.block.gen_type(equs)?;
-        equs.add_equation(cond_type, Type::Type(TypeSpec::from_str("bool")));
+        equs.add_equation(cond_type, Type::from_str("bool"));
         for IfPair { cond, block } in self.elifp.iter() {
             let cond_type = cond.gen_type(equs)?;
             let bl2_type = block.gen_type(equs)?;
-            equs.add_equation(cond_type, Type::Type(TypeSpec::from_str("bool")));
+            equs.add_equation(cond_type, Type::from_str("bool"));
             equs.add_equation(bl_type.clone(), bl2_type);
         }
         let el_bl_type = self.el_block.gen_type(equs)?;
