@@ -57,13 +57,6 @@ impl Type {
         }
     }
 
-    fn is_solved(&self) -> Option<TypeSpec> {
-        match *self {
-            Type::Type(spec) => Some(spec),
-            _ => None,
-        }
-    }
-
     fn subst(&mut self, theta: &TypeSubst) {
         let res = match *self {
             Type::Func(ref mut args, ref mut ret) => {
@@ -74,14 +67,8 @@ impl Type {
                 None
             }
             Type::Generics(ref ty, ref mut gens) => {
-                if let Some(gens_spec) = gens.iter_mut().map(|gen| { gen.subst(theta); gen.is_solved() }).collect::<Option<_>>() {
-                    Some(Type::Type(TypeSpec::TypeSign(
-                            TypeSign { id: ty.clone(), gens: gens_spec }
-                        )))
-                }
-                else {
-                    None
-                }
+                gens.iter_mut().for_each(|gen| gen.subst(theta));
+                None
             }
             Type::Type(_) => { None },
             Type::AssociatedType(ref mut ty, _) => {
@@ -254,6 +241,7 @@ impl TypeEquations {
         let ty = self.solve_associated_type(ty, trs)?;
         let ty = self.solve_trait_method(ty, trs)?;
         let ty = self.solve_member(ty, trs)?;
+        let ty = self.solve_generics(ty, trs)?;
         Ok(ty)
     }
 
@@ -276,9 +264,6 @@ impl TypeEquations {
                 else {
                     Ok(Type::AssociatedType(Box::new(inner_ty), asso))
                 }
-            }
-            Type::TraitMethod(inner_ty, tr_method) => {
-                Ok(Type::TraitMethod(Box::new(self.solve_associated_type(*inner_ty, trs)?), tr_method))
             }
             _ => Ok(ty),
         }
@@ -314,22 +299,34 @@ impl TypeEquations {
     }
 
     fn solve_member(&mut self, ty: Type, trs: &TraitsInfo) -> Result<Type, String> {
-        if let Type::Member(inner_ty, id) = ty {
+        if let Type::Member(inner_ty, mem_id) = ty {
             let inner_ty = self.solve_relations(*inner_ty, trs)?;
             if let Type::Type(spec) = inner_ty {
-                if let TypeSpec::TypeId(ref typeid) = spec {
-                    match trs.typeids.get(typeid).cloned().unwrap() {
-                        StructDefinitionInfo::Def(def)  => def.get_member_type(self, &Vec::new(), &id),
-                        StructDefinitionInfo::Generics  => Err(format!("generics type has no member: {:?}", typeid)),
-                        StructDefinitionInfo::Primitive => Err(format!("primitive type has no member: {:?}", typeid)),
+                if let TypeSpec::TypeSign(TypeSign { ref id, ref gens }) = spec {
+                    if gens.len() == 0 {
+                        match trs.typeids.get(id).cloned().unwrap() {
+                            StructDefinitionInfo::Def(def)  => def.get_member_type(self, &Vec::new(), &mem_id),
+                            StructDefinitionInfo::Generics  => Err(format!("generics type has no member: {:?}", id)),
+                            StructDefinitionInfo::Primitive => Err(format!("primitive type has no member: {:?}", id)),
+                        }
+                    }
+                    else {
+                        unreachable!(format!("solve_member cant solve TypeSign with generics: {:?}", spec));
                     }
                 }
                 else {
                     Err(format!("associated type has no member: {:?}", spec))
                 }
             }
+            else if let Type::Generics(ref id, ref gens) = inner_ty {
+                match trs.typeids.get(id).cloned().unwrap() {
+                    StructDefinitionInfo::Def(def)  => def.get_member_type(self, gens, &mem_id),
+                    StructDefinitionInfo::Generics  => Err(format!("generics type has no member: {:?}", id)),
+                    StructDefinitionInfo::Primitive => Err(format!("primitive type has no member: {:?}", id)),
+                }
+            }
             else {
-                Ok(Type::Member(Box::new(inner_ty), id))
+                Ok(Type::Member(Box::new(inner_ty), mem_id))
             }
         }
         else {
@@ -340,14 +337,7 @@ impl TypeEquations {
     fn solve_generics(&mut self, ty: Type, trs: &TraitsInfo) -> Result<Type, String> {
         if let Type::Generics(id, gens) = ty {
             let try_solve = gens.into_iter().map(|gen| { self.solve_relations(gen, trs) }).collect::<Result<Vec<_>, _>>()?;
-            if let Some(gens_spec) = try_solve.into_iter().map(|gen| gen.is_solved()).collect() {
-                Ok(Type::Type(TypeSpec::TypeSign(
-                        TypeSign { id, gens: gens_spec }
-                        )))
-            }
-            else {
-                Ok(Type::Generics(id, gens))
-            }
+            Ok(Type::Generics(id, try_solve))
         }
         else {
             Ok(ty)
@@ -356,6 +346,7 @@ impl TypeEquations {
 
     fn check_all_typeid_exist(&mut self, trs: &TraitsInfo) -> Result<(), String> {
         self.equs = std::mem::take(&mut self.equs).into_iter().map(|equ| {
+            println!("equ: {:?}", equ);
             match equ {
                 TypeEquation::HasTrait(left, right) =>
                     Ok(TypeEquation::HasTrait(left.check_typeid(trs)?, right)),
@@ -450,3 +441,37 @@ impl TypeEquations {
     }
 }
 
+
+#[test]
+
+fn unify_test1() {
+    let mut trs = TraitsInfo::new();
+    let mut equs = TypeEquations::new();
+    let t = new_type_variable();
+    let a = new_type_variable();
+    trs.regist_structs_info(&StructDefinition {
+        struct_id: TypeId::from_str("Hoge"),
+        generics: vec![TypeId::from_str("T")],
+        members: vec![(Identifier::from_str("x"), TypeSpec::from_id(&TypeId::from_str("T")))].into_iter().collect(),
+    }).unwrap();
+    println!("trs: {:?}", trs);
+    equs.add_equation(t.clone(), Type::Generics(TypeId::from_str("Hoge"), vec![Type::Type(TypeSpec::from_id(&TypeId::from_str("i64")))]));
+    equs.add_equation(a, Type::Member(Box::new(t), Identifier::from_str("x")));
+    println!("{:?}", equs.unify(&trs));
+}
+
+#[test]
+fn unify_test2() {
+    let mut trs = TraitsInfo::new();
+    let mut equs = TypeEquations::new();
+    let t = new_type_variable();
+    trs.regist_structs_info(&StructDefinition {
+        struct_id: TypeId::from_str("Hoge"),
+        generics: vec![TypeId::from_str("T")],
+        members: vec![(Identifier::from_str("x"), TypeSpec::from_id(&TypeId::from_str("T")))].into_iter().collect(),
+    }).unwrap();
+    println!("trs: {:?}", trs);
+    equs.add_equation(t.clone(), Type::Type(TypeSpec::from_id(&TypeId::from_str("Hoge"))));
+    equs.add_equation(Type::Type(TypeSpec::from_id(&TypeId::from_str("i64"))), Type::Member(Box::new(t), Identifier::from_str("x")));
+    println!("{:?}", equs.unify(&trs));
+}

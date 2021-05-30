@@ -33,7 +33,7 @@ impl TypeSign {
     }
     pub fn check_typeid(self, trs: &TraitsInfo) -> TResult {
         if self.gens.len() == 0 {
-            self.check_typeid(trs)
+            trs.check_typeid_exist(&self.id)
         }
         else {
             unreachable!("do not check generics type");

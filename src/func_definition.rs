@@ -96,7 +96,7 @@ impl FuncDefinition {
         for (ty_id, trait_id) in self.generics.iter() {
             trs.regist_generics_type(ty_id)?;
             if let Some(trait_id) = trait_id {
-                trs.regist_param_candidate(equs, &TypeSpec::TypeId(ty_id.clone()), trait_id)?;
+                trs.regist_param_candidate(equs, &TypeSpec::from_id(ty_id), trait_id)?;
             }
         }
 

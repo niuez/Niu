@@ -16,10 +16,22 @@ pub fn get_identifier_counter() -> usize {
     IDENTIFIER_COUNTER.fetch_add(1, atomic::Ordering::SeqCst)
 }
 
-#[derive(Debug, PartialEq, Eq, Hash, Clone)]
+#[derive(Debug, Clone)]
 pub struct Identifier {
     pub name: String,
     pub identifier_cnt: usize,
+}
+
+impl PartialEq for Identifier {
+    fn eq(&self, right: &Self) -> bool {
+        self.name.eq(&right.name)
+    }
+}
+impl Eq for Identifier {}
+impl std::hash::Hash for  Identifier {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.name.hash(state);
+    }
 }
 
 impl<'a> Identifier {
