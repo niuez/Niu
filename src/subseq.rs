@@ -39,7 +39,6 @@ pub fn subseq_transpile(uexpr: &UnaryExpr, subseq: &Subseq, ta: &mut TypeAnnotat
         Subseq::Call(ref call) => {
             let caller = uexpr.transpile(ta);
             let args = call.args.iter().map(|arg| arg.transpile(ta)).collect::<Vec<_>>().join(", ");
-            ta.count();
             format!("{}({})", caller, args)
         }
         Subseq::Member(ref mem) => {

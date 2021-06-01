@@ -20,5 +20,6 @@ fn generics_get_b<S, T>(p: Pair<S, T>) -> T {
 }
 
 fn generics_new<S, T>(s: S, t: T) -> Pair<S, T> {
-  Pair { a: s, b: t }
+  let p = Pair { a: s, b: t };
+  p
 }

@@ -47,6 +47,9 @@ impl<'a> Identifier {
     pub fn generate_type_variable(&self, num: usize) -> Type {
         Type::TypeVariable(TypeVariable::Counter(self.identifier_cnt, num))
     }
+    pub fn get_id_number(&self) -> usize {
+        self.identifier_cnt
+    }
 }
 
 pub fn parse_identifier(s: &str) -> IResult<&str, Identifier> {

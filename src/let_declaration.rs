@@ -36,7 +36,7 @@ impl GenType for LetDeclaration {
 impl Transpile for LetDeclaration {
     fn transpile(&self, ta: &mut TypeAnnotation) -> String {
         format!("{} {} = {}",
-                { let res = ta.annotation().transpile(ta); ta.count(); res },
+                ta.annotation(self.id.get_id_number(), 0).transpile(ta),
                 self.id.into_string(),
                 self.value.transpile(ta)
         )

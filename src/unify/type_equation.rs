@@ -138,6 +138,15 @@ impl Transpile for Type {
     fn transpile(&self, ta: &mut TypeAnnotation) -> String {
         match *self {
             Type::Type(ref t) => t.transpile(ta),
+            Type::Generics(ref ty_id, ref gens) => {
+                let gens_trans = if gens.len() > 0 {
+                    format!("<{}>", gens.iter().map(|gen| gen.transpile(ta)).collect::<Vec<_>>().join(", "))
+                }
+                else {
+                    format!("")
+                };
+                format!("{}{}", ty_id.transpile(ta), gens_trans)
+            }
             _ => unreachable!("it is not Type"),
         }
     }

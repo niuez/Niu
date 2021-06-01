@@ -94,8 +94,13 @@ impl GenType for TypeSign {
 
 impl Transpile for TypeSign {
     fn transpile(&self, ta: &mut TypeAnnotation) -> String {
-        let gens_trans = self.gens.iter().map(|gen| gen.transpile(ta)).collect::<Vec<_>>().join(", ");
-        format!("{}<{}>", self.id.transpile(ta), gens_trans)
+        let gens_trans = if self.gens.len() > 0 {
+            format!("<{}>", self.gens.iter().map(|gen| gen.transpile(ta)).collect::<Vec<_>>().join(", "))
+        }
+        else {
+            format!("")
+        };
+        format!("{}{}", self.id.transpile(ta), gens_trans)
     }
 }
 

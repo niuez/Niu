@@ -71,9 +71,9 @@ impl FuncDefinitionInfo {
         Ok(())
     }
 
-    pub fn get_generics_annotation(&self, ta: &mut TypeAnnotation) -> String {
+    pub fn get_generics_annotation(&self, ta: &mut TypeAnnotation, call_id: &Identifier) -> String {
         if self.generics.len() > 0 {
-            let gen = self.generics.iter().map(|_| { let res = ta.annotation(); ta.count(); res.transpile(ta) })
+            let gen = self.generics.iter().enumerate().map(|(i, _)| { let res = ta.annotation(call_id.get_id_number(), i); res.transpile(ta) })
                           .collect::<Vec<_>>().join(", ");
             format!("<{}>", gen)
         }
@@ -136,7 +136,6 @@ impl Transpile for FuncDefinition {
         let return_str = self.return_type.transpile(ta);
         let func_str = self.func_id.into_string();
         let arg_str = self.args.iter().map(|(id, ty)| {
-            ta.count();
             format!("{} {}", ty.transpile(ta), id.into_string())
         }).collect::<Vec<_>>().join(", ");
 
