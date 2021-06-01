@@ -40,14 +40,14 @@ impl GenType for UnaryExpr {
 }
 
 impl Transpile for UnaryExpr {
-    fn transpile(&self, ta: &mut TypeAnnotation) -> String {
+    fn transpile(&self, ta: &TypeAnnotation) -> String {
         match *self {
             UnaryExpr::Variable(ref v) => v.transpile(ta),
             UnaryExpr::Literal(ref l) => l.transpile(ta),
             UnaryExpr::Parentheses(ref p) => p.transpile(ta),
             UnaryExpr::Block(ref b) => format!("[&](){{ {} }}()", b.transpile(ta)),
             UnaryExpr::Subseq(ref expr, ref s) => subseq_transpile(expr.as_ref(), s, ta),
-            UnaryExpr::StructInst(ref inst) => format!("!!!instantiation is unimplemented!!!"),
+            UnaryExpr::StructInst(ref inst) => inst.transpile(ta),
             UnaryExpr::TraitMethod(ref spec, TraitMethod { ref trait_id, ref method_id }) => {
                 format!("{}<{}>::{}", trait_id.transpile(ta), spec.transpile(ta), method_id.transpile(ta))
             }
@@ -91,7 +91,7 @@ impl GenType for Variable {
 }
 
 impl Transpile for Variable {
-    fn transpile(&self, ta: &mut TypeAnnotation) -> String {
+    fn transpile(&self, ta: &TypeAnnotation) -> String {
         ta.trans_variable(self)
     }
 }
@@ -113,7 +113,7 @@ impl GenType for Parentheses {
 }
 
 impl Transpile for Parentheses {
-    fn transpile(&self, ta: &mut TypeAnnotation) -> String {
+    fn transpile(&self, ta: &TypeAnnotation) -> String {
         format!("({})", self.expr.transpile(ta))
     }
 }

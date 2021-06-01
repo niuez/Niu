@@ -7,7 +7,7 @@ use nom::multi::*;
 use nom::sequence::*; 
 use nom::combinator::*;
 
-use crate::identifier::{ Identifier, parse_identifier };
+use crate::identifier::{ Identifier, parse_identifier, Tag };
 use crate::type_id::*;
 use crate::type_spec::*;
 use crate::expression::*;
@@ -20,16 +20,20 @@ use crate::unify::*;
 pub struct StructInstantiation {
     pub struct_id: TypeId,
     pub members: HashMap<Identifier, Expression>,
+    tag: Tag
 }
 
 impl GenType for StructInstantiation {
     fn gen_type(&self, equs: &mut TypeEquations) -> TResult {
+        let inst_ty = self.tag.generate_type_variable(0);
         for (id, expr) in self.members.iter() {
-            let st = Box::new(TypeSpec::from_id(&self.struct_id).gen_type(equs)?);
+            let st = Box::new(inst_ty.clone());
             let right = expr.gen_type(equs)?;
             equs.add_equation(Type::Member(st, id.clone()), right);
         }
-        TypeSpec::from_id(&self.struct_id).gen_type(equs)
+        let struct_ty = TypeSpec::from_id(&self.struct_id).gen_type(equs)?;
+        equs.add_equation(inst_ty.clone(), struct_ty);
+        Ok(inst_ty)
     }
 }
 
@@ -52,7 +56,17 @@ pub fn parse_struct_instantiation(s: &str) -> IResult<&str, UnaryExpr> {
             vec.into_iter().collect()
         }
     };
-    Ok((s, UnaryExpr::StructInst(StructInstantiation { struct_id, members })))
+    Ok((s, UnaryExpr::StructInst(StructInstantiation { struct_id, members, tag: Tag::new() })))
+}
+
+impl Transpile for StructInstantiation {
+    fn transpile(&self, ta: &TypeAnnotation) -> String {
+        let args = ta.get_struct_members_order(&self.struct_id).iter()
+            .map(|mem| self.members.get(mem).unwrap())
+            .map(|exp| exp.transpile(ta))
+            .collect::<Vec<_>>().join(", ");
+        format!("{}({})", ta.annotation(self.tag.get_num(), 0).transpile(ta), args)
+    }
 }
 
 #[test]

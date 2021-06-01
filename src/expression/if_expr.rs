@@ -43,7 +43,7 @@ impl GenType for IfExpr {
 }
 
 impl Transpile for IfExpr {
-    fn transpile(&self, ta: &mut TypeAnnotation) -> String {
+    fn transpile(&self, ta: &TypeAnnotation) -> String {
         let if_trans = format!("if({}) {{\n {} \n}}\n", self.ifp.cond.transpile(ta), self.ifp.block.transpile(ta));
         let elif_trans = self.elifp.iter().map(|ifp| format!("\nelse if({}) {{\n {} \n}}\n", ifp.cond.transpile(ta), ifp.block.transpile(ta))).collect::<Vec<_>>().join("");
         let else_trans = format!("else {{\n {} \n}}\n", self.el_block.transpile(ta));

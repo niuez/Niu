@@ -32,7 +32,7 @@ impl GenType for Expression {
 }
 
 impl Transpile for Expression {
-    fn transpile(&self, ta: &mut TypeAnnotation) -> String {
+    fn transpile(&self, ta: &TypeAnnotation) -> String {
         match *self {
             Expression::Expression(ref e) => e.transpile(ta),
             Expression::IfExpr(ref ifexpr) => ifexpr.as_ref().transpile(ta),
@@ -93,7 +93,7 @@ impl GenType for ExpOr {
 pub struct OperatorOr();
 
 impl Transpile for ExpOr {
-    fn transpile(&self, ta: &mut TypeAnnotation) -> String {
+    fn transpile(&self, ta: &TypeAnnotation) -> String {
         let mut res = String::new();
         for i in 0..self.terms.len() {
             res.push_str(&self.terms[i].transpile(ta));
@@ -104,7 +104,7 @@ impl Transpile for ExpOr {
 }
 
 impl Transpile for OperatorOr {
-    fn transpile(&self, _: &mut TypeAnnotation) -> String {
+    fn transpile(&self, _: &TypeAnnotation) -> String {
         "||".to_string()
     }
 }
@@ -153,7 +153,7 @@ impl GenType for ExpAnd {
 pub struct OperatorAnd();
 
 impl Transpile for ExpAnd {
-    fn transpile(&self, ta: &mut TypeAnnotation) -> String {
+    fn transpile(&self, ta: &TypeAnnotation) -> String {
         let mut res = String::new();
         for i in 0..self.terms.len() {
             res.push_str(&self.terms[i].transpile(ta));
@@ -164,7 +164,7 @@ impl Transpile for ExpAnd {
 }
 
 impl Transpile for OperatorAnd {
-    fn transpile(&self, _: &mut TypeAnnotation) -> String {
+    fn transpile(&self, _: &TypeAnnotation) -> String {
         "&&".to_string()
     }
 }
@@ -220,7 +220,7 @@ pub enum OperatorOrd {
 }
 
 impl Transpile for ExpOrd {
-    fn transpile(&self, ta: &mut TypeAnnotation) -> String {
+    fn transpile(&self, ta: &TypeAnnotation) -> String {
         match self.ope {
             Some(ref o) => format!("{} {} {}", self.terms[0].transpile(ta), o.transpile(ta), self.terms[1].transpile(ta)),
             None => self.terms[0].transpile(ta),
@@ -229,7 +229,7 @@ impl Transpile for ExpOrd {
 }
 
 impl Transpile for OperatorOrd {
-    fn transpile(&self, _: &mut TypeAnnotation) -> String {
+    fn transpile(&self, _: &TypeAnnotation) -> String {
         match *self {
             OperatorOrd::Equal  => "==",
             OperatorOrd::NotEq  => "!=",
@@ -296,7 +296,7 @@ impl GenType for ExpBitOr {
 pub struct OperatorBitOr();
 
 impl Transpile for ExpBitOr {
-    fn transpile(&self, ta: &mut TypeAnnotation) -> String {
+    fn transpile(&self, ta: &TypeAnnotation) -> String {
         let mut res = String::new();
         for i in 0..self.terms.len() {
             res.push_str(&self.terms[i].transpile(ta));
@@ -307,7 +307,7 @@ impl Transpile for ExpBitOr {
 }
 
 impl Transpile for OperatorBitOr {
-    fn transpile(&self, _: &mut TypeAnnotation) -> String {
+    fn transpile(&self, _: &TypeAnnotation) -> String {
         "|".to_string()
     }
 }
@@ -350,7 +350,7 @@ impl GenType for ExpBitXor {
 pub struct OperatorBitXor();
 
 impl Transpile for ExpBitXor {
-    fn transpile(&self, ta: &mut TypeAnnotation) -> String {
+    fn transpile(&self, ta: &TypeAnnotation) -> String {
         let mut res = String::new();
         for i in 0..self.terms.len() {
             res.push_str(&self.terms[i].transpile(ta));
@@ -361,7 +361,7 @@ impl Transpile for ExpBitXor {
 }
 
 impl Transpile for OperatorBitXor {
-    fn transpile(&self, _: &mut TypeAnnotation) -> String {
+    fn transpile(&self, _: &TypeAnnotation) -> String {
         "^".to_string()
     }
 }
@@ -404,7 +404,7 @@ impl GenType for ExpBitAnd {
 pub struct OperatorBitAnd();
 
 impl Transpile for ExpBitAnd {
-    fn transpile(&self, ta: &mut TypeAnnotation) -> String {
+    fn transpile(&self, ta: &TypeAnnotation) -> String {
         let mut res = String::new();
         for i in 0..self.terms.len() {
             res.push_str(&self.terms[i].transpile(ta));
@@ -415,7 +415,7 @@ impl Transpile for ExpBitAnd {
 }
 
 impl Transpile for OperatorBitAnd {
-    fn transpile(&self, _: &mut TypeAnnotation) -> String {
+    fn transpile(&self, _: &TypeAnnotation) -> String {
         "&".to_string()
     }
 }
@@ -461,7 +461,7 @@ pub enum OperatorShift {
 }
 
 impl Transpile for ExpShift {
-    fn transpile(&self, ta: &mut TypeAnnotation) -> String {
+    fn transpile(&self, ta: &TypeAnnotation) -> String {
         let mut res = String::new();
         for i in 0..self.terms.len() {
             res.push_str(&self.terms[i].transpile(ta));
@@ -472,7 +472,7 @@ impl Transpile for ExpShift {
 }
 
 impl Transpile for OperatorShift {
-    fn transpile(&self, _: &mut TypeAnnotation) -> String {
+    fn transpile(&self, _: &TypeAnnotation) -> String {
         match *self {
             OperatorShift::Shl => "<<",
             OperatorShift::Shr => ">>",
@@ -527,7 +527,7 @@ pub enum OperatorAddSub {
 }
 
 impl Transpile for ExpAddSub {
-    fn transpile(&self, ta: &mut TypeAnnotation) -> String {
+    fn transpile(&self, ta: &TypeAnnotation) -> String {
         let mut res = String::new();
         for i in 0..self.terms.len() {
             res.push_str(&self.terms[i].transpile(ta));
@@ -538,7 +538,7 @@ impl Transpile for ExpAddSub {
 }
 
 impl Transpile for OperatorAddSub {
-    fn transpile(&self, _: &mut TypeAnnotation) -> String {
+    fn transpile(&self, _: &TypeAnnotation) -> String {
         match *self {
             OperatorAddSub::Add => "+",
             OperatorAddSub::Sub => "-",
@@ -593,7 +593,7 @@ pub enum OperatorMulDivRem {
 }
 
 impl Transpile for ExpMulDivRem {
-    fn transpile(&self, ta: &mut TypeAnnotation) -> String {
+    fn transpile(&self, ta: &TypeAnnotation) -> String {
         let mut res = String::new();
         for i in 0..self.unary_exprs.len() {
             res.push_str(&self.unary_exprs[i].transpile(ta));
@@ -604,7 +604,7 @@ impl Transpile for ExpMulDivRem {
 }
 
 impl Transpile for OperatorMulDivRem {
-    fn transpile(&self, _: &mut TypeAnnotation) -> String {
+    fn transpile(&self, _: &TypeAnnotation) -> String {
         match *self {
             OperatorMulDivRem::Mul => "*",
             OperatorMulDivRem::Div => "/",

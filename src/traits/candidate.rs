@@ -99,7 +99,7 @@ pub fn parse_impl_definition(s: &str) -> IResult<&str, ImplDefinition> {
 }
 
 impl Transpile for ImplDefinition {
-    fn transpile(&self, ta: &mut TypeAnnotation) -> String {
+    fn transpile(&self, ta: &TypeAnnotation) -> String {
         let impl_def = format!("template<> struct {}<{}>", self.trait_id.transpile(ta), self.impl_ty.transpile(ta));
         let asso_defs = self.asso_defs.iter().map(|(id, spec)| {
             format!("using {} = {};\n", id.transpile(ta), spec.transpile(ta))

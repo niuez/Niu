@@ -39,6 +39,7 @@ impl FullContent {
 
         for st in self.structs.iter() {
             trs.regist_structs_info(&st)?;
+            ta.regist_structs_info(st);
         }
 
         self.regist_traits(&mut trs)?;
@@ -64,8 +65,12 @@ impl FullContent {
 }
 
 impl Transpile for FullContent {
-    fn transpile(&self, ta: &mut TypeAnnotation) -> String {
+    fn transpile(&self, ta: &TypeAnnotation) -> String {
         let mut res = "#include <bits/stdc++.h>\n\n".to_string();
+        for t in self.structs.iter() {
+            let s = t.transpile(ta);
+            res.push_str(&s);
+        }
         for t in self.traits.iter() {
             let s = t.transpile(ta);
             res.push_str(&s);

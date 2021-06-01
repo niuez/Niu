@@ -28,7 +28,7 @@ pub struct TraitId {
 }
 
 impl Transpile for TraitId {
-    fn transpile(&self, _: &mut TypeAnnotation) -> String {
+    fn transpile(&self, _: &TypeAnnotation) -> String {
         self.id.into_string()
     }
 }
@@ -63,7 +63,7 @@ impl TraitDefinition {
 }
 
 impl Transpile for TraitDefinition {
-    fn transpile(&self, ta: &mut TypeAnnotation) -> String {
+    fn transpile(&self, ta: &TypeAnnotation) -> String {
         format!("template<class Self, class = void> struct {} {{ }};\n", self.trait_id.transpile(ta))
     }
 }

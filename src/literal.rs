@@ -30,7 +30,7 @@ impl GenType for Literal {
     }
 }
 impl Transpile for Literal {
-    fn transpile(&self, ta: &mut TypeAnnotation) -> String {
+    fn transpile(&self, ta: &TypeAnnotation) -> String {
         match *self {
             Literal::U64(ref u) => u.transpile(ta),
             Literal::I64(ref i) => i.transpile(ta),
@@ -61,19 +61,19 @@ pub enum Boolean {
 }
 
 impl Transpile for LiteralU64 {
-    fn transpile(&self, _: &mut TypeAnnotation) -> String {
+    fn transpile(&self, _: &TypeAnnotation) -> String {
         format!("{}ull", self.number)
     }
 }
 
 impl Transpile for LiteralI64 {
-    fn transpile(&self, _: &mut TypeAnnotation) -> String {
+    fn transpile(&self, _: &TypeAnnotation) -> String {
         format!("{}ll", self.number)
     }
 }
 
 impl Transpile for Boolean {
-    fn transpile(&self, _: &mut TypeAnnotation) -> String {
+    fn transpile(&self, _: &TypeAnnotation) -> String {
         match *self {
             Boolean::True => "true",
             Boolean::False => "false",

@@ -11,7 +11,7 @@ use crate::structs::*;
 use crate::identifier::*;
 
 pub fn new_type_variable() -> Type {
-    let i = get_identifier_counter();
+    let i = get_tag_counter();
     Type::TypeVariable(TypeVariable::Counter(i, 0))
 }
 
@@ -135,7 +135,7 @@ impl Type {
 }
 
 impl Transpile for Type {
-    fn transpile(&self, ta: &mut TypeAnnotation) -> String {
+    fn transpile(&self, ta: &TypeAnnotation) -> String {
         match *self {
             Type::Type(ref t) => t.transpile(ta),
             Type::Generics(ref ty_id, ref gens) => {
@@ -254,7 +254,7 @@ impl TypeEquations {
         let ty = self.solve_associated_type(ty, trs)?;
         let ty = self.solve_trait_method(ty, trs)?;
         let ty = self.solve_member(ty, trs)?;
-        let ty = self.solve_generics(ty, trs)?;
+        //let ty = self.solve_generics(ty, trs)?;
         Ok(ty)
     }
 
@@ -388,6 +388,12 @@ impl TypeEquations {
                         (left, Type::TraitMethod(b, a)) => {
                             self.equs.push_back(TypeEquation::Equal(left, Type::TraitMethod(b, a)));
                         }
+                        (Type::Member(b, a), right) => {
+                            self.equs.push_back(TypeEquation::Equal(Type::Member(b, a), right));
+                        }
+                        (left, Type::Member(b, a)) => {
+                            self.equs.push_back(TypeEquation::Equal(left, Type::Member(b, a)));
+                        }
                         (Type::Func(l_args, l_return), Type::Func(r_args, r_return)) => {
                             if l_args.len() != r_args.len() {
                                 Err("length of args is not equal.")?;
@@ -454,6 +460,7 @@ fn unify_test1() {
     trs.regist_structs_info(&StructDefinition {
         struct_id: TypeId::from_str("Hoge"),
         generics: vec![TypeId::from_str("T")],
+        members_order: vec![Identifier::from_str("x")],
         members: vec![(Identifier::from_str("x"), TypeSpec::from_id(&TypeId::from_str("T")))].into_iter().collect(),
     }).unwrap();
     println!("trs: {:?}", trs);
@@ -470,6 +477,7 @@ fn unify_test2() {
     trs.regist_structs_info(&StructDefinition {
         struct_id: TypeId::from_str("Hoge"),
         generics: vec![TypeId::from_str("T")],
+        members_order: vec![Identifier::from_str("x")],
         members: vec![(Identifier::from_str("x"), TypeSpec::from_id(&TypeId::from_str("T")))].into_iter().collect(),
     }).unwrap();
     println!("trs: {:?}", trs);

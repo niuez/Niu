@@ -12,7 +12,7 @@ pub struct TraitMethodIdentifier {
 }
 
 impl Transpile for TraitMethodIdentifier {
-    fn transpile(&self, _: &mut TypeAnnotation) -> String {
+    fn transpile(&self, _: &TypeAnnotation) -> String {
         self.id.into_string()
     }
 }

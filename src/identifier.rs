@@ -10,16 +10,31 @@ use nom::IResult;
 
 use crate::unify::*;
 
-static IDENTIFIER_COUNTER: AtomicUsize = AtomicUsize::new(0);
+static TAG_COUNTER: AtomicUsize = AtomicUsize::new(0);
 
-pub fn get_identifier_counter() -> usize {
-    IDENTIFIER_COUNTER.fetch_add(1, atomic::Ordering::SeqCst)
+pub fn get_tag_counter() -> usize {
+    TAG_COUNTER.fetch_add(1, atomic::Ordering::SeqCst)
 }
 
 #[derive(Debug, Clone)]
 pub struct Identifier {
     pub name: String,
-    pub identifier_cnt: usize,
+    pub tag: Tag,
+}
+
+#[derive(Debug, Clone)]
+pub struct Tag(usize);
+
+impl Tag {
+    pub fn new() -> Tag {
+        Tag(get_tag_counter())
+    }
+    pub fn get_num(&self) -> usize {
+        self.0
+    }
+    pub fn generate_type_variable(&self, num: usize) -> Type {
+        Type::TypeVariable(TypeVariable::Counter(self.get_num(), num))
+    }
 }
 
 impl PartialEq for Identifier {
@@ -36,19 +51,19 @@ impl std::hash::Hash for  Identifier {
 
 impl<'a> Identifier {
     pub fn from_str(s: &str) -> Self {
-        Identifier { name: s.to_string(), identifier_cnt: get_identifier_counter() }
+        Identifier { name: s.to_string(), tag: Tag::new() }
     }
     pub fn from_vec_str(vec: Vec<&str>) -> Self {
-        Identifier { name: vec.join(""), identifier_cnt: get_identifier_counter() }
+        Identifier { name: vec.join(""), tag: Tag::new() }
     }
     pub fn into_string(&self) -> String {
         self.name.clone()
     }
     pub fn generate_type_variable(&self, num: usize) -> Type {
-        Type::TypeVariable(TypeVariable::Counter(self.identifier_cnt, num))
+        self.tag.generate_type_variable(num)
     }
-    pub fn get_id_number(&self) -> usize {
-        self.identifier_cnt
+    pub fn get_tag_number(&self) -> usize {
+        self.tag.get_num()
     }
 }
 

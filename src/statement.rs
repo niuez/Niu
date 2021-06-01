@@ -23,7 +23,7 @@ impl GenType for Statement {
 }
 
 impl Transpile for Statement {
-    fn transpile(&self, ta: &mut TypeAnnotation) -> String {
+    fn transpile(&self, ta: &TypeAnnotation) -> String {
         match *self {
             Statement::Expression(ref e) => e.transpile(ta),
             Statement::LetDeclaration(ref l) => l.transpile(ta),

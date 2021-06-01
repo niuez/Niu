@@ -34,7 +34,7 @@ pub fn subseq_gen_type(uexpr: &UnaryExpr, subseq: &Subseq, equs: &mut TypeEquati
 
 }
 
-pub fn subseq_transpile(uexpr: &UnaryExpr, subseq: &Subseq, ta: &mut TypeAnnotation) -> String {
+pub fn subseq_transpile(uexpr: &UnaryExpr, subseq: &Subseq, ta: &TypeAnnotation) -> String {
     match *subseq {
         Subseq::Call(ref call) => {
             let caller = uexpr.transpile(ta);

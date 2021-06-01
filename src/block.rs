@@ -27,7 +27,7 @@ impl GenType for Block {
 }
 
 impl Transpile for Block {
-    fn transpile(&self, ta: &mut TypeAnnotation) -> String {
+    fn transpile(&self, ta: &TypeAnnotation) -> String {
         let mut vec = self.statements.iter().map(|s| s.transpile(ta)).collect::<Vec<_>>();
         if let Some(ref return_exp) = self.return_exp {
             vec.push(format!("return {};", return_exp.transpile(ta)));
