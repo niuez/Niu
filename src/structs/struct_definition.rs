@@ -82,12 +82,12 @@ pub fn parse_struct_definition(s: &str) -> IResult<&str, StructDefinition> {
 impl Transpile for StructDefinition {
     fn transpile(&self, ta: &TypeAnnotation) -> String {
         let template = if self.generics.len() > 0 {
-            format!("tempalte <{}> ", self.generics.iter().map(|gen| format!("class {}", gen.transpile(ta))).collect::<Vec<_>>().join(", "))
+            format!("template <{}> ", self.generics.iter().map(|gen| format!("class {}", gen.transpile(ta))).collect::<Vec<_>>().join(", "))
         }
         else {
             format!("")
         };
-        let members = self.members_order.iter().map(|mem| self.members.get_key_value(mem).unwrap()).map(|(mem, ty)| format!("{} {}", ty.transpile(ta), mem.into_string())).collect::<Vec<_>>().join("; \n");
+        let members = self.members_order.iter().map(|mem| self.members.get_key_value(mem).unwrap()).map(|(mem, ty)| format!("{} {};", ty.transpile(ta), mem.into_string())).collect::<Vec<_>>().join("\n");
         let constructor = format!("{}({}):{} {{ }}",
             self.struct_id.transpile(ta),
             self.members_order.iter().map(|mem| self.members.get_key_value(mem).unwrap())
@@ -96,7 +96,7 @@ impl Transpile for StructDefinition {
                 .map(|(mem, _)| format!("{}({})", mem.into_string(), mem.into_string())).collect::<Vec<_>>().join(", ")
             );
 
-        format!("{}struct {} {{\n{}\n{}\n}};\n", template, self.struct_id.transpile(ta), members, constructor)
+        format!("{}struct {} {{\n{}\n{}\n}} ;\n", template, self.struct_id.transpile(ta), members, constructor)
     }
 }
 
