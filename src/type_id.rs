@@ -14,8 +14,9 @@ impl TypeId {
     pub fn from_str(s: &str) -> Self {
         TypeId { id: Identifier::from_str(s) }
     }
-    pub fn check_typeid(self, trs: &TraitsInfo) -> TResult {
-        trs.check_typeid_exist(&self)
+    pub fn check_typeid(self, _trs: &TraitsInfo) -> TResult {
+        unreachable!("TypeId::check_typeid");
+        // trs.check_typeid_exist(&self)
     }
 }
 

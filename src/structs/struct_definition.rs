@@ -43,8 +43,23 @@ fn parse_member(s: &str) -> IResult<&str, (Identifier, TypeSpec)> {
     Ok((s, (id, ty)))
 }
 
+fn parse_generics_annotation(s: &str) -> IResult<&str, Vec<TypeId>> {
+    let (s, op) = opt(tuple((char('<'), space0, parse_type_id, space0, many0(tuple((char(','), space0, parse_type_id, space0))), opt(tuple((space0, char(',')))), space0, char('>'))))(s)?;
+    let v = match op {
+        None => Vec::new(),
+        Some((_, _, ty, _, m0, _, _, _)) => {
+            let mut v = vec![ty];
+            for (_, _, ty, _) in m0 {
+                v.push(ty);
+            }
+            v
+        }
+    };
+    Ok((s, v))
+}
+
 pub fn parse_struct_definition(s: &str) -> IResult<&str, StructDefinition> {
-    let (s, (_, _, struct_id, _, _, _, opts, _)) = tuple((tag("struct"), space1, parse_type_id, space0, char('{'), space0,
+    let (s, (_, _, struct_id, _, generics, _, _, _, opts, _)) = tuple((tag("struct"), space1, parse_type_id, space0, parse_generics_annotation, space0, char('{'), space0,
                          opt(tuple((parse_member, many0(tuple((space0, char(','), space0, parse_member))), opt(tuple((space0, char(',')))), space0))),
                          char('}')))(s)?;
     let members = match opts {
@@ -57,7 +72,7 @@ pub fn parse_struct_definition(s: &str) -> IResult<&str, StructDefinition> {
             vec.into_iter().collect()
         }
     };
-    Ok((s, StructDefinition { struct_id, generics: Vec::new(), members }))
+    Ok((s, StructDefinition { struct_id, generics, members }))
 }
 
 
@@ -65,6 +80,11 @@ pub fn parse_struct_definition(s: &str) -> IResult<&str, StructDefinition> {
 #[test]
 fn parse_struct_definition_test() {
     println!("{:?}", parse_struct_definition("struct MyStruct { a: i64, b: u64, }"));
+}
+
+#[test]
+fn parse_struct_definition2_test() {
+    println!("{:?}", parse_struct_definition("struct MyStruct<S, T> { a: S, b: T }"));
 }
 
 #[test]

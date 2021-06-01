@@ -3,6 +3,8 @@ use std::collections::HashMap;
 use nom::IResult;
 use nom::character::complete::*;
 use nom::sequence::*;
+use nom::combinator::*;
+use nom::multi::*;
 
 use crate::type_id::*;
 use crate::traits::*;
@@ -41,19 +43,35 @@ impl TypeSign {
             }
         }
     }
-    pub fn check_typeid(self, trs: &TraitsInfo) -> TResult {
-        if self.gens.len() == 0 {
+    pub fn check_typeid(self, _trs: &TraitsInfo) -> TResult {
+        unreachable!("TypeSign::check_typeid");
+        /* if self.gens.len() == 0 {
             trs.check_typeid_exist(&self.id)
         }
         else {
             unreachable!("do not check generics type");
-        }
+        }*/
     }
 }
 
+fn parse_generics_annotation(s: &str) -> IResult<&str, Vec<TypeSpec>> {
+    let (s, op) = opt(tuple((char('<'), space0, parse_type_spec, space0, many0(tuple((char(','), space0, parse_type_spec, space0))), opt(tuple((space0, char(',')))), space0, char('>'))))(s)?;
+    let v = match op {
+        None => Vec::new(),
+        Some((_, _, ty, _, m0, _, _, _)) => {
+            let mut v = vec![ty];
+            for (_, _, ty, _) in m0 {
+                v.push(ty);
+            }
+            v
+        }
+    };
+    Ok((s, v))
+}
+
+
 pub fn parse_type_sign(s: &str) -> IResult<&str, TypeSign> {
-    let (s, id) = parse_type_id(s)?;
-    let gens = Vec::new();
+    let (s, (id, _, gens)) = tuple((parse_type_id, space0, parse_generics_annotation))(s)?;
     Ok((s, TypeSign { id, gens }))
 }
 
@@ -153,7 +171,10 @@ impl Transpile for TypeSpec {
 
 #[test]
 fn parse_type_spec_test() {
+    let mut equs = TypeEquations::new();
     println!("{:?}", parse_type_spec("i64"));
     println!("{:?}", parse_type_spec("i64#MyTrait::Output"));
+    println!("{:?}", parse_type_spec("Pair<Pair<i64, u64>, bool>"));
+    println!("{:?}", parse_type_spec("Pair<Pair<i64, u64>, bool>").unwrap().1.gen_type(&mut equs));
 }
     

@@ -111,7 +111,7 @@ impl Type {
                     Box::new((*ret).check_typeid(trs)?)
                 ),
             Type::Generics(id, gens) => {
-                trs.check_typeid_with_generics(id, gens)?
+                trs.check_typeid_with_generics(id, gens, trs)?
             }
             Type::Type(ty) => ty.check_typeid(trs)?,
             Type::AssociatedType(ty, asso) =>
@@ -343,6 +343,7 @@ impl TypeEquations {
     }
 
     pub fn unify(&mut self, trs: &TraitsInfo) -> Result<Vec<TypeSubst>, String> {
+        println!("unify trs = {:?}", trs);
         let mut thetas = Vec::new();
         self.check_all_typeid_exist(trs)?;
         while let Some(equation) = self.equs.pop_front() {

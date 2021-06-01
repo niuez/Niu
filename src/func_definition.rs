@@ -111,8 +111,11 @@ impl FuncDefinition {
         let return_t = self.return_type.gen_type(equs)?;
         equs.add_equation(result_type, return_t);
 
+        println!("unify {:?}", self.func_id);
+        println!("trs: {:?}", trs);
+
         let result = equs.unify(&mut trs);
-        
+
         equs.out_scope();
         result
     }

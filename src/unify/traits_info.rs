@@ -56,8 +56,9 @@ impl<'a> TraitsInfo<'a> {
         }
     }
 
-    pub fn check_typeid_exist(&self, id: &TypeId) -> TResult {
-        if let Some(def_info) = self.typeids.get(id) {
+    pub fn check_typeid_exist(&self, _id: &TypeId) -> TResult {
+        unreachable!("check_typeid_exist");
+        /* if let Some(def_info) = self.typeids.get(id) {
             match *def_info {
                 StructDefinitionInfo::Def(ref def) => {
                     Ok(Type::Generics(id.clone(), (0..def.get_generics_len()).map(|i| id.id.generate_type_variable(i)).collect()))
@@ -75,15 +76,17 @@ impl<'a> TraitsInfo<'a> {
         }
         else {
             Err(format!("not exist definition: {:?}", id))
-        }
+        }*/
     }
     
-    pub fn check_typeid_with_generics(&self, id: TypeId, gens: Vec<Type>) -> TResult {
+    pub fn check_typeid_with_generics(&self, id: TypeId, gens: Vec<Type>, top_trs: &Self) -> TResult {
+        println!("id = {:?}", id);
+        println!("typeids = {:?}", self.typeids);
         if let Some(def_info) = self.typeids.get(&id) {
             match *def_info {
                 StructDefinitionInfo::Def(ref def) => {
                     if def.get_generics_len() == gens.len() {
-                        let gens = gens.into_iter().map(|ty| ty.check_typeid(self)).collect::<Result<Vec<_>, _>>()?;
+                        let gens = gens.into_iter().map(|ty| ty.check_typeid(top_trs)).collect::<Result<Vec<_>, _>>()?;
                         Ok(Type::Generics(id, gens))
                     }
                     else {
@@ -109,7 +112,7 @@ impl<'a> TraitsInfo<'a> {
             }
         }
         else if let Some(trs) = self.upper_info {
-            trs.check_typeid_exist(&id)
+            trs.check_typeid_with_generics(id, gens, top_trs)
         }
         else {
             Err(format!("not exist definition: {:?}", id))
@@ -172,7 +175,6 @@ impl<'a> TraitsInfo<'a> {
         }
     }
     pub fn regist_param_candidate(&mut self, _equs: &mut TypeEquations, ty_id: &TypeId, trait_id: &TraitId) -> Result<(), String> {
-        println!("param {:?}, {:?}", ty_id, trait_id);
         match self.get_traitinfo(trait_id) {
             None => Err(format!("trait {:?} is not defined", trait_id)),
             Some(tr_def) => {
@@ -191,11 +193,9 @@ impl<'a> TraitsInfo<'a> {
 
     pub fn match_to_impls_for_type(&self, trait_id: &TraitId, ty: &Type) -> Vec<(Vec<TypeSubst>, &SelectionCandidate)> {
         let mut ans = Vec::new();
-        println!("{:?}", ty);
         if let Some(impls) = self.impls.get(trait_id) {
             let mut vs = impls.iter()
                 .map(|impl_trait| {
-                    println!("impl {:?}", impl_trait);
                     impl_trait.match_impl_for_ty(&ty, self)
                 })
             .filter_map(|x| x)
