@@ -89,6 +89,10 @@ impl<'a> TraitsInfo<'a> {
                         let gens = gens.into_iter().map(|ty| ty.check_typeid(top_trs)).collect::<Result<Vec<_>, _>>()?;
                         Ok(Type::Generics(id, gens))
                     }
+                    else if gens.len() == 0 && def.get_generics_len() > 0 {
+                        let gens = (0..def.get_generics_len()).map(|i| id.id.generate_type_variable(i)).collect();
+                        Ok(Type::Generics(id, gens))
+                    }
                     else {
                         Err(format!("type {:?} has {:?} generics but not match to {:?}", id, def.get_generics_len(), gens))
                     }
