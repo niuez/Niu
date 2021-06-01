@@ -131,6 +131,34 @@ fn apply() -> i64 {
 
 ```
 
+```
+struct Pair<S, T> {
+  a: S,
+  b: T,
+}
+
+fn get_a(p: Pair<i64, u64>) -> i64 {
+  p.a
+}
+
+fn get_b(p: Pair<i64, u64>) -> u64 {
+  p.b
+}
+
+fn generics_get_a<S, T>(p: Pair<S, T>) -> S {
+  p.a
+}
+
+fn generics_get_b<S, T>(p: Pair<S, T>) -> T {
+  p.b
+}
+
+fn generics_new<S, T>(s: S, t: T) -> Pair<S, T> {
+  let p = Pair { a: s, b: t };
+  p
+}
+```
+
 
 ## 遊び方
 
