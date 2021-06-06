@@ -12,7 +12,7 @@ use crate::traits::*;
 use crate::unify::*;
 use crate::trans::*;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct TypeSign {
     pub id: TypeId,
     pub gens: Vec<TypeSpec>,
@@ -104,7 +104,7 @@ impl Transpile for TypeSign {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum TypeSpec {
     TypeSign(TypeSign),
     Associated(Box<TypeSpec>, AssociatedType),

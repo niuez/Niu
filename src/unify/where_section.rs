@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{ HashSet, HashMap };
 
 use nom::bytes::complete::*;
 use nom::character::complete::*;
@@ -8,26 +8,44 @@ use nom::sequence::*;
 use nom::IResult;
 use nom::branch::*;
 
-use crate::identifier::{ Identifier, parse_identifier };
-use crate::type_id::{ TypeId, parse_type_id };
-use crate::block::{ Block, parse_block };
-use crate::unify::*;
-use crate::unary_expr::Variable;
-use crate::trans::*;
+use crate::type_id::*;
 use crate::type_spec::*;
 use crate::traits::*;
 
 use crate::unify::*;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum WhereElem {
     Equal(TypeSpec, TypeSpec),
     HasTrait(TypeSpec, TraitId),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct WhereSection {
-    equs: Vec<WhereElem>,
+    has_traits: HashSet<(TypeSpec, TraitId)>,
+    equals: HashSet<(TypeSpec, TypeSpec)>,
+}
+
+impl WhereSection {
+    pub fn regist_equations(&self, equs: &mut TypeEquations, mp: &HashMap<TypeId, Type>) -> Result<(), String> {
+        for (spec, tr_id) in self.has_traits.iter() {
+            let ty = spec.generics_to_type(mp, equs)?;
+            equs.add_has_trait(ty, tr_id.clone());
+        }
+        if self.equals.len() > 0 {
+            unreachable!("it is not support now")
+        }
+        Ok(())
+    }
+
+    pub fn regist_candidate(&self, trs: &mut TraitsInfo) {
+        for (spec, tr_id) in self.has_traits.iter() {
+        }
+    }
+
+    pub fn check_equal(&self, right: &Self) -> bool {
+        self.has_traits == right.has_traits && self.equals == right.equals
+    }
 }
 
 fn parse_has_trait_element(s: &str) -> IResult<&str, WhereElem> {
@@ -48,11 +66,19 @@ pub fn parse_where_section(s: &str) -> IResult<&str, WhereSection> {
                 opt(tuple((space0, char(','))))
                 ))
         )(s)?;
-    let equs = match op {
-        Some((_, _, equs, _)) => equs,
-        None => Vec::new(),
+    let (equals, has_traits) = match op {
+        Some((_, _, equs, _)) => {
+            equs.into_iter().fold((HashSet::new(), HashSet::new()), |(mut equals, mut has_traits), elem| {
+                match elem {
+                    WhereElem::Equal(left, right) => equals.insert((left, right)),
+                    WhereElem::HasTrait(spec, id) => has_traits.insert((spec, id)),
+                };
+                (equals, has_traits)
+            })
+        }
+        None => (HashSet::new(), HashSet::new())
     };
-    Ok((s, WhereSection { equs }))
+    Ok((s, WhereSection { equals, has_traits }))
 }
 
 #[test]
