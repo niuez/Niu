@@ -20,13 +20,13 @@ pub struct LetDeclaration {
 }
 
 impl GenType for LetDeclaration {
-    fn gen_type(&self, equs: &mut TypeEquations) -> TResult {
+    fn gen_type(&self, equs: &mut TypeEquations, trs: &TraitsInfo) -> TResult {
         let alpha = self.id.generate_type_variable(0);
         equs.regist_variable(Variable::from_identifier(self.id.clone()), alpha.clone());
-        let value_type = self.value.gen_type(equs)?;
+        let value_type = self.value.gen_type(equs, trs)?;
         equs.add_equation(alpha.clone(), value_type);
         if let Some(ref t) = self.type_info {
-            let t_type = t.gen_type(equs)?;
+            let t_type = t.generics_to_type(None, equs, trs)?;
             equs.add_equation(alpha.clone(), t_type);
         }
         Ok(Type::End)

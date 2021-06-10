@@ -23,10 +23,10 @@ pub enum Expression {
 }
 
 impl GenType for Expression {
-    fn gen_type(&self, equs: &mut TypeEquations) -> TResult {
+    fn gen_type(&self, equs: &mut TypeEquations, trs: &TraitsInfo) -> TResult {
         match *self {
-            Expression::Expression(ref e) => e.gen_type(equs),
-            Expression::IfExpr(ref ifexpr) => ifexpr.as_ref().gen_type(equs),
+            Expression::Expression(ref e) => e.gen_type(equs, trs),
+            Expression::IfExpr(ref ifexpr) => ifexpr.as_ref().gen_type(equs, trs),
         }
     }
 }
@@ -75,16 +75,16 @@ pub struct ExpOr {
 }
 
 impl GenType for ExpOr {
-    fn gen_type(&self, equs: &mut TypeEquations) -> TResult {
+    fn gen_type(&self, equs: &mut TypeEquations, trs: &TraitsInfo) -> TResult {
         if self.terms.len() > 1 {
             for t in self.terms.iter() {
-                let ty = t.gen_type(equs)?;
+                let ty = t.gen_type(equs, trs)?;
                 equs.add_equation(ty, Type::from_str("bool"));
             }
             Ok(Type::from_str("bool"))
         }
         else {
-            self.terms[0].gen_type(equs)
+            self.terms[0].gen_type(equs, trs)
         }
     }
 }
@@ -135,16 +135,16 @@ pub struct ExpAnd {
 }
 
 impl GenType for ExpAnd {
-    fn gen_type(&self, equs: &mut TypeEquations) -> TResult {
+    fn gen_type(&self, equs: &mut TypeEquations, trs: &TraitsInfo) -> TResult {
         if self.terms.len() > 1 {
             for t in self.terms.iter() {
-                let ty = t.gen_type(equs)?;
+                let ty = t.gen_type(equs, trs)?;
                 equs.add_equation(ty, Type::from_str("bool"));
             }
             Ok(Type::from_str("bool"))
         }
         else {
-            self.terms[0].gen_type(equs)
+            self.terms[0].gen_type(equs, trs)
         }
     }
 }
@@ -195,15 +195,15 @@ pub struct ExpOrd {
 }
 
 impl GenType for ExpOrd {
-    fn gen_type(&self, equs: &mut TypeEquations) -> TResult {
+    fn gen_type(&self, equs: &mut TypeEquations, trs: &TraitsInfo) -> TResult {
         match self.ope {
             Some(_) => {
-                let t0 = self.terms[0].gen_type(equs)?;
-                let t1 = self.terms[1].gen_type(equs)?;
+                let t0 = self.terms[0].gen_type(equs, trs)?;
+                let t1 = self.terms[1].gen_type(equs, trs)?;
                 equs.add_equation(t0, t1);
                 Ok(Type::from_str("bool"))
             }
-            None => self.terms[0].gen_type(equs),
+            None => self.terms[0].gen_type(equs, trs),
 
         }
     }
@@ -283,8 +283,8 @@ pub struct ExpBitOr {
 }
 
 impl GenType for ExpBitOr {
-    fn gen_type(&self, equs: &mut TypeEquations) -> TResult {
-        let ty = self.terms.iter().map(|t| t.gen_type(equs)).collect::<Result<Vec<_>, String>>()?;
+    fn gen_type(&self, equs: &mut TypeEquations, trs: &TraitsInfo) -> TResult {
+        let ty = self.terms.iter().map(|t| t.gen_type(equs, trs)).collect::<Result<Vec<_>, String>>()?;
         for i in 0..self.opes.len() {
             equs.add_equation(ty[i].clone(), ty[i + 1].clone());
         }
@@ -337,8 +337,8 @@ pub struct ExpBitXor {
 }
 
 impl GenType for ExpBitXor {
-    fn gen_type(&self, equs: &mut TypeEquations) -> TResult {
-        let ty = self.terms.iter().map(|t| t.gen_type(equs)).collect::<Result<Vec<_>, String>>()?;
+    fn gen_type(&self, equs: &mut TypeEquations, trs: &TraitsInfo) -> TResult {
+        let ty = self.terms.iter().map(|t| t.gen_type(equs, trs)).collect::<Result<Vec<_>, String>>()?;
         for i in 0..self.opes.len() {
             equs.add_equation(ty[i].clone(), ty[i + 1].clone());
         }
@@ -391,8 +391,8 @@ pub struct ExpBitAnd {
 }
 
 impl GenType for ExpBitAnd {
-    fn gen_type(&self, equs: &mut TypeEquations) -> TResult {
-        let ty = self.terms.iter().map(|t| t.gen_type(equs)).collect::<Result<Vec<_>, String>>()?;
+    fn gen_type(&self, equs: &mut TypeEquations, trs: &TraitsInfo) -> TResult {
+        let ty = self.terms.iter().map(|t| t.gen_type(equs, trs)).collect::<Result<Vec<_>, String>>()?;
         for i in 0..self.opes.len() {
             equs.add_equation(ty[i].clone(), ty[i + 1].clone());
         }
@@ -445,8 +445,8 @@ pub struct ExpShift {
 }
 
 impl GenType for ExpShift {
-    fn gen_type(&self, equs: &mut TypeEquations) -> TResult {
-        let ty = self.terms.iter().map(|t| t.gen_type(equs)).collect::<Result<Vec<_>, String>>()?;
+    fn gen_type(&self, equs: &mut TypeEquations, trs: &TraitsInfo) -> TResult {
+        let ty = self.terms.iter().map(|t| t.gen_type(equs, trs)).collect::<Result<Vec<_>, String>>()?;
         for i in 0..self.opes.len() {
             equs.add_equation(ty[i].clone(), ty[i + 1].clone());
         }
@@ -511,8 +511,8 @@ pub struct ExpAddSub {
 }
 
 impl GenType for ExpAddSub {
-    fn gen_type(&self, equs: &mut TypeEquations) -> TResult {
-        let ty = self.terms.iter().map(|t| t.gen_type(equs)).collect::<Result<Vec<_>, String>>()?;
+    fn gen_type(&self, equs: &mut TypeEquations, trs: &TraitsInfo) -> TResult {
+        let ty = self.terms.iter().map(|t| t.gen_type(equs, trs)).collect::<Result<Vec<_>, String>>()?;
         for i in 0..self.opes.len() {
             equs.add_equation(ty[i].clone(), ty[i + 1].clone());
         }
@@ -576,8 +576,8 @@ pub struct ExpMulDivRem {
 }
 
 impl GenType for ExpMulDivRem {
-    fn gen_type(&self, equs: &mut TypeEquations) -> TResult {
-        let ty = self.unary_exprs.iter().map(|t| t.gen_type(equs)).collect::<Result<Vec<_>, String>>()?;
+    fn gen_type(&self, equs: &mut TypeEquations, trs: &TraitsInfo) -> TResult {
+        let ty = self.unary_exprs.iter().map(|t| t.gen_type(equs, trs)).collect::<Result<Vec<_>, String>>()?;
         for i in 0..self.opes.len() {
             equs.add_equation(ty[i].clone(), ty[i + 1].clone());
         }

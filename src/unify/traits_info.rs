@@ -165,9 +165,9 @@ impl<'a> TraitsInfo<'a> {
                         Some(impl_method) => {
                             {
                                 let mut equs = TypeEquations::new();
-                                let impl_self_ty = ti.impl_ty.gen_type(&mut equs)?;
+                                let impl_self_ty = ti.impl_ty.generics_to_type(None, &mut equs, self)?;
                                 equs.set_self_type(Some(impl_self_ty));
-                                let impl_ty = ti.impl_ty.gen_type(&mut equs)?;
+                                let impl_ty = ti.impl_ty.generics_to_type(None, &mut equs, self)?;
                                 equs.set_self_type(Some(impl_ty));
                                 info.check_equal(&impl_method.get_func_info().1, &mut equs, self)?;
                             }
@@ -178,13 +178,13 @@ impl<'a> TraitsInfo<'a> {
             }
         }
     }
-    pub fn regist_param_candidate(&mut self, _equs: &mut TypeEquations, ty_id: &TypeId, trait_id: &TraitId) -> Result<(), String> {
+    pub fn regist_param_candidate(&mut self, _equs: &mut TypeEquations, ty: TypeSpec, trait_id: &TraitId) -> Result<(), String> {
         match self.get_traitinfo(trait_id) {
             None => Err(format!("trait {:?} is not defined", trait_id)),
             Some(tr_def) => {
-                let cand = ParamCandidate::new(trait_id.clone(), Type::Generics(ty_id.clone(), vec![]), tr_def.asso_ids.iter().map(|asso_id| {
+                let cand = ParamCandidate::new(trait_id.clone(), ty, tr_def.asso_ids.iter().map(|asso_id| {
                     (asso_id.clone(), Type::Type(TypeSpec::Associated(
-                        Box::new(TypeSpec::from_id(ty_id)), AssociatedType { trait_id: trait_id.clone(), type_id: asso_id.clone() }
+                        Box::new(ty), AssociatedType { trait_id: trait_id.clone(), type_id: asso_id.clone() }
                         )),
                     )
                 }).collect(),

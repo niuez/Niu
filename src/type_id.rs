@@ -21,7 +21,7 @@ impl TypeId {
 }
 
 impl GenType for TypeId {
-    fn gen_type(&self, equs: &mut TypeEquations) -> TResult {
+    fn gen_type(&self, equs: &mut TypeEquations, trs: &TraitsInfo) -> TResult {
         unreachable!("TypeID gen_type {:?}", self);
     }
 }

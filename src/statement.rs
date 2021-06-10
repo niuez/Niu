@@ -13,10 +13,10 @@ pub enum Statement {
 }
 
 impl GenType for Statement {
-    fn gen_type(&self, equs: &mut TypeEquations) -> TResult {
+    fn gen_type(&self, equs: &mut TypeEquations, trs: &TraitsInfo) -> TResult {
         match *self {
-            Statement::Expression(ref e) => e.gen_type(equs)?,
-            Statement::LetDeclaration(ref l) => l.gen_type(equs)?,
+            Statement::Expression(ref e) => e.gen_type(equs, trs)?,
+            Statement::LetDeclaration(ref l) => l.gen_type(equs, trs)?,
         };
         Ok(Type::End)
     }

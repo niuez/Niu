@@ -19,13 +19,13 @@ pub struct TypeSign {
 }
 
 impl TypeSign {
-    pub fn generics_to_type(&self, mp: &HashMap<TypeId, Type>, equs: &mut TypeEquations) -> TResult {
-        match mp.get(&self.id).cloned() {
-            Some(t) => {
+    pub fn generics_to_type(&self, mp: Option<&HashMap<TypeId, Type>>, equs: &mut TypeEquations, trs: &TraitsInfo) -> TResult {
+        match mp.map(|mp| mp.get(&self.id).cloned()) {
+            Some(Some(t)) => {
                 if self.gens.len() == 0 { Ok(t) }
                 else { Err(format!("generics type cant have generics argument")) }
             }
-            None => {
+            _ => {
                 if self.id == TypeId::from_str("Self") {
                     if self.gens.len() == 0 {
                         equs.get_self_type()
@@ -34,11 +34,11 @@ impl TypeSign {
                         Err(format!("Self cant have generics arg"))
                     }
                 }
-                else {
-                    Ok(Type::Generics(
-                            self.id.clone(),
-                            self.gens.iter().map(|gen| gen.generics_to_type(mp, equs)).collect::<Result<_, _>>()?
-                            ))
+                else  {
+                    trs.check_typeid_with_generics(
+                        self.id.clone(),
+                        self.gens.iter().map(|gen| gen.generics_to_type(mp, equs, trs)).collect::<Result<_, _>>()?,
+                        trs)
                 }
             }
         }
@@ -76,8 +76,8 @@ pub fn parse_type_sign(s: &str) -> IResult<&str, TypeSign> {
 }
 
 
-impl GenType for TypeSign {
-    fn gen_type(&self, equs: &mut TypeEquations) -> TResult {
+/* impl GenType for TypeSign {
+    fn gen_type(&self, equs: &mut TypeEquations, trs: &TraitsInfo) -> TResult {
         if self.id == TypeId::from_str("Self") {
             if self.gens.len() == 0 {
                 equs.get_self_type()
@@ -87,10 +87,10 @@ impl GenType for TypeSign {
             }
         }
         else {
-            Ok(Type::Generics(self.id.clone(), self.gens.iter().map(|gen| gen.gen_type(equs)).collect::<Result<_, _>>()?))
+            Ok(Type::Generics(self.id.clone(), self.gens.iter().map(|gen| gen.gen_type(equs, trs)).collect::<Result<_, _>>()?))
         }
     }
-}
+} */
 
 impl Transpile for TypeSign {
     fn transpile(&self, ta: &TypeAnnotation) -> String {
@@ -111,13 +111,13 @@ pub enum TypeSpec {
 }
 
 impl TypeSpec {
-    pub fn generics_to_type(&self, mp: &HashMap<TypeId, Type>, equs: &mut TypeEquations) -> TResult {
+    pub fn generics_to_type(&self, mp: Option<&HashMap<TypeId, Type>>, equs: &mut TypeEquations, trs: &TraitsInfo) -> TResult {
         match *self {
             TypeSpec::TypeSign(ref sign) => {
-                sign.generics_to_type(mp, equs)
+                sign.generics_to_type(mp, equs, trs)
             }
             TypeSpec::Associated(ref spec, ref asso) => {
-                Ok(Type::AssociatedType(Box::new(spec.as_ref().generics_to_type(mp, equs)?), asso.clone()))
+                Ok(Type::AssociatedType(Box::new(spec.as_ref().generics_to_type(mp, equs, trs)?), asso.clone()))
             }
         }
     }
@@ -150,17 +150,18 @@ pub fn parse_type_spec(s: &str) -> IResult<&str, TypeSpec> {
     Ok((now, prev))
 }
 
+/* 
 impl GenType for TypeSpec {
-    fn gen_type(&self, equs: &mut TypeEquations) -> TResult {
+    fn gen_type(&self, equs: &mut TypeEquations, trs: &TraitsInfo) -> TResult {
         match *self {
-            TypeSpec::TypeSign(ref sign) => sign.gen_type(equs),
+            TypeSpec::TypeSign(ref sign) => sign.gen_type(equs, trs),
             TypeSpec::Associated(ref specs, ref asso) => {
-                let specs_type = specs.gen_type(equs)?;
+                let specs_type = specs.gen_type(equs, trs)?;
                 Ok(Type::AssociatedType(Box::new(specs_type), asso.clone()))
             }
         }
     }
-}
+} */
 
 impl Transpile for TypeSpec {
     fn transpile(&self, ta: &TypeAnnotation) -> String {
@@ -180,6 +181,6 @@ fn parse_type_spec_test() {
     println!("{:?}", parse_type_spec("i64"));
     println!("{:?}", parse_type_spec("i64#MyTrait::Output"));
     println!("{:?}", parse_type_spec("Pair<Pair<i64, u64>, bool>"));
-    println!("{:?}", parse_type_spec("Pair<Pair<i64, u64>, bool>").unwrap().1.gen_type(&mut equs));
+    // println!("{:?}", parse_type_spec("Pair<Pair<i64, u64>, bool>").unwrap().1.gen_type(&mut equs));
 }
     

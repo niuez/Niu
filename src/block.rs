@@ -18,11 +18,11 @@ pub struct Block {
 }
 
 impl GenType for Block {
-    fn gen_type(&self, equs: &mut TypeEquations) -> TResult {
+    fn gen_type(&self, equs: &mut TypeEquations, trs: &TraitsInfo) -> TResult {
         for s in self.statements.iter() {
-            s.gen_type(equs)?;
+            s.gen_type(equs, trs)?;
         }
-        self.return_exp.as_ref().unwrap().gen_type(equs)
+        self.return_exp.as_ref().unwrap().gen_type(equs, trs)
     }
 }
 

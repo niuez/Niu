@@ -103,31 +103,6 @@ impl Type {
         }
     }
 
-    pub fn check_typeid(self, trs: &TraitsInfo) -> TResult {
-        let res = match self {
-            Type::Func(args, ret) => 
-                Type::Func(
-                    args.into_iter().map(|a| a.check_typeid(trs)).collect::<Result<_,_>>()?,
-                    Box::new((*ret).check_typeid(trs)?)
-                ),
-            Type::Generics(id, gens) => {
-                trs.check_typeid_with_generics(id, gens, trs)?
-            }
-            Type::Type(ty) => ty.check_typeid(trs)?,
-            Type::AssociatedType(ty, asso) =>
-                Type::AssociatedType(Box::new(ty.check_typeid(trs)?), asso),
-            Type::TraitMethod(ty, tr) =>
-                Type::TraitMethod(Box::new(ty.check_typeid(trs)?), tr),
-            Type::Member(ty, id) =>
-                Type::Member(Box::new(ty.check_typeid(trs)?), id),
-            Type::End =>
-                Type::End,
-            // TypeVariable
-            t => t,
-        };
-        Ok(res)
-    }
-
     fn clone_type_variable(&self) -> TypeVariable {
         if let Type::TypeVariable(ref tv) = *self { tv.clone() }
         else { unreachable!("it is not TypeVariable") }
@@ -181,7 +156,7 @@ pub struct TypeSubst {
 pub type TResult = Result<Type, String>;
 
 pub trait GenType {
-    fn gen_type(&self, equs: &mut TypeEquations) -> TResult;
+    fn gen_type(&self, equs: &mut TypeEquations, trs: &TraitsInfo) -> TResult;
 }
 
 impl TypeEquations {
@@ -222,9 +197,9 @@ impl TypeEquations {
         let (fvar, finfo) = func.get_func_info();
         self.func.insert(fvar, finfo);
     }
-    pub fn get_type_from_variable(&mut self, var: &Variable) -> TResult {
+    pub fn get_type_from_variable(&mut self, trs: &TraitsInfo, var: &Variable) -> TResult {
         if let Some(func) = self.func.get(var).cloned() {
-            return func.generate_type(self, &var.id);
+            return func.generate_type(self, trs, &var.id);
         }
         for mp in self.variables.iter().rev() {
             if let Some(t) = mp.get(var) {
@@ -340,21 +315,9 @@ impl TypeEquations {
         }
     }
 
-    fn check_all_typeid_exist(&mut self, trs: &TraitsInfo) -> Result<(), String> {
-        self.equs = std::mem::take(&mut self.equs).into_iter().map(|equ| {
-            match equ {
-                TypeEquation::HasTrait(left, right) =>
-                    Ok(TypeEquation::HasTrait(left.check_typeid(trs)?, right)),
-                TypeEquation::Equal(left, right) =>
-                    Ok(TypeEquation::Equal(left.check_typeid(trs)?, right.check_typeid(trs)?)),
-            }}).collect::<Result<VecDeque<_>, String>>()?;
-        Ok(())
-    }
-
     pub fn unify(&mut self, trs: &TraitsInfo) -> Result<Vec<TypeSubst>, String> {
         println!("unify trs = {:?}", trs);
         let mut thetas = Vec::new();
-        self.check_all_typeid_exist(trs)?;
         while let Some(equation) = self.equs.pop_front() {
             println!("equ: {:?}", equation);
             match equation {

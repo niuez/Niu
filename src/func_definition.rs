@@ -36,15 +36,15 @@ pub struct FuncDefinitionInfo {
 }
 
 impl FuncDefinitionInfo {
-    pub fn generate_type(&self, equs: &mut TypeEquations, call_id: &Identifier) -> TResult {
+    pub fn generate_type(&self, equs: &mut TypeEquations, trs: &TraitsInfo, call_id: &Identifier) -> TResult {
         let mut mp = HashMap::new();
         for (i, g_id) in self.generics.iter().enumerate() {
             let ty_var = call_id.generate_type_variable(i);
             mp.insert(g_id.clone(), ty_var.clone());
         }
-        self.where_sec.regist_equations(equs, &mp)?;
-        let args = self.args.iter().map(|(_, t)| t.generics_to_type(&mp, equs)).collect::<Result<Vec<Type>, String>>()?;
-        let return_type = self.return_type.generics_to_type(&mp, equs)?;
+        self.where_sec.regist_equations(&mp, equs, trs)?;
+        let args = self.args.iter().map(|(_, t)| t.generics_to_type(Some(&mp), equs, trs)).collect::<Result<Vec<Type>, String>>()?;
+        let return_type = self.return_type.generics_to_type(Some(&mp), equs, trs)?;
         Ok(Type::Func(args, Box::new(return_type)))
     }
 
@@ -59,10 +59,10 @@ impl FuncDefinitionInfo {
         for g_id in self.generics.iter() {
             trs.regist_generics_type(g_id)?;
         }
-        let self_args  =  self.args.iter().map(|(_, t)| t.gen_type(equs)).collect::<Result<Vec<Type>, String>>()?;
-        let right_args = right.args.iter().map(|(_, t)| t.gen_type(equs)).collect::<Result<Vec<Type>, String>>()?;
-        let self_return_type = self.return_type.gen_type(equs)?;
-        let right_return_type = right.return_type.gen_type(equs)?;
+        let self_args  =  self.args.iter().map(|(_, t)| t.generics_to_type(None, equs, &trs)).collect::<Result<Vec<Type>, String>>()?;
+        let right_args = right.args.iter().map(|(_, t)| t.generics_to_type(None, equs, &trs)).collect::<Result<Vec<Type>, String>>()?;
+        let self_return_type = self.return_type.generics_to_type(None, equs, &trs)?;
+        let right_return_type = right.return_type.generics_to_type(None, equs, &trs)?;
         equs.add_equation(Type::Func(self_args, Box::new(self_return_type)), Type::Func(right_args, Box::new(right_return_type)));
         equs.unify(&mut trs)?;
         Ok(())
@@ -97,21 +97,21 @@ impl FuncDefinition {
 
         let mut trs = trs.into_scope();
 
-        for (ty_id, trait_id) in self.generics.iter() {
+        for ty_id in self.generics.iter() {
             trs.regist_generics_type(ty_id)?;
-            if let Some(trait_id) = trait_id {
+            /* if let Some(trait_id) = trait_id {
                 trs.regist_param_candidate(equs, ty_id, trait_id)?;
-            }
+            }*/
         }
 
         for (i, t) in self.args.iter() {
             let alpha = i.generate_type_variable(0);
-            let t_type = t.gen_type(equs)?; 
+            let t_type = t.generics_to_type(None, equs, &trs)?; 
             equs.regist_variable(Variable::from_identifier(i.clone()), alpha.clone());
             equs.add_equation(alpha, t_type);
         }
-        let result_type = self.block.gen_type(equs)?;
-        let return_t = self.return_type.gen_type(equs)?;
+        let result_type = self.block.gen_type(equs, &trs)?;
+        let return_t = self.return_type.generics_to_type(None, equs, &trs)?;
         equs.add_equation(result_type, return_t);
 
         println!("unify {:?}", self.func_id);

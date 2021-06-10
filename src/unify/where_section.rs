@@ -27,9 +27,9 @@ pub struct WhereSection {
 }
 
 impl WhereSection {
-    pub fn regist_equations(&self, equs: &mut TypeEquations, mp: &HashMap<TypeId, Type>) -> Result<(), String> {
+    pub fn regist_equations(&self, mp: &HashMap<TypeId, Type>, equs: &mut TypeEquations, trs: &TraitsInfo) -> Result<(), String> {
         for (spec, tr_id) in self.has_traits.iter() {
-            let ty = spec.generics_to_type(mp, equs)?;
+            let ty = spec.generics_to_type(Some(mp), equs, trs)?;
             equs.add_has_trait(ty, tr_id.clone());
         }
         if self.equals.len() > 0 {

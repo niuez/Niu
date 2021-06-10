@@ -26,15 +26,15 @@ pub enum UnaryExpr {
 }
 
 impl GenType for UnaryExpr {
-    fn gen_type(&self, equs: &mut TypeEquations) -> TResult {
+    fn gen_type(&self, equs: &mut TypeEquations, trs: &TraitsInfo) -> TResult {
         match *self {
-            UnaryExpr::Variable(ref v) => v.gen_type(equs),
-            UnaryExpr::Literal(ref l) => l.gen_type(equs),
-            UnaryExpr::Parentheses(ref p) => p.gen_type(equs),
-            UnaryExpr::Block(ref b) => b.gen_type(equs),
-            UnaryExpr::Subseq(ref expr, ref s) => subseq_gen_type(expr.as_ref(), s, equs),
-            UnaryExpr::StructInst(ref inst) => inst.gen_type(equs),
-            UnaryExpr::TraitMethod(ref spec, ref tr_id) => Ok(Type::TraitMethod(Box::new(spec.gen_type(equs)?), tr_id.clone())),
+            UnaryExpr::Variable(ref v) => v.gen_type(equs, trs),
+            UnaryExpr::Literal(ref l) => l.gen_type(equs, trs),
+            UnaryExpr::Parentheses(ref p) => p.gen_type(equs, trs),
+            UnaryExpr::Block(ref b) => b.gen_type(equs, trs),
+            UnaryExpr::Subseq(ref expr, ref s) => subseq_gen_type(expr.as_ref(), s, equs, trs),
+            UnaryExpr::StructInst(ref inst) => inst.gen_type(equs, trs),
+            UnaryExpr::TraitMethod(ref spec, ref tr_id) => Ok(Type::TraitMethod(Box::new(spec.generics_to_type(None, equs, trs)?), tr_id.clone())),
         }
     }
 }
@@ -85,8 +85,8 @@ impl Variable {
 }
 
 impl GenType for Variable {
-    fn gen_type(&self, equs: &mut TypeEquations) -> TResult {
-        equs.get_type_from_variable(self)
+    fn gen_type(&self, equs: &mut TypeEquations, trs: &TraitsInfo) -> TResult {
+        equs.get_type_from_variable(trs, self)
     }
 }
 
@@ -107,8 +107,8 @@ pub struct Parentheses {
 }
 
 impl GenType for Parentheses {
-    fn gen_type(&self, equs: &mut TypeEquations) -> TResult {
-        self.expr.gen_type(equs)
+    fn gen_type(&self, equs: &mut TypeEquations, trs: &TraitsInfo) -> TResult {
+        self.expr.gen_type(equs, trs)
     }
 }
 
