@@ -104,7 +104,7 @@ impl FuncDefinition {
             }*/
         }
 
-        self.where_sec.regist_candidate(&mut trs)?;
+        self.where_sec.regist_candidate(equs, &mut trs)?;
 
         for (i, t) in self.args.iter() {
             let alpha = i.generate_type_variable(0);
@@ -117,7 +117,7 @@ impl FuncDefinition {
         equs.add_equation(result_type, return_t);
 
         println!("unify {:?}", self.func_id);
-        println!("trs: {:?}", trs);
+        println!("trs: {:#?}", trs);
 
         let result = equs.unify(&mut trs);
 

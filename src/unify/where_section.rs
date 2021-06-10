@@ -16,37 +16,38 @@ use crate::unify::*;
 
 #[derive(Debug, Clone)]
 pub enum WhereElem {
-    Equal(TypeSpec, TypeSpec),
     HasTrait(TypeSpec, TraitId),
 }
 
 #[derive(Debug, Clone)]
 pub struct WhereSection {
-    has_traits: HashSet<(TypeSpec, TraitId)>,
-    equals: HashSet<(TypeSpec, TypeSpec)>,
+    has_traits: Vec<(TypeSpec, usize, TraitId)>,
 }
 
 impl WhereSection {
     pub fn regist_equations(&self, mp: &HashMap<TypeId, Type>, equs: &mut TypeEquations, trs: &TraitsInfo) -> Result<(), String> {
-        for (spec, tr_id) in self.has_traits.iter() {
+        for (spec, _, tr_id) in self.has_traits.iter() {
             let ty = spec.generics_to_type(Some(mp), equs, trs)?;
             equs.add_has_trait(ty, tr_id.clone());
-        }
-        if self.equals.len() > 0 {
-            unreachable!("it is not support now")
         }
         Ok(())
     }
 
-    pub fn regist_candidate(&self, trs: &mut TraitsInfo) -> Result<(), String> {
-        for (spec, tr_id) in self.has_traits.iter() {
-            trs.regist_param_candidate(spec, tr_id)?;
+    pub fn regist_candidate(&self, equs: &TypeEquations, trs: &mut TraitsInfo) -> Result<(), String> {
+        for (spec, _, tr_id) in self.has_traits.iter() {
+            let param_ty = spec.generate_type_no_auto_generics(equs, trs)?;
+
+            let mut equs = TypeEquations::new();
+            equs.add_equation(param_ty, tr_id.id.generate_type_variable(0));
+            let param_ty = SubstsMap::new(equs.unify(trs)?).get(&tr_id.id, 0)?;
+            trs.regist_param_candidate(param_ty, tr_id)?;
         }
         Ok(())
     }
 
     pub fn check_equal(&self, right: &Self) -> bool {
-        self.has_traits == right.has_traits && self.equals == right.equals
+                self.has_traits.clone().into_iter().collect::<HashSet<_>>()
+            == right.has_traits.clone().into_iter().collect::<HashSet<_>>()
     }
 }
 
@@ -55,32 +56,30 @@ fn parse_has_trait_element(s: &str) -> IResult<&str, WhereElem> {
     Ok((s, WhereElem::HasTrait(spec, tr_id)))
 }
 
-fn parse_equal_element(s: &str) -> IResult<&str, WhereElem> {
-    let (s, (spec_left, _, _, _, spec_right)) = tuple((parse_type_spec, space0, char('='), space0, parse_type_spec))(s)?;
-    Ok((s, WhereElem::Equal(spec_left, spec_right)))
-}
-
 pub fn parse_where_section(s: &str) -> IResult<&str, WhereSection> {
     let (s, op) = opt(
         tuple((
                 tag("where"), space1,
-                separated_list0(tuple((space0, char(','), space0)), alt((parse_has_trait_element, parse_equal_element))),
+                separated_list0(tuple((space0, char(','), space0)), parse_has_trait_element),
                 opt(tuple((space0, char(','))))
                 ))
         )(s)?;
-    let (equals, has_traits) = match op {
+    let mut has_traits = match op {
         Some((_, _, equs, _)) => {
-            equs.into_iter().fold((HashSet::new(), HashSet::new()), |(mut equals, mut has_traits), elem| {
+            equs.into_iter().fold(Vec::new(), |mut has_traits, elem| {
                 match elem {
-                    WhereElem::Equal(left, right) => equals.insert((left, right)),
-                    WhereElem::HasTrait(spec, id) => has_traits.insert((spec, id)),
+                    WhereElem::HasTrait(spec, id) => {
+                        let dep = spec.associated_type_depth();
+                        has_traits.push((spec, dep, id))
+                    }
                 };
-                (equals, has_traits)
+                has_traits
             })
         }
-        None => (HashSet::new(), HashSet::new())
+        None => Vec::new(),
     };
-    Ok((s, WhereSection { equals, has_traits }))
+    has_traits.sort_by_key(|(_, ref d, _)| *d);
+    Ok((s, WhereSection { has_traits }))
 }
 
 #[test]

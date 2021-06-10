@@ -141,22 +141,21 @@ impl ImplCandidate {
 #[derive(Debug, Clone)]
 pub struct ParamCandidate {
     pub trait_id: TraitId,
-    pub impl_ty: TypeSpec,
+    pub impl_ty: Type,
     pub asso_defs: HashMap<AssociatedTypeIdentifier, Type>,
     pub require_methods: HashMap<TraitMethodIdentifier, FuncDefinitionInfo>,
 }
 
 impl ParamCandidate {
-    pub fn new(trait_id: TraitId, impl_ty: TypeSpec, asso_defs: HashMap<AssociatedTypeIdentifier, Type>, require_methods: HashMap<TraitMethodIdentifier, FuncDefinitionInfo>) -> SelectionCandidate {
+    pub fn new(trait_id: TraitId, impl_ty: Type, asso_defs: HashMap<AssociatedTypeIdentifier, Type>, require_methods: HashMap<TraitMethodIdentifier, FuncDefinitionInfo>) -> SelectionCandidate {
         SelectionCandidate::ParamCandidate(ParamCandidate {
             trait_id, impl_ty, asso_defs, require_methods,
         })
     }
     pub fn match_impl_for_ty(&self, ty: &Type, trs: &TraitsInfo) -> Option<SubstsMap> {
         let mut equs = TypeEquations::new();
-        let impl_ty = self.impl_ty.generics_to_type(None, &mut equs, trs).unwrap();
         let alpha = self.trait_id.id.generate_type_variable(0);
-        equs.add_equation(impl_ty, alpha.clone());
+        equs.add_equation(self.impl_ty.clone(), alpha.clone());
         equs.add_equation(ty.clone(), alpha);
         equs.unify(trs).ok().map(|res| SubstsMap::new(res))
     }

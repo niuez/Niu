@@ -43,14 +43,22 @@ impl TypeSign {
             }
         }
     }
-    pub fn check_typeid(self, _trs: &TraitsInfo) -> TResult {
-        unreachable!("TypeSign::check_typeid");
-        /* if self.gens.len() == 0 {
-            trs.check_typeid_exist(&self.id)
+    pub fn generate_type_no_auto_generics(&self, equs: &TypeEquations, trs: &TraitsInfo) -> TResult {
+        if self.id == TypeId::from_str("Self") {
+            if self.gens.len() == 0 {
+                equs.get_self_type()
+            }
+            else {
+                Err(format!("Self cant have generics arg"))
+            }
         }
-        else {
-            unreachable!("do not check generics type");
-        }*/
+        else  {
+            trs.check_typeid_no_auto_generics(
+                self.id.clone(),
+                self.gens.iter().map(|gen| gen.generate_type_no_auto_generics(equs, trs)).collect::<Result<_, _>>()?,
+                trs
+                )
+        }
     }
 }
 
@@ -122,12 +130,21 @@ impl TypeSpec {
         }
     }
 
-    pub fn check_typeid(self, trs: &TraitsInfo) -> TResult {
+    pub fn generate_type_no_auto_generics(&self, equs: &TypeEquations, trs: &TraitsInfo) -> TResult {
+        match *self {
+            TypeSpec::TypeSign(ref sign) => {
+                sign.generate_type_no_auto_generics(equs, trs)
+            }
+            TypeSpec::Associated(ref spec, ref asso) => {
+                Ok(Type::AssociatedType(Box::new(spec.as_ref().generate_type_no_auto_generics(equs, trs)?), asso.clone()))
+            }
+        }
+    }
+
+    pub fn associated_type_depth(&self) -> usize {
         match self {
-            TypeSpec::TypeSign(sign) =>
-                sign.check_typeid(trs),
-            TypeSpec::Associated(spec, asso) =>
-                unreachable!("do not check_typeid TypeSpec::Associated"),
+            TypeSpec::TypeSign(_) => 0,
+            TypeSpec::Associated(spec, _) => 1 + spec.associated_type_depth(),
         }
     }
 

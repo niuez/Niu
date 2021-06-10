@@ -17,7 +17,7 @@ pub fn new_type_variable() -> Type {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Type {
-    Type(TypeSpec),
+    SolvedAssociatedType(Box<Type>, AssociatedType),
     Func(Vec<Type>, Box<Type>),
     TypeVariable(TypeVariable),
     Generics(TypeId, Vec<Type>),
@@ -30,6 +30,14 @@ pub enum Type {
 impl Type {
     pub fn from_str(s: &str) -> Self {
         Type::Generics(TypeId::from_str(s), vec![])
+    }
+
+    fn is_solved_type(&self) -> bool {
+        match self {
+            Type::SolvedAssociatedType(_, _) => true,
+            Type::Generics(_, _) => true,
+            _ => false,
+        }
     }
     fn occurs(&self, t: &TypeVariable) -> bool {
         match *self {
@@ -73,7 +81,7 @@ impl Type {
                 gens.iter_mut().for_each(|gen| gen.subst(theta));
                 None
             }
-            Type::Type(_) => { None },
+            Type::SolvedAssociatedType(_, _) => { None },
             Type::AssociatedType(ref mut ty, _) => {
                 ty.as_mut().subst(theta);
                 None
@@ -112,7 +120,9 @@ impl Type {
 impl Transpile for Type {
     fn transpile(&self, ta: &TypeAnnotation) -> String {
         match *self {
-            Type::Type(ref t) => t.transpile(ta),
+            Type::SolvedAssociatedType(ref ty, ref asso) => {
+                format!("typename {}<{}>::{}", asso.trait_id.transpile(ta), ty.as_ref().transpile(ta), asso.type_id.transpile(ta))
+            }
             Type::Generics(ref ty_id, ref gens) => {
                 let gens_trans = if gens.len() > 0 {
                     format!("<{}>", gens.iter().map(|gen| gen.transpile(ta)).collect::<Vec<_>>().join(", "))
@@ -248,15 +258,16 @@ impl TypeEquations {
         let ty = self.solve_associated_type(ty, trs)?;
         let ty = self.solve_trait_method(ty, trs)?;
         let ty = self.solve_member(ty, trs)?;
-        //let ty = self.solve_generics(ty, trs)?;
+        let ty = self.solve_generics(ty, trs)?;
         Ok(ty)
     }
+
 
     fn solve_associated_type(&mut self, ty: Type, trs: &TraitsInfo) -> Result<Type, String> {
         match ty {
             Type::AssociatedType(inner_ty, asso) => {
                 let inner_ty = self.solve_relations(*inner_ty, trs)?;
-                if let Type::Generics(_, _) = inner_ty {
+                if inner_ty.is_solved_type() {
                     let AssociatedType { ref trait_id, ref type_id } = asso;
                     let substs = trs.match_to_impls_for_type(trait_id, &inner_ty);
                     if substs.len() == 1 {
@@ -284,7 +295,7 @@ impl TypeEquations {
     fn solve_trait_method(&mut self, ty: Type, trs: &TraitsInfo) -> Result<Type, String> {
         if let Type::TraitMethod(inner_ty, tr_method) = ty {
             let inner_ty = self.solve_relations(*inner_ty, trs)?;
-            if let Type::Generics(_, _) = inner_ty {
+            if inner_ty.is_solved_type() {
                 let TraitMethod { trait_id, method_id } = tr_method;
                 let substs = trs.match_to_impls_for_type(&trait_id, &inner_ty);
                 if substs.len() == 1 {
@@ -342,9 +353,9 @@ impl TypeEquations {
         }
         while let Some(equation) = self.equs.pop_front() {
             match equation {
-                TypeEquation::HasTrait(Type::Type(ty_spec), tr) => {
-                    if !self.solve_has_trait(&Type::Type(ty_spec.clone()), &tr, trs) {
-                        Err(format!("type {:?} is not implemented trait {:?}", ty_spec, tr))?;
+                TypeEquation::HasTrait(Type::SolvedAssociatedType(ty, asso), tr) => {
+                    if !self.solve_has_trait(&Type::SolvedAssociatedType(ty.clone(), asso.clone()), &tr, trs) {
+                        Err(format!("type {:?} is not implemented trait {:?}", Type::SolvedAssociatedType(ty, asso), tr))?;
                     }
                 }
                 TypeEquation::HasTrait(Type::Generics(ty, gens), tr) => {
@@ -466,6 +477,6 @@ fn unify_test2() {
     }).unwrap();
     println!("trs: {:?}", trs);
     equs.add_equation(t.clone(), Type::from_str("Hoge"));
-    equs.add_equation(Type::Type(TypeSpec::from_id(&TypeId::from_str("i64"))), Type::Member(Box::new(t), Identifier::from_str("x")));
+    //equs.add_equation(Type::Type(TypeSpec::from_id(&TypeId::from_str("i64"))), Type::Member(Box::new(t), Identifier::from_str("x")));
     println!("{:?}", equs.unify(&trs));
 }

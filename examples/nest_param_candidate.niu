@@ -3,6 +3,13 @@ trait MyTrait {
   fn out(t: Self) -> Self#MyTrait::Output;
 }
 
+impl MyTrait for i64 {
+  type Output = i64;
+  fn out(t: i64) -> i64 {
+    t + 1i64
+  }
+}
+
 fn nest_out<T>(t: T) -> T#MyTrait::Output#MyTrait::Output 
 where T: MyTrait, T#MyTrait::Output: MyTrait {
   T#MyTrait::Output#MyTrait.out(T#MyTrait.out(t))
