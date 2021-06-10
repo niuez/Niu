@@ -352,6 +352,7 @@ impl TypeEquations {
             println!("{}. {:?}", i, equ);
         }
         while let Some(equation) = self.equs.pop_front() {
+            println!("equation = {:?}", equation);
             match equation {
                 TypeEquation::HasTrait(Type::SolvedAssociatedType(ty, asso), tr) => {
                     if !self.solve_has_trait(&Type::SolvedAssociatedType(ty.clone(), asso.clone()), &tr, trs) {
@@ -363,8 +364,16 @@ impl TypeEquations {
                         Err(format!("type {:?} is not implemented trait", tr))?;
                     }
                 }
-                TypeEquation::HasTrait(left, right) => {
-                    self.equs.push_back(TypeEquation::HasTrait(left, right));
+                TypeEquation::HasTrait(left, tr) => {
+                    let left = self.solve_relations(left, trs)?;
+                    if left.is_solved_type() {
+                        if !self.solve_has_trait(&left, &tr, trs) {
+                            Err(format!("type {:?} is not implemented trait", tr))?;
+                        }
+                    }
+                    else {
+                        self.equs.push_back(TypeEquation::HasTrait(left, tr));
+                    }
                 }
                 TypeEquation::Equal(left, right) => {
                     let left = self.solve_relations(left, trs)?;

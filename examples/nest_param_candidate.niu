@@ -4,13 +4,31 @@ trait MyTrait {
 }
 
 impl MyTrait for i64 {
-  type Output = i64;
-  fn out(t: i64) -> i64 {
-    t + 1i64
+  type Output = u64;
+  fn out(t: i64) -> u64 {
+    2u64
+  }
+}
+
+impl MyTrait for u64 {
+  type Output = bool;
+  fn out(t: u64) -> bool {
+    true
   }
 }
 
 fn nest_out<T>(t: T) -> T#MyTrait::Output#MyTrait::Output 
 where T: MyTrait, T#MyTrait::Output: MyTrait {
   T#MyTrait::Output#MyTrait.out(T#MyTrait.out(t))
+}
+
+
+fn ok_apply() -> i64 {
+  nest_out(1i64);
+  0i64
+}
+
+fn fail_apply() -> i64 {
+  nest_out(2u64);
+  0i64
 }
