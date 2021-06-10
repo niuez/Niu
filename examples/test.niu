@@ -10,7 +10,8 @@ impl MyTrait for i64 {
   }
 }
 
-fn apply<T: MyTrait>(t: T) -> T#MyTrait::Associated {
+fn apply<T>(t: T) -> T#MyTrait::Associated
+where T: MyTrait {
   T#MyTrait.func(t)
 }
 

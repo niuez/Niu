@@ -1,0 +1,9 @@
+trait MyTrait {
+  type Output;
+  fn out(t: Self) -> Self#MyTrait::Output;
+}
+
+fn nest_out<T>(t: T) -> T#MyTrait::Output#MyTrait::Output 
+where T: MyTrait, T#MyTrait::Output: MyTrait {
+  T#MyTrait::Output#MyTrait.out(T#MyTrait.out(t))
+}

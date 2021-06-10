@@ -192,3 +192,9 @@ Equal(TypeVariable(Counter(3)), Type(TypeId(TypeId { id: Identifier { name: "i64
 HasTrait(TypeVariable(Counter(4)), TraitId { id: Identifier { name: "MyTrait" } }),
 Equal(Func([TypeVariable(Counter(4))], AssociatedType(TypeVariable(Counter(4)), AssociatedType { trait_id: TraitId { id: Identifier { name: "MyTrait" } }, type_id: AssociatedTypeIdentifier { id: Identifier { name: "Associated" } } })), Func([TypeVariable(Counter(3))], TypeVariable(Counter(5)))),
 Equal(TypeVariable(Counter(5)),AssociatedType(Type(TypeId(TypeId { id: Identifier { name: "i64" } })),AssociatedType { trait_id: TraitId { id: Identifier { name: "MyTrait" }}, type_id: AssociatedTypeIdentifier { id: Identifier { name: "Associated" } } }))]
+
+
+equ = Equal(Generics(TypeId { id: Identifier { name: "T", tag: Tag(17) } }, []), TypeVariable(Counter(18, 0)))
+equ = Equal(Generics(TypeId { id: Identifier { name: "T", tag: Tag(19) } }, []), Generics(TypeId { id: Identifier { name: "T", tag: Tag(17) } }, []))
+equ = Equal(AssociatedType(Generics(TypeId { id: Identifier { name: "T", tag: Tag(19) } }, []), AssociatedType { trait_id: TraitId { id: Identifier { name: "M
+yTrait", tag: Tag(20) } }, type_id: AssociatedTypeIdentifier { id: Identifier { name: "Output", tag: Tag(21) } } }), TypeVariable(Counter(22, 0)))

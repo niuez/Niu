@@ -26,17 +26,17 @@ pub struct IfExpr {
 }
 
 impl GenType for IfExpr {
-    fn gen_type(&self, equs: &mut TypeEquations) -> TResult {
-        let cond_type = self.ifp.cond.gen_type(equs)?;
-        let bl_type = self.ifp.block.gen_type(equs)?;
+    fn gen_type(&self, equs: &mut TypeEquations, trs: &TraitsInfo) -> TResult {
+        let cond_type = self.ifp.cond.gen_type(equs, trs)?;
+        let bl_type = self.ifp.block.gen_type(equs, trs)?;
         equs.add_equation(cond_type, Type::from_str("bool"));
         for IfPair { cond, block } in self.elifp.iter() {
-            let cond_type = cond.gen_type(equs)?;
-            let bl2_type = block.gen_type(equs)?;
+            let cond_type = cond.gen_type(equs, trs)?;
+            let bl2_type = block.gen_type(equs, trs)?;
             equs.add_equation(cond_type, Type::from_str("bool"));
             equs.add_equation(bl_type.clone(), bl2_type);
         }
-        let el_bl_type = self.el_block.gen_type(equs)?;
+        let el_bl_type = self.el_block.gen_type(equs, trs)?;
         equs.add_equation(bl_type.clone(), el_bl_type);
         Ok(bl_type)
     }

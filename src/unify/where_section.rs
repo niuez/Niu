@@ -38,9 +38,11 @@ impl WhereSection {
         Ok(())
     }
 
-    pub fn regist_candidate(&self, trs: &mut TraitsInfo) {
+    pub fn regist_candidate(&self, trs: &mut TraitsInfo) -> Result<(), String> {
         for (spec, tr_id) in self.has_traits.iter() {
+            trs.regist_param_candidate(spec, tr_id)?;
         }
+        Ok(())
     }
 
     pub fn check_equal(&self, right: &Self) -> bool {

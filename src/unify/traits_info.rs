@@ -80,13 +80,12 @@ impl<'a> TraitsInfo<'a> {
     }
     
     pub fn check_typeid_with_generics(&self, id: TypeId, gens: Vec<Type>, top_trs: &Self) -> TResult {
-        println!("id = {:?}", id);
-        println!("typeids = {:?}", self.typeids);
+        //println!("id = {:?}", id);
+        //println!("typeids = {:?}", self.typeids);
         if let Some(def_info) = self.typeids.get(&id) {
             match *def_info {
                 StructDefinitionInfo::Def(ref def) => {
                     if def.get_generics_len() == gens.len() {
-                        let gens = gens.into_iter().map(|ty| ty.check_typeid(top_trs)).collect::<Result<Vec<_>, _>>()?;
                         Ok(Type::Generics(id, gens))
                     }
                     else if gens.len() == 0 && def.get_generics_len() > 0 {
@@ -178,13 +177,13 @@ impl<'a> TraitsInfo<'a> {
             }
         }
     }
-    pub fn regist_param_candidate(&mut self, _equs: &mut TypeEquations, ty: TypeSpec, trait_id: &TraitId) -> Result<(), String> {
+    pub fn regist_param_candidate(&mut self, ty: &TypeSpec, trait_id: &TraitId) -> Result<(), String> {
         match self.get_traitinfo(trait_id) {
             None => Err(format!("trait {:?} is not defined", trait_id)),
             Some(tr_def) => {
-                let cand = ParamCandidate::new(trait_id.clone(), ty, tr_def.asso_ids.iter().map(|asso_id| {
+                let cand = ParamCandidate::new(trait_id.clone(), ty.clone(), tr_def.asso_ids.iter().map(|asso_id| {
                     (asso_id.clone(), Type::Type(TypeSpec::Associated(
-                        Box::new(ty), AssociatedType { trait_id: trait_id.clone(), type_id: asso_id.clone() }
+                        Box::new(ty.clone()), AssociatedType { trait_id: trait_id.clone(), type_id: asso_id.clone() }
                         )),
                     )
                 }).collect(),
@@ -195,7 +194,7 @@ impl<'a> TraitsInfo<'a> {
         }
     }
 
-    pub fn match_to_impls_for_type(&self, trait_id: &TraitId, ty: &Type) -> Vec<(Vec<TypeSubst>, &SelectionCandidate)> {
+    pub fn match_to_impls_for_type(&self, trait_id: &TraitId, ty: &Type) -> Vec<(SubstsMap, &SelectionCandidate)> {
         let mut ans = Vec::new();
         if let Some(impls) = self.impls.get(trait_id) {
             let mut vs = impls.iter()

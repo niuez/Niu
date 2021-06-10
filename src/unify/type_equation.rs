@@ -153,6 +153,25 @@ pub struct TypeSubst {
     pub t: Type,
 }
 
+#[derive(Debug, Clone)]
+pub struct SubstsMap {
+    mp: HashMap<(usize, usize), Type>,
+}
+
+impl SubstsMap {
+    pub fn new(vec: Vec<TypeSubst>) -> Self {
+        SubstsMap {
+            mp: vec.into_iter().map(|TypeSubst { tv: TypeVariable::Counter(i, n), t }| ((i, n), t)).collect()
+        }
+    }
+    pub fn get(&self, id: &Identifier, i: usize) -> TResult {
+        match self.mp.get(&(id.get_tag_number(), i)) {
+            Some(t) => Ok(t.clone()),
+            None => Err(format!("undefined TypeVariable({:?}, {:?})", id, i)),
+        }
+    }
+}
+
 pub type TResult = Result<Type, String>;
 
 pub trait GenType {
@@ -243,7 +262,7 @@ impl TypeEquations {
                     if substs.len() == 1 {
                         let mut substs = substs;
                         let (subst, impl_trait) = substs.pop().unwrap();
-                        Ok(impl_trait.get_associated_from_id(self, type_id, &subst))
+                        Ok(impl_trait.get_associated_from_id(self, trs, type_id, &subst))
                     }
                     else {
                         Err(format!("type {:?} is not implemented trait {:?}", inner_ty, trait_id))
@@ -291,7 +310,7 @@ impl TypeEquations {
             let inner_ty = self.solve_relations(*inner_ty, trs)?;
             if let Type::Generics(ref id, ref gens) = inner_ty {
                 match trs.search_typeid(id)? {
-                    StructDefinitionInfo::Def(def)  => def.get_member_type(self, gens, &mem_id),
+                    StructDefinitionInfo::Def(def)  => def.get_member_type(self, trs, gens, &mem_id),
                     StructDefinitionInfo::Generics  => Err(format!("generics type has no member: {:?}", id)),
                     StructDefinitionInfo::Primitive => Err(format!("primitive type has no member: {:?}", id)),
                 }
@@ -316,10 +335,12 @@ impl TypeEquations {
     }
 
     pub fn unify(&mut self, trs: &TraitsInfo) -> Result<Vec<TypeSubst>, String> {
-        println!("unify trs = {:?}", trs);
         let mut thetas = Vec::new();
+        println!("unify");
+        for (i, equ) in self.equs.iter().enumerate() {
+            println!("{}. {:?}", i, equ);
+        }
         while let Some(equation) = self.equs.pop_front() {
-            println!("equ: {:?}", equation);
             match equation {
                 TypeEquation::HasTrait(Type::Type(ty_spec), tr) => {
                     if !self.solve_has_trait(&Type::Type(ty_spec.clone()), &tr, trs) {

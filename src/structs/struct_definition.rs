@@ -30,11 +30,11 @@ impl StructDefinition {
     pub fn get_generics_len(&self) -> usize {
         self.generics.len()
     }
-    pub fn get_member_type(&self, equs: &mut TypeEquations, gens: &Vec<Type>, id: &Identifier) -> TResult {
+    pub fn get_member_type(&self, equs: &mut TypeEquations, trs: &TraitsInfo, gens: &Vec<Type>, id: &Identifier) -> TResult {
         match self.members.get(id) {
             Some(spec) => {
                 let mp = self.generics.iter().cloned().zip(gens.iter().cloned()).collect();
-                spec.generics_to_type(&mp, equs)
+                spec.generics_to_type(Some(&mp), equs, trs)
             }
             None => Err(format!("{:?} doesnt have member {:?}", self.struct_id, id)),
         }
@@ -119,6 +119,6 @@ fn get_member_type_test() {
         members: vec![parse_member("s: S").unwrap().1, parse_member("t: T").unwrap().1].into_iter().collect()
     };
     let gens = vec![Type::Generics(TypeId::from_str("i64"), Vec::new()), Type::Generics(TypeId::from_str("u64"), Vec::new())];
-    let res = def.get_member_type(&mut TypeEquations::new(), &gens, &Identifier::from_str("s"));
-    println!("{:?}", res);
+    // let res = def.get_member_type(&mut TypeEquations::new(), &gens, &Identifier::from_str("s"));
+    // println!("{:?}", res);
 }

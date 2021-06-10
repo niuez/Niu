@@ -104,6 +104,8 @@ impl FuncDefinition {
             }*/
         }
 
+        self.where_sec.regist_candidate(&mut trs)?;
+
         for (i, t) in self.args.iter() {
             let alpha = i.generate_type_variable(0);
             let t_type = t.generics_to_type(None, equs, &trs)?; 
@@ -154,11 +156,11 @@ fn parse_generics_arg(s: &str) -> IResult<&str, (TypeId, Option<TraitId>)> {
 }
 
 pub fn parse_func_definition_info(s: &str) -> IResult<&str, FuncDefinitionInfo> {
-    let (s, (_, _, func_id, _, generics_opt, _, where_sec, _, _, _, op, _, _, _, _, return_type)) = 
-        tuple((tag("fn"), space1, parse_identifier, space0, opt(tuple((char('<'), space0, opt(tuple((parse_type_id, space0, many0(tuple((char(','), space0, parse_type_id, space0))), opt(char(',')), space0))), char('>'), space0))), space0, parse_where_section, space0,
+    let (s, (_, _, func_id, _, generics_opt, _, _, _, op, _, _, _, _, return_type, _, where_sec)) = 
+        tuple((tag("fn"), space1, parse_identifier, space0, opt(tuple((char('<'), space0, opt(tuple((parse_type_id, space0, many0(tuple((char(','), space0, parse_type_id, space0))), opt(char(',')), space0))), char('>'), space0))), space0,
                char('('), space0,
             opt(tuple((parse_identifier, space0, char(':'), space0, parse_type_spec, space0, many0(tuple((char(','), space0, parse_identifier, space0, char(':'), space0, parse_type_spec, space0))), opt(char(',')), space0))),
-            char(')'), space0, tag("->"), space0, parse_type_spec))(s)?;
+            char(')'), space0, tag("->"), space0, parse_type_spec, space0, parse_where_section))(s)?;
     let generics = match generics_opt {
         Some((_, _, generics_opt, _, _)) => {
             match generics_opt {
@@ -201,5 +203,6 @@ fn parse_func_definition_test() {
 }
 #[test]
 fn parse_func_definition2_test() {
-    println!("{:?}", parse_func_definition("fn func2<t: MyTrait>(x: t) -> t { x }"));
+    println!("{:?}", parse_func_definition("fn func2<t>(x: t) -> t where t: MyTraits{ x }"));
+    println!("{:?}", parse_func_definition_info("fn nest_out<T>(t: T) -> T#MyTrait::Output#MyTrait::Output where T: MyTrait, T#MyTrait::Output: MyTrait"));
 }

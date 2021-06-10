@@ -14,6 +14,7 @@ use crate::trans::*;
 use crate::traits::*;
 use crate::func_definition::*;
 
+
 #[derive(Debug, Clone)]
 pub enum SelectionCandidate {
     ImplCandidate(ImplCandidate),
@@ -21,7 +22,7 @@ pub enum SelectionCandidate {
 }
 
 impl SelectionCandidate {
-    pub fn match_impl_for_ty(&self, ty: &Type, trs: &TraitsInfo) -> Option<(Vec<TypeSubst>, &Self)> {
+    pub fn match_impl_for_ty(&self, ty: &Type, trs: &TraitsInfo) -> Option<(SubstsMap, &Self)> {
         match *self {
             SelectionCandidate::ImplCandidate(ref cand) => {
                 cand.match_impl_for_ty(ty, trs).map(|sub| (sub, self))
@@ -31,24 +32,24 @@ impl SelectionCandidate {
             }
         }
     }
-    pub fn get_associated_from_id(&self, equs: &mut TypeEquations, asso_id: &AssociatedTypeIdentifier, subst: &Vec<TypeSubst>) -> Type {
+    pub fn get_associated_from_id(&self, equs: &mut TypeEquations, trs: &TraitsInfo, asso_id: &AssociatedTypeIdentifier, subst: &SubstsMap) -> Type {
         match *self {
             SelectionCandidate::ImplCandidate(ref cand) => {
-                cand.get_associated_from_id(equs, asso_id, subst)
+                cand.get_associated_from_id(equs, trs, asso_id, subst)
             }
             SelectionCandidate::ParamCandidate(ref cand) => {
-                cand.get_associated_from_id(equs, asso_id, subst)
+                cand.get_associated_from_id(equs, trs, asso_id, subst)
             }
         }
     }
 
-    pub fn get_trait_method_from_id(&self, equs: &mut TypeEquations, trs: &TraitsInfo, method_id: &TraitMethodIdentifier, subst: &Vec<TypeSubst>) -> Type {
+    pub fn get_trait_method_from_id(&self, equs: &mut TypeEquations, trs: &TraitsInfo, method_id: &TraitMethodIdentifier, subst: &SubstsMap) -> Type {
         match *self {
             SelectionCandidate::ImplCandidate(ref cand) => {
-                cand.get_trait_method_from_id(equs, method_id, subst)
+                cand.get_trait_method_from_id(equs, trs, method_id, subst)
             }
             SelectionCandidate::ParamCandidate(ref cand) => {
-                cand.get_trait_method_from_id(equs, method_id, subst)
+                cand.get_trait_method_from_id(equs, trs, method_id, subst)
             }
         }
     }
@@ -73,7 +74,7 @@ impl ImplDefinition {
     }
 
     pub fn unify_require_methods(&self, equs: &mut TypeEquations, trs: &TraitsInfo) -> Result<Vec<TypeSubst>, String> {
-        let next_self_type = Some(self.impl_ty.gen_type(equs)?);
+        let next_self_type = Some(self.impl_ty.generics_to_type(None, equs, trs)?);
         let before_self_type = equs.set_self_type(next_self_type);
         let mut substs = Vec::new();
         for def in self.require_methods.values() {
@@ -120,19 +121,19 @@ pub struct ImplCandidate {
 
 
 impl ImplCandidate {
-    pub fn match_impl_for_ty(&self, ty: &Type, trs: &TraitsInfo) -> Option<Vec<TypeSubst>> {
+    pub fn match_impl_for_ty(&self, ty: &Type, trs: &TraitsInfo) -> Option<SubstsMap> {
         let mut equs = TypeEquations::new();
-        let impl_ty = self.impl_ty.gen_type(&mut equs).unwrap();
+        let impl_ty = self.impl_ty.generics_to_type(None, &mut equs, trs).unwrap();
         equs.add_equation(ty.clone(), impl_ty);
-        equs.unify(trs).ok()
+        equs.unify(trs).ok().map(|res| SubstsMap::new(res))
     }
 
-    pub fn get_associated_from_id(&self, equs: &mut TypeEquations, asso_id: &AssociatedTypeIdentifier, _subst: &Vec<TypeSubst>) -> Type {
-        self.asso_defs.get(asso_id).unwrap().gen_type(equs).unwrap()
+    pub fn get_associated_from_id(&self, equs: &mut TypeEquations, trs: &TraitsInfo, asso_id: &AssociatedTypeIdentifier, _subst: &SubstsMap) -> Type {
+        self.asso_defs.get(asso_id).unwrap().generics_to_type(None, equs, trs).unwrap()
     }
 
-    pub fn get_trait_method_from_id(&self, equs: &mut TypeEquations, method_id: &TraitMethodIdentifier, subst: &Vec<TypeSubst>) -> Type {
-        self.require_methods.get(&method_id).unwrap().generate_type(equs, &method_id.id).unwrap()
+    pub fn get_trait_method_from_id(&self, equs: &mut TypeEquations, trs: &TraitsInfo, method_id: &TraitMethodIdentifier, subst: &SubstsMap) -> Type {
+        self.require_methods.get(&method_id).unwrap().generate_type(equs, trs, &method_id.id).unwrap()
     }
 }
 
@@ -140,32 +141,32 @@ impl ImplCandidate {
 #[derive(Debug, Clone)]
 pub struct ParamCandidate {
     pub trait_id: TraitId,
-    pub impl_ty: Type,
+    pub impl_ty: TypeSpec,
     pub asso_defs: HashMap<AssociatedTypeIdentifier, Type>,
     pub require_methods: HashMap<TraitMethodIdentifier, FuncDefinitionInfo>,
 }
 
 impl ParamCandidate {
-    pub fn new(trait_id: TraitId, impl_ty: Type, asso_defs: HashMap<AssociatedTypeIdentifier, Type>, require_methods: HashMap<TraitMethodIdentifier, FuncDefinitionInfo>) -> SelectionCandidate {
+    pub fn new(trait_id: TraitId, impl_ty: TypeSpec, asso_defs: HashMap<AssociatedTypeIdentifier, Type>, require_methods: HashMap<TraitMethodIdentifier, FuncDefinitionInfo>) -> SelectionCandidate {
         SelectionCandidate::ParamCandidate(ParamCandidate {
             trait_id, impl_ty, asso_defs, require_methods,
         })
     }
-    pub fn match_impl_for_ty(&self, ty: &Type, trs: &TraitsInfo) -> Option<Vec<TypeSubst>> {
-        if self.impl_ty == *ty {
-            Some(Vec::new())
-        }
-        else {
-            None
-        }
+    pub fn match_impl_for_ty(&self, ty: &Type, trs: &TraitsInfo) -> Option<SubstsMap> {
+        let mut equs = TypeEquations::new();
+        let impl_ty = self.impl_ty.generics_to_type(None, &mut equs, trs).unwrap();
+        let alpha = self.trait_id.id.generate_type_variable(0);
+        equs.add_equation(impl_ty, alpha.clone());
+        equs.add_equation(ty.clone(), alpha);
+        equs.unify(trs).ok().map(|res| SubstsMap::new(res))
     }
-    pub fn get_associated_from_id(&self, _equs: &mut TypeEquations, asso_id: &AssociatedTypeIdentifier, _subst: &Vec<TypeSubst>) -> Type {
+    pub fn get_associated_from_id(&self, _equs: &mut TypeEquations, _trs: &TraitsInfo, asso_id: &AssociatedTypeIdentifier, _subst: &SubstsMap) -> Type {
         self.asso_defs.get(asso_id).unwrap().clone()
     }
 
-    pub fn get_trait_method_from_id(&self, equs: &mut TypeEquations, method_id: &TraitMethodIdentifier, subst: &Vec<TypeSubst>) -> Type {
-        let before_self_type = equs.set_self_type(Some(self.impl_ty.clone()));
-        let method_type = self.require_methods.get(method_id).unwrap().generate_type(equs, &method_id.id).unwrap();
+    pub fn get_trait_method_from_id(&self, equs: &mut TypeEquations, trs: &TraitsInfo, method_id: &TraitMethodIdentifier, subst: &SubstsMap) -> Type {
+        let before_self_type = equs.set_self_type(Some(subst.get(&self.trait_id.id, 0).unwrap()));
+        let method_type = self.require_methods.get(method_id).unwrap().generate_type(equs, trs, &method_id.id).unwrap();
         equs.set_self_type(before_self_type);
         method_type
     }
