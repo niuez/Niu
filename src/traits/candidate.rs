@@ -119,7 +119,8 @@ pub fn parse_impl_definition(s: &str) -> IResult<&str, ImplDefinition> {
 
 impl Transpile for ImplDefinition {
     fn transpile(&self, ta: &TypeAnnotation) -> String {
-        let impl_def = format!("template<> struct {}<{}>", self.trait_id.transpile(ta), self.impl_ty.transpile(ta));
+        let generics = self.generics.iter().map(|id| format!("class {}", id.transpile(ta))).collect::<Vec<_>>().join(", ");
+        let impl_def = format!("template<{}> struct {}<{}>", generics, self.trait_id.transpile(ta), self.impl_ty.transpile(ta));
         let asso_defs = self.asso_defs.iter().map(|(id, spec)| {
             format!("using {} = {};\n", id.transpile(ta), spec.transpile(ta))
         }).collect::<Vec<_>>().join(" ");
