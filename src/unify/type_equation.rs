@@ -325,11 +325,25 @@ impl TypeEquations {
     fn solve_member(&mut self, ty: Type, trs: &TraitsInfo) -> Result<Type, String> {
         if let Type::Member(inner_ty, mem_id) = ty {
             let inner_ty = self.solve_relations(*inner_ty, trs)?;
-            if let Type::Generics(ref id, ref gens) = inner_ty {
-                match trs.search_typeid(id)? {
-                    StructDefinitionInfo::Def(def)  => def.get_member_type(self, trs, gens, &mem_id),
-                    StructDefinitionInfo::Generics  => Err(format!("generics type has no member: {:?}", id)),
-                    StructDefinitionInfo::Primitive => Err(format!("primitive type has no member: {:?}", id)),
+            if inner_ty.is_solved_type() {
+                let substs = trs.match_to_member_for_type(&mem_id, &inner_ty);
+                if substs.len() == 1 {
+                    let mut substs = substs;
+                    let (subst, impl_trait) = substs.pop().unwrap();
+                    let before = self.set_self_type(Some(inner_ty));
+                    let res = Ok(impl_trait.get_trait_method_from_id(self, trs, &TraitMethodIdentifier { id: mem_id.clone() } , &subst));
+                    self.set_self_type(before);
+                    res
+                }
+                else if let Type::Generics(ref id, ref gens) = inner_ty {
+                    match trs.search_typeid(id)? {
+                        StructDefinitionInfo::Def(def)  => def.get_member_type(self, trs, gens, &mem_id),
+                        StructDefinitionInfo::Generics  => Err(format!("generics type has no member: {:?}", id)),
+                        StructDefinitionInfo::Primitive => Err(format!("primitive type has no member: {:?}", id)),
+                    }
+                }
+                else {
+                    Err(format!("SolvedAssociatedType has no member: {:?}", inner_ty))
                 }
             }
             else {

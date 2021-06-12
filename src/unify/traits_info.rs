@@ -1,5 +1,6 @@
-use std::collections::HashMap;
+use std::collections::{ HashSet, HashMap };
 
+use crate::identifier::*;
 use crate::structs::*;
 use crate::traits::*;
 use crate::type_spec::*;
@@ -19,6 +20,7 @@ pub struct TraitsInfo<'a> {
     typeids: HashMap<TypeId, StructDefinitionInfo>,
     pub traits: HashMap<TraitId, TraitDefinitionInfo>,
     pub impls: HashMap<TraitId, Vec<SelectionCandidate>>,
+    member_to_traits: HashMap<Identifier, HashSet<TraitId>>,
     upper_info: Option<&'a TraitsInfo<'a>>,
 }
 
@@ -31,6 +33,7 @@ impl<'a> TraitsInfo<'a> {
                 (TypeId::from_str("bool"), StructDefinitionInfo::Primitive)].into_iter().collect(),
             traits: HashMap::new(),
             impls: HashMap::new(),
+            member_to_traits: HashMap::new(),
             upper_info: None,
         }
     }
@@ -39,6 +42,7 @@ impl<'a> TraitsInfo<'a> {
             typeids: HashMap::new(),
             traits: HashMap::new(),
             impls: HashMap::new(),
+            member_to_traits: HashMap::new(),
             upper_info: Some(self),
         }
     }
@@ -163,6 +167,16 @@ impl<'a> TraitsInfo<'a> {
 
     pub fn regist_trait(&mut self, tr: &TraitDefinition) -> Result<(), String> {
         let (trait_id, trait_def) = tr.get_trait_id_pair();
+        for (id, _) in trait_def.required_methods.iter() {
+            match self.member_to_traits.get_mut(&id.id) {
+                Some(st) => {
+                    st.insert(trait_id.clone());
+                }
+                None => {
+                    self.member_to_traits.insert(id.id.clone(), vec![trait_id.clone()].into_iter().collect());
+                }
+            }
+        }
         self.traits.insert(trait_id.clone(), trait_def)
             .map_or(Ok(()), |_| Err(format!("trait {:?} is already defined", trait_id)))
     }
@@ -265,6 +279,23 @@ impl<'a> TraitsInfo<'a> {
 
     pub fn match_to_impls_for_type(&self, trait_id: &TraitId, ty: &Type) -> Vec<(SubstsMap, &SelectionCandidate)> {
         self.match_to_impls(trait_id, ty, self)
+    }
+
+    fn search_traits_for_member(&self, mem_id: &Identifier, st: &mut HashSet<TraitId>) {
+        if let Some(traits) = self.member_to_traits.get(mem_id) {
+            for t in traits { st.insert(t.clone()); }
+        }
+    }
+
+    pub fn match_to_member_for_type(&self, mem_id: &Identifier, ty: &Type) -> Vec<(SubstsMap, &SelectionCandidate)> {
+        let mut st = HashSet::new();
+        self.search_traits_for_member(mem_id, &mut st);
+        let mut ans = Vec::new();
+        for t in st.into_iter() {
+            let mut vs = self.match_to_impls_for_type(&t, ty);
+            ans.append(&mut vs);
+        }
+        ans
     }
 
     pub fn search_typeid(&self, id: &TypeId) -> Result<&StructDefinitionInfo, String> {

@@ -1,0 +1,64 @@
+struct Pair<S, T> {
+  s: S,
+  t: T,
+}
+
+trait Add {
+  type Right;
+  type Output;
+  fn add(a: Self, r: Self#Add::Right) -> Self#Add::Output;
+}
+
+impl Add for i64 {
+  type Right = i64;
+  type Output = i64;
+  fn add(a: Self, r: i64) -> i64 {
+    a + r
+  }
+}
+
+trait Sum {
+  type Output;
+  fn sum(a: Self) -> Self#Sum::Output;
+}
+
+impl Sum for i64 {
+  type Output = i64;
+  fn sum(a: i64) -> i64 {
+    a
+  }
+}
+
+impl Sum for u64 {
+  type Output = i64;
+  fn sum(a: u64) -> i64 {
+    1i64
+  }
+}
+
+impl<S, T> Sum for Pair<S, T>
+where
+  S: Sum,
+  T: Sum,
+  S#Sum::Output: Add(Right=T#Sum::Output)
+{
+  type Output = S#Sum::Output#Add::Output;
+  fn sum(a: Self) -> Self#Sum::Output {
+    S#Sum::Output#Add.add(S#Sum.sum(a.s), T#Sum.sum(a.t))
+  }
+}
+
+fn apply() -> bool {
+  Pair { s: 1i64, t: 2u64 }.sum();
+  true
+}
+
+fn apply2() -> bool {
+  Pair { s: Pair { s: 1i64, t: 2u64 }, t: 3u64 }.sum();
+  true
+}
+
+fn apply3() -> bool {
+  Pair { s: Pair { s: 1i64, t: 2u64 }, t: Pair { s: 3u64, t: 4u64} }.sum();
+  true
+}
