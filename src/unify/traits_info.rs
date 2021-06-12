@@ -194,6 +194,15 @@ impl<'a> TraitsInfo<'a> {
     pub fn regist_impl_candidate(&mut self, ti: &ImplDefinition) -> Result<(), String> {
         let (trait_id, cand) = ti.get_impl_trait_pair();
         self.regist_selection_candidate(&trait_id, cand);
+        let mut gen_trs = self.into_scope();
+        for id in ti.generics.iter() {
+            gen_trs.regist_generics_type(id)?;
+        }
+        let mut equs = TypeEquations::new();
+        let impl_ty = ti.impl_ty.generics_to_type(&GenericsTypeMap::empty(), &mut equs, &gen_trs)?;
+        equs.set_self_type(Some(impl_ty));
+        ti.where_sec.regist_candidate(&mut equs, &mut gen_trs)?;
+
         match self.get_traitinfo(&trait_id) {
             None => Err(format!("trait {:?} is not defined", trait_id)),
             Some(tr) => {
@@ -202,12 +211,8 @@ impl<'a> TraitsInfo<'a> {
                         None => Err(format!("method {:?}::{:?} is not defined for {:?}", tr, id, ti.impl_ty))?,
                         Some(impl_method) => {
                             {
-                                let mut equs = TypeEquations::new();
-                                let impl_self_ty = ti.impl_ty.generics_to_type(None, &mut equs, self)?;
-                                equs.set_self_type(Some(impl_self_ty));
-                                let impl_ty = ti.impl_ty.generics_to_type(None, &mut equs, self)?;
-                                equs.set_self_type(Some(impl_ty));
-                                info.check_equal(&impl_method.get_func_info().1, &mut equs, self)?;
+                                equs.clear_equations();
+                                info.check_equal(&impl_method.get_func_info().1, &mut equs, &gen_trs)?;
                             }
                         }
                     }
@@ -239,12 +244,12 @@ impl<'a> TraitsInfo<'a> {
         }
     }
 
-    pub fn match_to_impls_for_type(&self, trait_id: &TraitId, ty: &Type) -> Vec<(SubstsMap, &SelectionCandidate)> {
+    fn match_to_impls(&self, trait_id: &TraitId, ty: &Type, top_trs: &Self) -> Vec<(SubstsMap, &SelectionCandidate)> {
         let mut ans = Vec::new();
         if let Some(impls) = self.impls.get(trait_id) {
             let mut vs = impls.iter()
                 .map(|impl_trait| {
-                    impl_trait.match_impl_for_ty(&ty, self)
+                    impl_trait.match_impl_for_ty(&ty, top_trs)
                 })
             .filter_map(|x| x)
                 .collect::<Vec<_>>();
@@ -252,10 +257,14 @@ impl<'a> TraitsInfo<'a> {
         }
 
         if let Some(trs) = self.upper_info {
-            let mut vs = trs.match_to_impls_for_type(trait_id, ty);
+            let mut vs = trs.match_to_impls(trait_id, ty, top_trs);
             ans.append(&mut vs);
         }
         ans
+    }
+
+    pub fn match_to_impls_for_type(&self, trait_id: &TraitId, ty: &Type) -> Vec<(SubstsMap, &SelectionCandidate)> {
+        self.match_to_impls(trait_id, ty, self)
     }
 
     pub fn search_typeid(&self, id: &TypeId) -> Result<&StructDefinitionInfo, String> {

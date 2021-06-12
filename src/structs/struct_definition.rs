@@ -34,7 +34,7 @@ impl StructDefinition {
         match self.members.get(id) {
             Some(spec) => {
                 let mp = self.generics.iter().cloned().zip(gens.iter().cloned()).collect();
-                spec.generics_to_type(Some(&mp), equs, trs)
+                spec.generics_to_type(&GenericsTypeMap::empty().next(mp), equs, trs)
             }
             None => Err(format!("{:?} doesnt have member {:?}", self.struct_id, id)),
         }

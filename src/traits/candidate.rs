@@ -2,11 +2,12 @@ use std::collections::HashMap;
 
 use nom::bytes::complete::*;
 use nom::character::complete::*;
-//use nom::combinator::*;
+use nom::combinator::*;
 use nom::multi::*;
 use nom::sequence::*;
 use nom::IResult;
 
+use crate::type_id::*;
 use crate::type_spec::*;
 use crate::unify::*;
 //use crate::unary_expr::Variable;
@@ -57,8 +58,10 @@ impl SelectionCandidate {
 
 #[derive(Debug)]
 pub struct ImplDefinition {
+    pub generics: Vec<TypeId>,
     pub trait_id: TraitId,
     pub impl_ty: TypeSpec,
+    pub where_sec: WhereSection,
     pub asso_defs: HashMap<AssociatedTypeIdentifier, TypeSpec>,
     pub require_methods: HashMap<TraitMethodIdentifier, FuncDefinition>,
 }
@@ -66,19 +69,26 @@ pub struct ImplDefinition {
 impl ImplDefinition {
     pub fn get_impl_trait_pair(&self) -> (TraitId, SelectionCandidate) {
         (self.trait_id.clone(), SelectionCandidate::ImplCandidate(ImplCandidate {
+            generics: self.generics.clone(),
             trait_id: self.trait_id.clone(),
             impl_ty: self.impl_ty.clone(),
+            where_sec: self.where_sec.clone(),
             asso_defs: self.asso_defs.clone(),
             require_methods: self.require_methods.iter().map(|(id, func)| (id.clone(), func.get_func_info().1)).collect(),
         }))
     }
 
     pub fn unify_require_methods(&self, equs: &mut TypeEquations, trs: &TraitsInfo) -> Result<Vec<TypeSubst>, String> {
-        let next_self_type = Some(self.impl_ty.generics_to_type(None, equs, trs)?);
+        let mut trs = trs.into_scope();
+        for ty_id in self.generics.iter() {
+            trs.regist_generics_type(ty_id)?;
+        }
+        self.where_sec.regist_candidate(equs, &mut trs)?;
+        let next_self_type = Some(self.impl_ty.generate_type_no_auto_generics(equs, &trs)?);
         let before_self_type = equs.set_self_type(next_self_type);
         let mut substs = Vec::new();
         for def in self.require_methods.values() {
-            let mut subst = def.unify_definition(equs, trs)?;
+            let mut subst = def.unify_definition(equs, &trs)?;
             substs.append(&mut subst);
         }
         equs.set_self_type(before_self_type);
@@ -86,17 +96,25 @@ impl ImplDefinition {
     }
 }
 
+fn parse_generics_args(s: &str) -> IResult<&str, Vec<TypeId>> {
+    let (s, op) = opt(tuple((space0, char('<'), space0, separated_list0(tuple((space0, char(','), space0)), parse_type_id), space0, char('>'))))(s)?;
+    dbg!(s);
+    Ok((s, op.map(|(_, _, _, res, _, _)| res).unwrap_or(Vec::new())))
+}
+
 pub fn parse_impl_definition(s: &str) -> IResult<&str, ImplDefinition> {
-    let (s, (_, _, trait_id, _, _, _, impl_ty, _, _, _, many_types, many_methods, _, _)) = 
-        tuple((tag("impl"), space1, parse_trait_id,
+    let (s, (_, generics, _, trait_id, _, _, _, impl_ty, _, where_sec, _, _, _, many_types, many_methods, _, _)) = 
+        tuple((tag("impl"), parse_generics_args,
+            space1, parse_trait_id,
             space1, tag("for"), space1, parse_type_spec,
+            space0, parse_where_section,
             space0, char('{'), space0,
             many0(tuple((tag("type"), space1, parse_associated_type_identifier, space0, char('='), space0, parse_type_spec, space0, char(';'), space0))),
             many0(tuple((parse_func_definition, space0))),
             space0, char('}')))(s)?;
     let asso_defs = many_types.into_iter().map(|(_, _, id, _, _, _, ty, _, _, _)| (id, ty)).collect();
     let require_methods = many_methods.into_iter().map(|(func, _)| (TraitMethodIdentifier { id: func.func_id.clone() }, func)).collect();
-    Ok((s, ImplDefinition { trait_id, impl_ty, asso_defs, require_methods }))
+    Ok((s, ImplDefinition { generics, trait_id, impl_ty, where_sec, asso_defs, require_methods }))
 }
 
 impl Transpile for ImplDefinition {
@@ -113,8 +131,10 @@ impl Transpile for ImplDefinition {
 
 #[derive(Debug, Clone)]
 pub struct ImplCandidate {
+    pub generics: Vec<TypeId>,
     pub trait_id: TraitId,
     pub impl_ty: TypeSpec,
+    pub where_sec: WhereSection,
     pub asso_defs: HashMap<AssociatedTypeIdentifier, TypeSpec>,
     pub require_methods: HashMap<TraitMethodIdentifier, FuncDefinitionInfo>,
 }
@@ -123,17 +143,36 @@ pub struct ImplCandidate {
 impl ImplCandidate {
     pub fn match_impl_for_ty(&self, ty: &Type, trs: &TraitsInfo) -> Option<SubstsMap> {
         let mut equs = TypeEquations::new();
-        let impl_ty = self.impl_ty.generics_to_type(None, &mut equs, trs).unwrap();
+
+        let gen_mp = self.generics.iter().enumerate().map(|(i, id)| (id.clone(), self.trait_id.id.generate_type_variable(i)))
+            .collect::<HashMap<_, _>>();
+        let mp = GenericsTypeMap::empty();
+        let gen_mp = mp.next(gen_mp);
+        let impl_ty = self.impl_ty.generics_to_type(&gen_mp, &mut equs, trs).unwrap();
         equs.add_equation(ty.clone(), impl_ty);
-        equs.unify(trs).ok().map(|res| SubstsMap::new(res))
+        if self.where_sec.regist_equations(&gen_mp, &mut equs, trs).is_ok() {
+            println!("match impl unify for {:?}", self.trait_id);
+            equs.unify(trs).ok().map(|res| SubstsMap::new(res))
+        }
+        else {
+            None
+        }
     }
 
-    pub fn get_associated_from_id(&self, equs: &mut TypeEquations, trs: &TraitsInfo, asso_id: &AssociatedTypeIdentifier, _subst: &SubstsMap) -> Type {
-        self.asso_defs.get(asso_id).unwrap().generics_to_type(None, equs, trs).unwrap()
+    pub fn get_associated_from_id(&self, equs: &mut TypeEquations, trs: &TraitsInfo, asso_id: &AssociatedTypeIdentifier, subst: &SubstsMap) -> Type {
+        let gen_mp = self.generics.iter().enumerate().map(|(i, id)| Ok((id.clone(), subst.get(&self.trait_id.id, i)?)))
+            .collect::<Result<HashMap<_, _>, String>>().unwrap();
+        let mp = GenericsTypeMap::empty();
+        let gen_mp = mp.next(gen_mp);
+        self.asso_defs.get(asso_id).unwrap().generics_to_type(&gen_mp, equs, trs).unwrap()
     }
 
     pub fn get_trait_method_from_id(&self, equs: &mut TypeEquations, trs: &TraitsInfo, method_id: &TraitMethodIdentifier, subst: &SubstsMap) -> Type {
-        self.require_methods.get(&method_id).unwrap().generate_type(equs, trs, &method_id.id).unwrap()
+        let gen_mp = self.generics.iter().enumerate().map(|(i, id)| Ok((id.clone(), subst.get(&self.trait_id.id, i)?)))
+            .collect::<Result<HashMap<_, _>, String>>().unwrap();
+        let mp = GenericsTypeMap::empty();
+        let gen_mp = mp.next(gen_mp);
+        self.require_methods.get(&method_id).unwrap().generate_type(&gen_mp, equs, trs, &method_id.id).unwrap()
     }
 }
 
@@ -165,7 +204,7 @@ impl ParamCandidate {
 
     pub fn get_trait_method_from_id(&self, equs: &mut TypeEquations, trs: &TraitsInfo, method_id: &TraitMethodIdentifier, subst: &SubstsMap) -> Type {
         let before_self_type = equs.set_self_type(Some(subst.get(&self.trait_id.id, 0).unwrap()));
-        let method_type = self.require_methods.get(method_id).unwrap().generate_type(equs, trs, &method_id.id).unwrap();
+        let method_type = self.require_methods.get(method_id).unwrap().generate_type(&GenericsTypeMap::empty(), equs, trs, &method_id.id).unwrap();
         equs.set_self_type(before_self_type);
         method_type
     }

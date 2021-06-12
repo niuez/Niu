@@ -228,7 +228,7 @@ impl TypeEquations {
     }
     pub fn get_type_from_variable(&mut self, trs: &TraitsInfo, var: &Variable) -> TResult {
         if let Some(func) = self.func.get(var).cloned() {
-            return func.generate_type(self, trs, &var.id);
+            return func.generate_type(&GenericsTypeMap::empty(), self, trs, &var.id);
         }
         for mp in self.variables.iter().rev() {
             if let Some(t) = mp.get(var) {
@@ -273,7 +273,10 @@ impl TypeEquations {
                     if substs.len() == 1 {
                         let mut substs = substs;
                         let (subst, impl_trait) = substs.pop().unwrap();
-                        Ok(impl_trait.get_associated_from_id(self, trs, type_id, &subst))
+                        let before = self.set_self_type(Some(inner_ty));
+                        let res = Ok(impl_trait.get_associated_from_id(self, trs, type_id, &subst));
+                        self.set_self_type(before);
+                        res
                     }
                     else {
                         Err(format!("type {:?} is not implemented trait {:?}", inner_ty, trait_id))
@@ -301,7 +304,10 @@ impl TypeEquations {
                 if substs.len() == 1 {
                     let mut substs = substs;
                     let (subst, impl_trait) = substs.pop().unwrap();
-                    Ok(impl_trait.get_trait_method_from_id(self, trs, &method_id, &subst))
+                    let before = self.set_self_type(Some(inner_ty));
+                    let res = Ok(impl_trait.get_trait_method_from_id(self, trs, &method_id, &subst));
+                    self.set_self_type(before);
+                    res
                 }
                 else {
                     Err(format!("type {:?} is not implemented trait {:?}", inner_ty, trait_id))
@@ -347,12 +353,12 @@ impl TypeEquations {
 
     pub fn unify(&mut self, trs: &TraitsInfo) -> Result<Vec<TypeSubst>, String> {
         let mut thetas = Vec::new();
-        println!("unify");
+        /* println!("unify");
         for (i, equ) in self.equs.iter().enumerate() {
             println!("{}. {:?}", i, equ);
-        }
+        } */
         while let Some(equation) = self.equs.pop_front() {
-            println!("equation = {:?}", equation);
+            //println!("equation = {:?}", equation);
             match equation {
                 TypeEquation::HasTrait(Type::SolvedAssociatedType(ty, asso), tr) => {
                     if !self.solve_has_trait(&Type::SolvedAssociatedType(ty.clone(), asso.clone()), &tr, trs) {

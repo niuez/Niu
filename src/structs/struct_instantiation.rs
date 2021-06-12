@@ -31,7 +31,7 @@ impl GenType for StructInstantiation {
             let right = expr.gen_type(equs, trs)?;
             equs.add_equation(Type::Member(st, id.clone()), right);
         }
-        let struct_ty = TypeSpec::from_id(&self.struct_id).generics_to_type(None, equs, trs)?;
+        let struct_ty = TypeSpec::from_id(&self.struct_id).generics_to_type(&GenericsTypeMap::empty(), equs, trs)?;
         equs.add_equation(inst_ty.clone(), struct_ty);
         Ok(inst_ty)
     }

@@ -26,7 +26,7 @@ impl GenType for LetDeclaration {
         let value_type = self.value.gen_type(equs, trs)?;
         equs.add_equation(alpha.clone(), value_type);
         if let Some(ref t) = self.type_info {
-            let t_type = t.generics_to_type(None, equs, trs)?;
+            let t_type = t.generics_to_type(&GenericsTypeMap::empty(), equs, trs)?;
             equs.add_equation(alpha.clone(), t_type);
         }
         Ok(Type::End)

@@ -20,13 +20,13 @@ pub struct WhereSection {
 }
 
 impl WhereSection {
-    pub fn regist_equations(&self, mp: &HashMap<TypeId, Type>, equs: &mut TypeEquations, trs: &TraitsInfo) -> Result<(), String> {
+    pub fn regist_equations(&self, mp: &GenericsTypeMap, equs: &mut TypeEquations, trs: &TraitsInfo) -> Result<(), String> {
         for (spec, _, tr_id, asso_eqs) in self.has_traits.iter() {
-            let ty = spec.generics_to_type(Some(mp), equs, trs)?;
+            let ty = spec.generics_to_type(mp, equs, trs)?;
             equs.add_has_trait(ty.clone(), tr_id.clone());
             for (asso_id, asso_spec) in asso_eqs.iter() {
                 let asso_ty = Type::AssociatedType(Box::new(ty.clone()), AssociatedType { trait_id: tr_id.clone(), type_id: asso_id.clone() });
-                let asso_spec_ty = asso_spec.generics_to_type(Some(mp), equs, trs)?;
+                let asso_spec_ty = asso_spec.generics_to_type(mp, equs, trs)?;
                 equs.add_equation(asso_ty, asso_spec_ty)
             }
         }

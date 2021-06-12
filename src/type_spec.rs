@@ -18,10 +18,37 @@ pub struct TypeSign {
     pub gens: Vec<TypeSpec>,
 }
 
+#[derive(Debug, Clone)]
+pub struct GenericsTypeMap<'a> {
+    gens_mp: HashMap<TypeId, Type>,
+    nxt: Option<&'a GenericsTypeMap<'a>>,
+}
+
+impl<'a> GenericsTypeMap<'a> {
+    pub fn empty() -> Self {
+        GenericsTypeMap { gens_mp: HashMap::new(), nxt: None }
+    }
+    pub fn next(&'a self, gens_mp: HashMap<TypeId, Type>) -> Self {
+        GenericsTypeMap { gens_mp, nxt: Some(self) }
+    }
+    pub fn get(&'a self, id: &TypeId) -> Option<&'a Type> {
+        match self.gens_mp.get(id) {
+            Some(ty) => Some(ty),
+            None => {
+                match self.nxt {
+                    Some(ref nxt) => nxt.get(id),
+                    None => None,
+                }
+            }
+        }
+    }
+}
+
+
 impl TypeSign {
-    pub fn generics_to_type(&self, mp: Option<&HashMap<TypeId, Type>>, equs: &mut TypeEquations, trs: &TraitsInfo) -> TResult {
-        match mp.map(|mp| mp.get(&self.id).cloned()) {
-            Some(Some(t)) => {
+    pub fn generics_to_type(&self, mp: &GenericsTypeMap, equs: &mut TypeEquations, trs: &TraitsInfo) -> TResult {
+        match mp.get(&self.id).cloned() {
+            Some(t) => {
                 if self.gens.len() == 0 { Ok(t) }
                 else { Err(format!("generics type cant have generics argument")) }
             }
@@ -119,7 +146,7 @@ pub enum TypeSpec {
 }
 
 impl TypeSpec {
-    pub fn generics_to_type(&self, mp: Option<&HashMap<TypeId, Type>>, equs: &mut TypeEquations, trs: &TraitsInfo) -> TResult {
+    pub fn generics_to_type(&self, mp: &GenericsTypeMap, equs: &mut TypeEquations, trs: &TraitsInfo) -> TResult {
         match *self {
             TypeSpec::TypeSign(ref sign) => {
                 sign.generics_to_type(mp, equs, trs)
