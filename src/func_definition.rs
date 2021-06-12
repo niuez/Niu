@@ -46,7 +46,7 @@ impl FuncDefinitionInfo {
         self.where_sec.regist_equations(&mp, equs, trs)?;
         let args = self.args.iter().map(|(_, t)| t.generics_to_type(&mp, equs, trs)).collect::<Result<Vec<Type>, String>>()?;
         let return_type = self.return_type.generics_to_type(&mp, equs, trs)?;
-        Ok(Type::Func(args, Box::new(return_type)))
+        Ok(Type::Func(args, Box::new(return_type), None))
     }
 
     pub fn check_equal(&self, right: &Self, equs: &mut TypeEquations, trs: &TraitsInfo) -> Result<(), String> {
@@ -64,7 +64,7 @@ impl FuncDefinitionInfo {
         let right_args = right.args.iter().map(|(_, t)| t.generics_to_type(&GenericsTypeMap::empty(), equs, &trs)).collect::<Result<Vec<Type>, String>>()?;
         let self_return_type = self.return_type.generics_to_type(&GenericsTypeMap::empty(), equs, &trs)?;
         let right_return_type = right.return_type.generics_to_type(&GenericsTypeMap::empty(), equs, &trs)?;
-        equs.add_equation(Type::Func(self_args, Box::new(self_return_type)), Type::Func(right_args, Box::new(right_return_type)));
+        equs.add_equation(Type::Func(self_args, Box::new(self_return_type), None), Type::Func(right_args, Box::new(right_return_type), None));
         println!("function {:?} and {:?} are equal unify", self.func_id, right.func_id);
         equs.unify(&mut trs)?;
         Ok(())
@@ -117,9 +117,6 @@ impl FuncDefinition {
         let result_type = self.block.gen_type(equs, &trs)?;
         let return_t = self.return_type.generics_to_type(&GenericsTypeMap::empty(), equs, &trs)?;
         equs.add_equation(result_type, return_t);
-
-        println!("unify {:?}", self.func_id);
-        println!("trs: {:#?}", trs);
 
         println!("function {:?} unify", self.func_id);
         let result = equs.unify(&mut trs);

@@ -54,6 +54,17 @@ impl SelectionCandidate {
             }
         }
     }
+
+    pub fn get_trait_id(&self) -> TraitId {
+        match *self {
+            SelectionCandidate::ImplCandidate(ref cand) => {
+                cand.get_trait_id()
+            }
+            SelectionCandidate::ParamCandidate(ref cand) => {
+                cand.get_trait_id()
+            }
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -98,7 +109,6 @@ impl ImplDefinition {
 
 fn parse_generics_args(s: &str) -> IResult<&str, Vec<TypeId>> {
     let (s, op) = opt(tuple((space0, char('<'), space0, separated_list0(tuple((space0, char(','), space0)), parse_type_id), space0, char('>'))))(s)?;
-    dbg!(s);
     Ok((s, op.map(|(_, _, _, res, _, _)| res).unwrap_or(Vec::new())))
 }
 
@@ -125,7 +135,7 @@ impl Transpile for ImplDefinition {
             format!("using {} = {};\n", id.transpile(ta), spec.transpile(ta))
         }).collect::<Vec<_>>().join(" ");
         let require_methods = self.require_methods.iter().map(|(_, def)| format!("static {}", def.transpile(ta))).collect::<Vec<_>>().join("\n\n");
-        format!("{} {{\nstatic constexpr bool value = true;\n{}\n\n{}}};\n", impl_def, asso_defs, require_methods)
+        format!("{} {{\nstatic constexpr bool value = true;\nusing Self = {};\n{}\n\n\n{}}};\n", impl_def, self.impl_ty.transpile(ta), asso_defs, require_methods)
     }
 }
 
@@ -175,6 +185,10 @@ impl ImplCandidate {
         let gen_mp = mp.next(gen_mp);
         self.require_methods.get(&method_id).unwrap().generate_type(&gen_mp, equs, trs, &method_id.id).unwrap()
     }
+
+    pub fn get_trait_id(&self) -> TraitId {
+        self.trait_id.clone()
+    }
 }
 
 
@@ -208,5 +222,9 @@ impl ParamCandidate {
         let method_type = self.require_methods.get(method_id).unwrap().generate_type(&GenericsTypeMap::empty(), equs, trs, &method_id.id).unwrap();
         equs.set_self_type(before_self_type);
         method_type
+    }
+
+    pub fn get_trait_id(&self) -> TraitId {
+        self.trait_id.clone()
     }
 }

@@ -18,7 +18,7 @@ pub fn new_type_variable() -> Type {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Type {
     SolvedAssociatedType(Box<Type>, AssociatedType),
-    Func(Vec<Type>, Box<Type>),
+    Func(Vec<Type>, Box<Type>, Option<(TraitId, Box<Type>)>),
     TypeVariable(TypeVariable),
     Generics(TypeId, Vec<Type>),
     AssociatedType(Box<Type>, AssociatedType),
@@ -35,14 +35,14 @@ impl Type {
     fn is_solved_type(&self) -> bool {
         match self {
             Type::SolvedAssociatedType(_, _) => true,
-            Type::Generics(_, _) => true,
+            Type::Generics(_, gens) => gens.iter().map(|gen| gen.is_solved_type()).all(|t| t),
             _ => false,
         }
     }
     fn occurs(&self, t: &TypeVariable) -> bool {
         match *self {
             Type::TypeVariable(ref s) if s == t => true,
-            Type::Func(ref args, ref ret) => {
+            Type::Func(ref args, ref ret, _) => {
                 for arg in args.iter() {
                     if arg.occurs(t) { return true; }
                 }
@@ -70,7 +70,7 @@ impl Type {
 
     fn subst(&mut self, theta: &TypeSubst) {
         let res = match *self {
-            Type::Func(ref mut args, ref mut ret) => {
+            Type::Func(ref mut args, ref mut ret, _) => {
                 for arg in args.iter_mut() {
                     arg.subst(theta);
                 }
@@ -304,10 +304,10 @@ impl TypeEquations {
                 if substs.len() == 1 {
                     let mut substs = substs;
                     let (subst, impl_trait) = substs.pop().unwrap();
-                    let before = self.set_self_type(Some(inner_ty));
-                    let res = Ok(impl_trait.get_trait_method_from_id(self, trs, &method_id, &subst));
+                    let before = self.set_self_type(Some(inner_ty.clone()));
+                    let res = impl_trait.get_trait_method_from_id(self, trs, &method_id, &subst);
                     self.set_self_type(before);
-                    res
+                    Ok(res)
                 }
                 else {
                     Err(format!("type {:?} is not implemented trait {:?}", inner_ty, trait_id))
@@ -330,10 +330,16 @@ impl TypeEquations {
                 if substs.len() == 1 {
                     let mut substs = substs;
                     let (subst, impl_trait) = substs.pop().unwrap();
-                    let before = self.set_self_type(Some(inner_ty));
-                    let res = Ok(impl_trait.get_trait_method_from_id(self, trs, &TraitMethodIdentifier { id: mem_id.clone() } , &subst));
+                    let before = self.set_self_type(Some(inner_ty.clone()));
+                    let res = impl_trait.get_trait_method_from_id(self, trs, &TraitMethodIdentifier { id: mem_id.clone() } , &subst);
                     self.set_self_type(before);
-                    res
+                    if let Type::Func(args, returns, _) = res {
+                        let mut iter = args.into_iter();
+                        let self_ty = iter.next().ok_or(format!("trait method {:?} have no argument", mem_id))?;
+                        self.add_equation(self_ty.clone(), inner_ty.clone());
+                        Ok(Type::Func(iter.collect(), returns, Some((impl_trait.get_trait_id(), Box::new(inner_ty)))))
+                    }
+                    else { unreachable!() }
                 }
                 else if let Type::Generics(ref id, ref gens) = inner_ty {
                     match trs.search_typeid(id)? {
@@ -342,9 +348,24 @@ impl TypeEquations {
                         StructDefinitionInfo::Primitive => Err(format!("primitive type has no member: {:?}", id)),
                     }
                 }
-                else {
+                else if let Type::SolvedAssociatedType(_, _) = inner_ty {
                     Err(format!("SolvedAssociatedType has no member: {:?}", inner_ty))
                 }
+                else {
+                    unreachable!()
+                }
+            }
+            else if let Type::Generics(ref id, ref gens) = inner_ty {
+                match trs.search_typeid(id)? {
+                    StructDefinitionInfo::Def(def)  => {
+                        Ok(def.get_member_type(self, trs, gens, &mem_id).unwrap_or(Type::Member(Box::new(inner_ty), mem_id)))
+                    }
+                    StructDefinitionInfo::Generics  => Err(format!("generics type has no member: {:?}", id)),
+                    StructDefinitionInfo::Primitive => Err(format!("primitive type has no member: {:?}", id)),
+                }
+            }
+            else if let Type::SolvedAssociatedType(_, _) = inner_ty {
+                Err(format!("SolvedAssociatedType has no member: {:?}", inner_ty))
             }
             else {
                 Ok(Type::Member(Box::new(inner_ty), mem_id))
@@ -367,10 +388,10 @@ impl TypeEquations {
 
     pub fn unify(&mut self, trs: &TraitsInfo) -> Result<Vec<TypeSubst>, String> {
         let mut thetas = Vec::new();
-        /* println!("unify");
+        println!("unify");
         for (i, equ) in self.equs.iter().enumerate() {
             println!("{}. {:?}", i, equ);
-        } */
+        } 
         while let Some(equation) = self.equs.pop_front() {
             //println!("equation = {:?}", equation);
             match equation {
@@ -418,9 +439,11 @@ impl TypeEquations {
                         (left, Type::Member(b, a)) => {
                             self.equs.push_back(TypeEquation::Equal(left, Type::Member(b, a)));
                         }
-                        (Type::Func(l_args, l_return), Type::Func(r_args, r_return)) => {
+                        (Type::Func(l_args, l_return, _), Type::Func(r_args, r_return, _)) => {
                             if l_args.len() != r_args.len() {
-                                Err("length of args is not equal.")?;
+                                Err(format!("length of args is not equal. {:?}, {:?} vs {:?}, {:?}",
+                                            l_args, l_return, r_args, r_return
+                                            ))?;
                             }
                             for (l, r) in l_args.into_iter().zip(r_args.into_iter()) {
                                 self.equs.push_back(TypeEquation::Equal(l, r ));

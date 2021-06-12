@@ -23,11 +23,13 @@ pub fn subseq_gen_type(uexpr: &UnaryExpr, subseq: &Subseq, equs: &mut TypeEquati
             let caller = uexpr.gen_type(equs, trs)?;
             let args = call.args.iter().map(|arg| arg.gen_type(equs, trs)).collect::<Result<Vec<_>, String>>()?;
             let return_type = new_type_variable();
-            equs.add_equation(caller, Type::Func(args, Box::new(return_type.clone())));
+            equs.add_equation(caller, Type::Func(args, Box::new(return_type.clone()), None));
             Ok(return_type)
         }
         Subseq::Member(ref mem) => {
             let st = uexpr.gen_type(equs, trs)?;
+            let alpha = mem.mem_id.generate_type_variable(1);
+            equs.add_equation(alpha.clone(), Type::Member(Box::new(st.clone()), mem.mem_id.clone()));
             Ok(Type::Member(Box::new(st), mem.mem_id.clone()))
         }
     }
@@ -37,9 +39,22 @@ pub fn subseq_gen_type(uexpr: &UnaryExpr, subseq: &Subseq, equs: &mut TypeEquati
 pub fn subseq_transpile(uexpr: &UnaryExpr, subseq: &Subseq, ta: &TypeAnnotation) -> String {
     match *subseq {
         Subseq::Call(ref call) => {
-            let caller = uexpr.transpile(ta);
-            let args = call.args.iter().map(|arg| arg.transpile(ta)).collect::<Vec<_>>().join(", ");
-            format!("{}({})", caller, args)
+            if let UnaryExpr::Subseq(mem_caller, Subseq::Member(mem)) = uexpr {
+                let ty = ta.annotation(mem.mem_id.get_tag_number(), 1);
+                if let Type::Func(_, _, Some((trait_id, ty))) = ty {
+                    let args = call.args.iter().map(|arg| arg.transpile(ta));
+                    let args = std::iter::once(mem_caller.transpile(ta)).chain(args).collect::<Vec<_>>().join(", ");
+                    format!("{}<{}>::{}({})", trait_id.transpile(ta), (*ty).transpile(ta), mem.mem_id.into_string(), args)
+                }
+                else {
+                    unreachable!(format!("Member Call\nuexpr = {:?}\nsubseq = {:?}\nty = {:?}", uexpr, subseq, ty))
+                }
+            }
+            else {
+                let caller = uexpr.transpile(ta);
+                let args = call.args.iter().map(|arg| arg.transpile(ta)).collect::<Vec<_>>().join(", ");
+                format!("{}({})", caller, args)
+            }
         }
         Subseq::Member(ref mem) => {
             let caller = uexpr.transpile(ta);

@@ -285,6 +285,9 @@ impl<'a> TraitsInfo<'a> {
         if let Some(traits) = self.member_to_traits.get(mem_id) {
             for t in traits { st.insert(t.clone()); }
         }
+        if let Some(trs) = self.upper_info {
+            trs.search_traits_for_member(mem_id, st);
+        }
     }
 
     pub fn match_to_member_for_type(&self, mem_id: &Identifier, ty: &Type) -> Vec<(SubstsMap, &SelectionCandidate)> {
