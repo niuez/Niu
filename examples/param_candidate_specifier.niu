@@ -1,0 +1,27 @@
+trait Add {
+  type Output;
+  fn add(a: Self, b: Self) -> Self#Add::Output;
+}
+
+fn add3<S>(a: S, b: S, c: S) -> S#Add::Output
+where S: Add(Output=S)
+{
+  S#Add.add(S#Add.add(a, b), c)
+}
+
+fn add_s_s_t<S, T>(a: S, b: S, c: T) -> T#Add::Output
+where S: Add(Output=T), T: Add {
+  T#Add.add(S#Add.add(a, b), c)
+}
+
+trait Mul {
+  type Right;
+  type Output;
+  fn mul(a: Self, b: Self#Mul::Right) -> Self#Mul::Output;
+}
+
+fn mul3<S, T, U>(s: S, t: T, u: U) -> U#Mul::Output
+where U: Mul, S: Mul(Right=T, Output=U#Mul::Right)
+{
+  U#Mul.mul(u, S#Mul.mul(s, t))
+}

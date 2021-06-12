@@ -216,16 +216,25 @@ impl<'a> TraitsInfo<'a> {
             }
         }
     }
-    pub fn regist_param_candidate(&mut self, ty: Type, trait_id: &TraitId) -> Result<(), String> {
+    pub fn regist_param_candidate(&mut self, ty: Type, trait_id: &TraitId, mut asso_mp: HashMap<AssociatedTypeIdentifier, Type>) -> Result<(), String> {
         match self.get_traitinfo(trait_id) {
             None => Err(format!("trait {:?} is not defined", trait_id)),
             Some(tr_def) => {
-                let cand = ParamCandidate::new(trait_id.clone(), ty.clone(), tr_def.asso_ids.iter().map(|asso_id| {
-                    (asso_id.clone(), Type::SolvedAssociatedType(Box::new(ty.clone()), AssociatedType { trait_id: trait_id.clone(), type_id: asso_id.clone() }))
-                }).collect(),
-                tr_def.required_methods.clone());
-                self.regist_selection_candidate(trait_id, cand);
-                Ok(())
+                let asso_tys = tr_def.asso_ids.iter().map(|asso_id| {
+                    let asso_ty = match asso_mp.remove(asso_id) {
+                        Some(asso_ty) => asso_ty,
+                        None => Type::SolvedAssociatedType(Box::new(ty.clone()), AssociatedType { trait_id: trait_id.clone(), type_id: asso_id.clone() }),
+                    };
+                    (asso_id.clone(), asso_ty)
+                }).collect::<HashMap<_, _>>();
+                if asso_mp.len() > 0 {
+                    Err(format!("undefined associated type speficier: {:?}", asso_mp))
+                }
+                else {
+                    let cand = ParamCandidate::new(trait_id.clone(), ty.clone(), asso_tys, tr_def.required_methods.clone());
+                    self.regist_selection_candidate(trait_id, cand);
+                    Ok(())
+                }
             }
         }
     }
