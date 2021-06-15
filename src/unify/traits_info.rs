@@ -20,6 +20,7 @@ pub struct TraitsInfo<'a> {
     typeids: HashMap<TypeId, StructDefinitionInfo>,
     pub traits: HashMap<TraitId, TraitDefinitionInfo>,
     pub impls: HashMap<TraitId, Vec<SelectionCandidate>>,
+    self_impls: HashMap<TypeId, Vec<ImplSelfDefinitionInfo>>,
     member_to_traits: HashMap<Identifier, HashSet<TraitId>>,
     upper_info: Option<&'a TraitsInfo<'a>>,
 }
@@ -33,6 +34,7 @@ impl<'a> TraitsInfo<'a> {
                 (TypeId::from_str("bool"), StructDefinitionInfo::Primitive)].into_iter().collect(),
             traits: HashMap::new(),
             impls: HashMap::new(),
+            self_impls: HashMap::new(),
             member_to_traits: HashMap::new(),
             upper_info: None,
         }
@@ -42,6 +44,7 @@ impl<'a> TraitsInfo<'a> {
             typeids: HashMap::new(),
             traits: HashMap::new(),
             impls: HashMap::new(),
+            self_impls: HashMap::new(),
             member_to_traits: HashMap::new(),
             upper_info: Some(self),
         }
@@ -81,6 +84,18 @@ impl<'a> TraitsInfo<'a> {
         else {
             Err(format!("not exist definition: {:?}", id))
         }*/
+    }
+
+    pub fn get_struct_definition_info(&self, id: &TypeId) -> Result<&StructDefinitionInfo, String> {
+        if let Some(def_info) = self.typeids.get(id) {
+            Ok(def_info)
+        }
+        else if let Some(trs) = self.upper_info {
+            trs.get_struct_definition_info(id)
+        }
+        else {
+            Err(format!("type id {:?} is not found", id))
+        }
     }
     
     pub fn check_typeid_with_generics(&self, id: TypeId, gens: Vec<Type>, top_trs: &Self) -> TResult {
@@ -189,6 +204,26 @@ impl<'a> TraitsInfo<'a> {
             None => {
                 self.impls.insert(trait_id.clone(), vec![cand]);
             }
+        }
+    }
+
+    pub fn regist_self_impl(&mut self, def: &ImplSelfDefinition) -> Result<(), String> {
+        let info = def.get_info();
+        let typeid = info.impl_ty.get_type_id()?;
+        match self.get_struct_definition_info(&typeid)? {
+            StructDefinitionInfo::Def(_) => {
+                match self.self_impls.get_mut(&typeid) {
+                    None => {
+                        self.self_impls.insert(typeid, vec![info]);
+                    }
+                    Some(vec) => {
+                        vec.push(info);
+                    }
+                }
+                Ok(())
+            }
+            StructDefinitionInfo::Primitive => Err(format!("cant impl self for primitive type")),
+            StructDefinitionInfo::Generics => Err(format!("cant impl self for primitive type")),
         }
     }
 

@@ -87,6 +87,10 @@ impl TypeSign {
                 )
         }
     }
+
+    pub fn get_type_id(&self) -> TypeId {
+        self.id.clone()
+    }
 }
 
 fn parse_generics_annotation(s: &str) -> IResult<&str, Vec<TypeSpec>> {
@@ -177,6 +181,13 @@ impl TypeSpec {
         match self {
             TypeSpec::TypeSign(_) => 0,
             TypeSpec::Associated(spec, _) => 1 + spec.associated_type_depth(),
+        }
+    }
+
+    pub fn get_type_id(&self) -> Result<TypeId, String> {
+        match self {
+            TypeSpec::TypeSign(sign) => Ok(sign.get_type_id()),
+            TypeSpec::Associated(_, _) => Err(format!("cant get typeid from {:?}", self)),
         }
     }
 
