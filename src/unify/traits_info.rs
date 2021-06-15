@@ -329,6 +329,30 @@ impl<'a> TraitsInfo<'a> {
         self.match_to_impls(trait_id, ty, self)
     }
 
+    fn match_to_self_impls(&self, typeid: &TypeId, ty: &Type, top_trs: &Self) -> Vec<(SubstsMap, &SelectionCandidate)> {
+        let mut ans = Vec::new();
+        if let Some(impls) = self.self_impls.get(typeid) {
+            let mut vs = impls.iter()
+                .map(|impl_trait| {
+                    impl_trait.match_impl_for_ty(&ty, top_trs)
+                })
+            .filter_map(|x| x)
+                .collect::<Vec<_>>();
+            ans.append(&mut vs);
+        }
+
+        if let Some(trs) = self.upper_info {
+            let mut vs = trs.match_to_self_impls(typeid, ty, top_trs);
+            ans.append(&mut vs);
+        }
+        ans
+    }
+
+    pub fn match_to_self_impls_for_type(&self, typeid: &TypeId, ty: &Type) -> Vec<(SubstsMap, &SelectionCandidate)> {
+        self.match_to_self_impls(typeid, ty, self)
+    }
+
+
     fn search_traits_for_member(&self, mem_id: &Identifier, st: &mut HashSet<TraitId>) {
         if let Some(traits) = self.member_to_traits.get(mem_id) {
             for t in traits { st.insert(t.clone()); }
@@ -338,12 +362,29 @@ impl<'a> TraitsInfo<'a> {
         }
     }
 
+    fn search_typeid_for_member(&self, mem_id: &Identifier, st: &mut HashSet<TypeId>) {
+        if let Some(traits) = self.member_to_self_impls.get(mem_id) {
+            for t in traits { st.insert(t.clone()); }
+        }
+        if let Some(trs) = self.upper_info {
+            trs.search_typeid_for_member(mem_id, st);
+        }
+    }
+
+
     pub fn match_to_member_for_type(&self, mem_id: &Identifier, ty: &Type) -> Vec<(SubstsMap, &SelectionCandidate)> {
         let mut st = HashSet::new();
         self.search_traits_for_member(mem_id, &mut st);
         let mut ans = Vec::new();
         for t in st.into_iter() {
             let mut vs = self.match_to_impls_for_type(&t, ty);
+            ans.append(&mut vs);
+        }
+
+        let mut st = HashSet::new();
+        self.search_typeid_for_member(mem_id, &mut st);
+        for t in st.into_iter() {
+            let mut vs = self.match_to_self_impls_for_type(&t, ty);
             ans.append(&mut vs);
         }
         ans

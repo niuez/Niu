@@ -1,0 +1,9 @@
+struct Vec<T> {}
+
+impl<T> Vec<T> {
+  fn throw(v: Self) -> Self { v }
+}
+
+fn apply<T>(v: Vec<T>) -> Vec<T> {
+  v.throw()
+}

@@ -16,9 +16,32 @@ pub fn new_type_variable() -> Type {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub enum FuncTypeInfo {
+    TraitFunc(TraitId, Box<Type>),
+    SelfFunc(TypeId, Vec<(TypeId, Type)>),
+    None,
+}
+
+impl FuncTypeInfo {
+    fn subst(&mut self, theta: &TypeSubst) {
+        match self {
+            Self::TraitFunc(_, ty) => {
+                ty.as_mut().subst(theta);
+            }
+            Self::SelfFunc(_, args) => {
+                for (_, arg) in args.iter_mut() {
+                    arg.subst(theta);
+                }
+            }
+            Self::None => {},
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Type {
     SolvedAssociatedType(Box<Type>, AssociatedType),
-    Func(Vec<Type>, Box<Type>, Option<(TraitId, Box<Type>)>),
+    Func(Vec<Type>, Box<Type>, FuncTypeInfo),
     TypeVariable(TypeVariable),
     Generics(TypeId, Vec<Type>),
     AssociatedType(Box<Type>, AssociatedType),
@@ -70,11 +93,12 @@ impl Type {
 
     fn subst(&mut self, theta: &TypeSubst) {
         let res = match *self {
-            Type::Func(ref mut args, ref mut ret, _) => {
+            Type::Func(ref mut args, ref mut ret, ref mut info) => {
                 for arg in args.iter_mut() {
                     arg.subst(theta);
                 }
                 ret.subst(theta);
+                info.subst(theta);
                 None
             }
             Type::Generics(ref ty, ref mut gens) => {
@@ -311,7 +335,7 @@ impl TypeEquations {
                     let mut substs = substs;
                     let (subst, impl_trait) = substs.pop().unwrap();
                     let before = self.set_self_type(Some(inner_ty.clone()));
-                    let res = impl_trait.get_trait_method_from_id(self, trs, &method_id, &subst);
+                    let res = impl_trait.get_trait_method_from_id(self, trs, &method_id, &subst, &inner_ty);
                     self.set_self_type(before);
                     Ok(res)
                 }
@@ -337,13 +361,13 @@ impl TypeEquations {
                     let mut substs = substs;
                     let (subst, impl_trait) = substs.pop().unwrap();
                     let before = self.set_self_type(Some(inner_ty.clone()));
-                    let res = impl_trait.get_trait_method_from_id(self, trs, &TraitMethodIdentifier { id: mem_id.clone() } , &subst);
+                    let res = impl_trait.get_trait_method_from_id(self, trs, &TraitMethodIdentifier { id: mem_id.clone() } , &subst, &inner_ty);
                     self.set_self_type(before);
-                    if let Type::Func(args, returns, _) = res {
+                    if let Type::Func(args, returns, info) = res {
                         let mut iter = args.into_iter();
                         let self_ty = iter.next().ok_or(format!("trait method {:?} have no argument", mem_id))?;
                         self.add_equation(self_ty.clone(), inner_ty.clone());
-                        Ok(Type::Func(iter.collect(), returns, Some((impl_trait.get_trait_id(), Box::new(inner_ty)))))
+                        Ok(Type::Func(iter.collect(), returns, info))
                     }
                     else { unreachable!() }
                 }

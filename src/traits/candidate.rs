@@ -52,16 +52,16 @@ impl SelectionCandidate {
         }
     }
 
-    pub fn get_trait_method_from_id(&self, equs: &mut TypeEquations, trs: &TraitsInfo, method_id: &TraitMethodIdentifier, subst: &SubstsMap) -> Type {
+    pub fn get_trait_method_from_id(&self, equs: &mut TypeEquations, trs: &TraitsInfo, method_id: &TraitMethodIdentifier, subst: &SubstsMap, ty: &Type) -> Type {
         match *self {
             SelectionCandidate::ImplCandidate(ref cand) => {
-                cand.get_trait_method_from_id(equs, trs, method_id, subst)
+                cand.get_trait_method_from_id(equs, trs, method_id, subst, ty)
             }
             SelectionCandidate::ParamCandidate(ref cand) => {
-                cand.get_trait_method_from_id(equs, trs, method_id, subst)
+                cand.get_trait_method_from_id(equs, trs, method_id, subst, ty)
             }
             SelectionCandidate::ImplSelfCandidate(ref cand) => {
-                cand.get_trait_method_from_id(equs, trs, method_id, subst)
+                cand.get_trait_method_from_id(equs, trs, method_id, subst, ty)
             }
         }
     }
@@ -168,6 +168,7 @@ pub struct ImplCandidate {
 impl ImplCandidate {
     pub fn match_impl_for_ty(&self, ty: &Type, trs: &TraitsInfo) -> Option<SubstsMap> {
         let mut equs = TypeEquations::new();
+        equs.set_self_type(Some(ty.clone()));
 
         let gen_mp = self.generics.iter().enumerate().map(|(i, id)| (id.clone(), self.trait_id.id.generate_type_variable(i)))
             .collect::<HashMap<_, _>>();
@@ -192,12 +193,20 @@ impl ImplCandidate {
         self.asso_defs.get(asso_id).unwrap().generics_to_type(&gen_mp, equs, trs).unwrap()
     }
 
-    pub fn get_trait_method_from_id(&self, equs: &mut TypeEquations, trs: &TraitsInfo, method_id: &TraitMethodIdentifier, subst: &SubstsMap) -> Type {
+    pub fn get_trait_method_from_id(&self, equs: &mut TypeEquations, trs: &TraitsInfo, method_id: &TraitMethodIdentifier, subst: &SubstsMap, ty: &Type) -> Type {
         let gen_mp = self.generics.iter().enumerate().map(|(i, id)| Ok((id.clone(), subst.get(&self.trait_id.id, i)?)))
             .collect::<Result<HashMap<_, _>, String>>().unwrap();
         let mp = GenericsTypeMap::empty();
         let gen_mp = mp.next(gen_mp);
-        self.require_methods.get(&method_id).unwrap().generate_type(&gen_mp, equs, trs, &method_id.id).unwrap()
+        let before_self_type = equs.set_self_type(Some(ty.clone()));
+        let res = if let Type::Func(args, ret, _) = self.require_methods.get(&method_id).unwrap().generate_type(&gen_mp, equs, trs, &method_id.id).unwrap() {
+            Type::Func(args, ret, FuncTypeInfo::TraitFunc(self.trait_id.clone(), Box::new(ty.clone())))
+        }
+        else {
+            unreachable!("why dont return Type::Func")
+        };
+        equs.set_self_type(before_self_type);
+        res
     }
 
     pub fn get_trait_id(&self) -> TraitId {
@@ -231,11 +240,17 @@ impl ParamCandidate {
         self.asso_defs.get(asso_id).unwrap().clone()
     }
 
-    pub fn get_trait_method_from_id(&self, equs: &mut TypeEquations, trs: &TraitsInfo, method_id: &TraitMethodIdentifier, subst: &SubstsMap) -> Type {
+    pub fn get_trait_method_from_id(&self, equs: &mut TypeEquations, trs: &TraitsInfo, method_id: &TraitMethodIdentifier, subst: &SubstsMap, ty: &Type) -> Type {
         let before_self_type = equs.set_self_type(Some(subst.get(&self.trait_id.id, 0).unwrap()));
         let method_type = self.require_methods.get(method_id).unwrap().generate_type(&GenericsTypeMap::empty(), equs, trs, &method_id.id).unwrap();
+        let res = if let Type::Func(args, ret, _) = method_type {
+            Type::Func(args, ret, FuncTypeInfo::TraitFunc(self.trait_id.clone(), Box::new(ty.clone())))
+        }
+        else {
+            unreachable!("why dont return Type::Func")
+        };
         equs.set_self_type(before_self_type);
-        method_type
+        res
     }
 
     pub fn get_trait_id(&self) -> TraitId {

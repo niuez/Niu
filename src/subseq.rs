@@ -23,7 +23,7 @@ pub fn subseq_gen_type(uexpr: &UnaryExpr, subseq: &Subseq, equs: &mut TypeEquati
             let caller = uexpr.gen_type(equs, trs)?;
             let args = call.args.iter().map(|arg| arg.gen_type(equs, trs)).collect::<Result<Vec<_>, String>>()?;
             let return_type = new_type_variable();
-            equs.add_equation(caller, Type::Func(args, Box::new(return_type.clone()), None));
+            equs.add_equation(caller, Type::Func(args, Box::new(return_type.clone()), FuncTypeInfo::None));
             Ok(return_type)
         }
         Subseq::Member(ref mem) => {
@@ -41,10 +41,24 @@ pub fn subseq_transpile(uexpr: &UnaryExpr, subseq: &Subseq, ta: &TypeAnnotation)
         Subseq::Call(ref call) => {
             if let UnaryExpr::Subseq(mem_caller, Subseq::Member(mem)) = uexpr {
                 let ty = ta.annotation(mem.mem_id.get_tag_number(), 1);
-                if let Type::Func(_, _, Some((trait_id, ty))) = ty {
-                    let args = call.args.iter().map(|arg| arg.transpile(ta));
-                    let args = std::iter::once(mem_caller.transpile(ta)).chain(args).collect::<Vec<_>>().join(", ");
-                    format!("{}<{}>::{}({})", trait_id.transpile(ta), (*ty).transpile(ta), mem.mem_id.into_string(), args)
+                //if let Type::Func(_, _, Some((trait_id, ty))) = ty {
+                if let Type::Func(_, _, info) = ty {
+                    match info {
+                        FuncTypeInfo::TraitFunc(trait_id, ty) => {
+                            let args = call.args.iter().map(|arg| arg.transpile(ta));
+                            let args = std::iter::once(mem_caller.transpile(ta)).chain(args).collect::<Vec<_>>().join(", ");
+                            format!("{}<{}>::{}({})", trait_id.transpile(ta), (*ty).transpile(ta), mem.mem_id.into_string(), args)
+                        }
+                        FuncTypeInfo::SelfFunc(typeid, impl_generics) => {
+                            let gen_args = impl_generics.into_iter().map(|(_, ty)| ty.transpile(ta)).collect::<Vec<_>>().join(", ");
+                            let args = call.args.iter().map(|arg| arg.transpile(ta));
+                            let args = std::iter::once(mem_caller.transpile(ta)).chain(args).collect::<Vec<_>>().join(", ");
+                            format!("{}<{}>::{}({})", typeid.transpile(ta), gen_args, mem.mem_id.into_string(), args)
+                        }
+                        FuncTypeInfo::None => {
+                            unimplemented!("Func type member?")
+                        }
+                    }
                 }
                 else {
                     unreachable!(format!("Member Call\nuexpr = {:?}\nsubseq = {:?}\nty = {:?}", uexpr, subseq, ty))

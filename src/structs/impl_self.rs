@@ -66,6 +66,7 @@ impl ImplSelfDefinition {
 impl ImplSelfCandidate {
     pub fn match_impl_for_ty(&self, ty: &Type, trs: &TraitsInfo) -> Option<SubstsMap> {
         let mut equs = TypeEquations::new();
+        equs.set_self_type(Some(ty.clone()));
 
         let gen_mp = self.generics.iter().enumerate().map(|(i, id)| (id.clone(), self.tag.generate_type_variable(i)))
             .collect::<HashMap<_, _>>();
@@ -81,12 +82,21 @@ impl ImplSelfCandidate {
             None
         }
     }
-    pub fn get_trait_method_from_id(&self, equs: &mut TypeEquations, trs: &TraitsInfo, method_id: &TraitMethodIdentifier, subst: &SubstsMap) -> Type {
-        let gen_mp = self.generics.iter().enumerate().map(|(i, id)| Ok((id.clone(), subst.get_from_tag(&self.tag, i)?)))
-            .collect::<Result<HashMap<_, _>, String>>().unwrap();
+    pub fn get_trait_method_from_id(&self, equs: &mut TypeEquations, trs: &TraitsInfo, method_id: &TraitMethodIdentifier, subst: &SubstsMap, ty: &Type) -> Type {
+        let gen_vec = self.generics.iter().enumerate().map(|(i, id)| Ok((id.clone(), subst.get_from_tag(&self.tag, i)?)))
+            .collect::<Result<Vec<_>, String>>().unwrap();
+        let gen_hashmp = gen_vec.iter().cloned().collect::<HashMap<_, _>>();
         let mp = GenericsTypeMap::empty();
-        let gen_mp = mp.next(gen_mp);
-        self.require_methods.get(&method_id.id).unwrap().generate_type(&gen_mp, equs, trs, &method_id.id).unwrap()
+        let gen_mp = mp.next(gen_hashmp);
+        let before_self_type = equs.set_self_type(Some(ty.clone()));
+        let res = if let Type::Func(args, ret, _) = self.require_methods.get(&method_id.id).unwrap().generate_type(&gen_mp, equs, trs, &method_id.id).unwrap() {
+            Type::Func(args, ret, FuncTypeInfo::SelfFunc(self.impl_ty.get_type_id().unwrap(), gen_vec))
+        }
+        else {
+            unreachable!("why dont return Type::Func")
+        };
+        equs.set_self_type(before_self_type);
+        res
     }
 }
 
