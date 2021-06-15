@@ -20,8 +20,9 @@ pub struct TraitsInfo<'a> {
     typeids: HashMap<TypeId, StructDefinitionInfo>,
     pub traits: HashMap<TraitId, TraitDefinitionInfo>,
     pub impls: HashMap<TraitId, Vec<SelectionCandidate>>,
-    self_impls: HashMap<TypeId, Vec<ImplSelfDefinitionInfo>>,
+    self_impls: HashMap<TypeId, Vec<SelectionCandidate>>,
     member_to_traits: HashMap<Identifier, HashSet<TraitId>>,
+    member_to_self_impls: HashMap<Identifier, HashSet<TypeId>>,
     upper_info: Option<&'a TraitsInfo<'a>>,
 }
 
@@ -36,6 +37,7 @@ impl<'a> TraitsInfo<'a> {
             impls: HashMap::new(),
             self_impls: HashMap::new(),
             member_to_traits: HashMap::new(),
+            member_to_self_impls: HashMap::new(),
             upper_info: None,
         }
     }
@@ -46,6 +48,7 @@ impl<'a> TraitsInfo<'a> {
             impls: HashMap::new(),
             self_impls: HashMap::new(),
             member_to_traits: HashMap::new(),
+            member_to_self_impls: HashMap::new(),
             upper_info: Some(self),
         }
     }
@@ -212,12 +215,22 @@ impl<'a> TraitsInfo<'a> {
         let typeid = info.impl_ty.get_type_id()?;
         match self.get_struct_definition_info(&typeid)? {
             StructDefinitionInfo::Def(_) => {
+                for (func_id, _) in info.require_methods.iter() {
+                    match self.member_to_self_impls.get_mut(&func_id) {
+                        None => {
+                            self.member_to_self_impls.insert(func_id.clone(), std::iter::once(typeid.clone()).collect());
+                        }
+                        Some(st) => {
+                            st.insert(typeid.clone());
+                        }
+                    }
+                }
                 match self.self_impls.get_mut(&typeid) {
                     None => {
-                        self.self_impls.insert(typeid, vec![info]);
+                        self.self_impls.insert(typeid, vec![SelectionCandidate::ImplSelfCandidate(info)]);
                     }
                     Some(vec) => {
-                        vec.push(info);
+                        vec.push(SelectionCandidate::ImplSelfCandidate(info));
                     }
                 }
                 Ok(())

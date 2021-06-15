@@ -180,6 +180,12 @@ impl SubstsMap {
             None => Err(format!("undefined TypeVariable({:?}, {:?})", id, i)),
         }
     }
+    pub fn get_from_tag(&self, tag: &Tag, i: usize) -> TResult {
+        match self.mp.get(&(tag.get_num(), i)) {
+            Some(t) => Ok(t.clone()),
+            None => Err(format!("undefined TypeVariable({:?}, {:?})", tag, i)),
+        }
+    }
 }
 
 pub type TResult = Result<Type, String>;

@@ -14,12 +14,14 @@ use crate::unify::*;
 use crate::trans::*;
 use crate::traits::*;
 use crate::func_definition::*;
+use crate::structs::*;
 
 
 #[derive(Debug, Clone)]
 pub enum SelectionCandidate {
     ImplCandidate(ImplCandidate),
     ParamCandidate(ParamCandidate),
+    ImplSelfCandidate(ImplSelfCandidate),
 }
 
 impl SelectionCandidate {
@@ -29,6 +31,9 @@ impl SelectionCandidate {
                 cand.match_impl_for_ty(ty, trs).map(|sub| (sub, self))
             }
             SelectionCandidate::ParamCandidate(ref cand) => {
+                cand.match_impl_for_ty(ty, trs).map(|sub| (sub, self))
+            }
+            SelectionCandidate::ImplSelfCandidate(ref cand) => {
                 cand.match_impl_for_ty(ty, trs).map(|sub| (sub, self))
             }
         }
@@ -41,6 +46,9 @@ impl SelectionCandidate {
             SelectionCandidate::ParamCandidate(ref cand) => {
                 cand.get_associated_from_id(equs, trs, asso_id, subst)
             }
+            SelectionCandidate::ImplSelfCandidate(_) => {
+                unreachable!("ImplSelfCandidate doesnt have associated type")
+            }
         }
     }
 
@@ -50,6 +58,9 @@ impl SelectionCandidate {
                 cand.get_trait_method_from_id(equs, trs, method_id, subst)
             }
             SelectionCandidate::ParamCandidate(ref cand) => {
+                cand.get_trait_method_from_id(equs, trs, method_id, subst)
+            }
+            SelectionCandidate::ImplSelfCandidate(ref cand) => {
                 cand.get_trait_method_from_id(equs, trs, method_id, subst)
             }
         }
@@ -62,6 +73,9 @@ impl SelectionCandidate {
             }
             SelectionCandidate::ParamCandidate(ref cand) => {
                 cand.get_trait_id()
+            }
+            SelectionCandidate::ImplSelfCandidate(_) => {
+                unreachable!("cant get trait_id from ImplSelfCandidate")
             }
         }
     }
