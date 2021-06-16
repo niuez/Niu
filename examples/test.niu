@@ -12,7 +12,7 @@ impl MyTrait for i64 {
 
 fn apply<T>(t: T) -> T#MyTrait::Associated
 where T: MyTrait {
-  T#MyTrait.func(t)
+  T#MyTrait::func(t)
 }
 
 fn apply_for_i64(t: i64) -> i64#MyTrait::Associated {

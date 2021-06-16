@@ -1,9 +1,13 @@
 use nom::IResult;
+use nom::bytes::complete::*;
 use nom::character::complete::*;
 use nom::sequence::*;
 use nom::branch::*;
+use nom::combinator::*;
+use nom::multi::*;
 
 use crate::literal::{ Literal, parse_literal };
+use crate::type_id::*;
 use crate::identifier::{ Identifier, parse_identifier };
 use crate::expression::{ Expression, parse_expression };
 use crate::subseq::{ Subseq, parse_subseq, subseq_gen_type, subseq_transpile };
@@ -22,7 +26,7 @@ pub enum UnaryExpr {
     Block(Block),
     Subseq(Box<UnaryExpr>, Subseq),
     StructInst(StructInstantiation),
-    TraitMethod(TypeSpec, TraitMethod),
+    TraitMethod(TypeSpec, Option<TraitId>, Identifier),
 }
 
 impl GenType for UnaryExpr {
@@ -34,8 +38,8 @@ impl GenType for UnaryExpr {
             UnaryExpr::Block(ref b) => b.gen_type(equs, trs),
             UnaryExpr::Subseq(ref expr, ref s) => subseq_gen_type(expr.as_ref(), s, equs, trs),
             UnaryExpr::StructInst(ref inst) => inst.gen_type(equs, trs),
-            UnaryExpr::TraitMethod(ref spec, ref tr_id) =>
-                Ok(Type::TraitMethod(Box::new(spec.generics_to_type(&GenericsTypeMap::empty(), equs, trs)?), tr_id.clone())),
+            UnaryExpr::TraitMethod(ref spec, ref tr_id, ref mem_id) =>
+                Ok(Type::TraitMethod(Box::new(spec.generics_to_type(&GenericsTypeMap::empty(), equs, trs)?), tr_id.clone(), mem_id.clone())),
         }
     }
 }
@@ -49,8 +53,11 @@ impl Transpile for UnaryExpr {
             UnaryExpr::Block(ref b) => format!("[&](){{ {} }}()", b.transpile(ta)),
             UnaryExpr::Subseq(ref expr, ref s) => subseq_transpile(expr.as_ref(), s, ta),
             UnaryExpr::StructInst(ref inst) => inst.transpile(ta),
-            UnaryExpr::TraitMethod(ref spec, TraitMethod { ref trait_id, ref method_id }) => {
-                format!("{}<{}>::{}", trait_id.transpile(ta), spec.transpile(ta), method_id.transpile(ta))
+            UnaryExpr::TraitMethod(ref spec, Some(ref trait_id), ref method_id) => {
+                format!("{}<{}>::{}", trait_id.transpile(ta), spec.transpile(ta), method_id.into_string())
+            }
+            UnaryExpr::TraitMethod(ref spec, _, ref method_id) => {
+                format!("{}::{}", spec.transpile(ta), method_id.into_string())
             }
         }
     }
@@ -129,9 +136,20 @@ pub fn parse_bracket_block(s: &str) -> IResult<&str, UnaryExpr> {
     Ok((s, UnaryExpr::Block(block)))
 }
 
-pub fn parse_unary_trait_method(s: &str) -> IResult<&str, UnaryExpr> {
-    let(s, (spec, _, _, _, trait_method)) = tuple((parse_type_spec, space0, char('#'), space0, parse_trait_method))(s)?;
-    Ok((s, UnaryExpr::TraitMethod(spec, trait_method)))
+pub fn parse_unary_trait_method(ss: &str) -> IResult<&str, UnaryExpr> {
+    let (s, (typesign, _)) = tuple((parse_type_sign, space0))(ss)?;
+    let (s, elems) = many1(tuple((opt(tuple((char('#'), space0, parse_trait_id))), space0, tag("::"), space0, parse_identifier, space0)))(s)?;
+    let mut elems = elems.into_iter().map(|(op, _, _, _, id, _)| (op.map(|(_, _, tr_id)| tr_id), id)).collect::<Vec<_>>();
+    let (tail_tr_op, tail_id) = elems.pop().unwrap();
+    let mut ty = TypeSpec::TypeSign(typesign);
+    for (op, ty_id) in elems.into_iter() {
+        // TODO: remove unwrap
+        ty = TypeSpec::Associated(Box::new(ty), AssociatedType { 
+            trait_id: op.unwrap(),
+            type_id: AssociatedTypeIdentifier { id: ty_id },
+        });
+    }
+    Ok((s, UnaryExpr::TraitMethod(ty, tail_tr_op, tail_id)))
 }
 
 #[test]

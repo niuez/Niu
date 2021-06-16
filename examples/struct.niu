@@ -17,6 +17,6 @@ impl Sum for Pair {
 
 fn apply() -> i64 {
   let p = Pair { a: 9i64, b: 1i64, };
-  Pair#Sum.sum(p)
+  Pair#Sum::sum(p)
 }
 

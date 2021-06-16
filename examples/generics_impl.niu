@@ -44,21 +44,21 @@ where
 {
   type Output = S#Sum::Output#Add::Output;
   fn sum(a: Self) -> Self#Sum::Output {
-    S#Sum::Output#Add.add(S#Sum.sum(a.s), T#Sum.sum(a.t))
+    S#Sum::Output#Add::add(S#Sum::sum(a.s), T#Sum::sum(a.t))
   }
 }
 
 fn apply() -> bool {
-  Pair<i64, u64>#Sum.sum(Pair { s: 1i64, t: 2u64 });
+  Pair<i64, u64>#Sum::sum(Pair { s: 1i64, t: 2u64 });
   true
 }
 
 fn apply2() -> bool {
-  Pair<Pair<i64, u64>, u64>#Sum.sum(Pair { s: Pair { s: 1i64, t: 2u64 }, t: 3u64 });
+  Pair<Pair<i64, u64>, u64>#Sum::sum(Pair { s: Pair { s: 1i64, t: 2u64 }, t: 3u64 });
   true
 }
 
 fn apply3() -> bool {
-  Pair<Pair<i64, u64>, Pair<u64, u64>>#Sum.sum(Pair { s: Pair { s: 1i64, t: 2u64 }, t: Pair { s: 3u64, t: 4u64} });
+  Pair<Pair<i64, u64>, Pair<u64, u64>>#Sum::sum(Pair { s: Pair { s: 1i64, t: 2u64 }, t: Pair { s: 3u64, t: 4u64} });
   true
 }

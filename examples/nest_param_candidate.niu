@@ -19,7 +19,7 @@ impl MyTrait for u64 {
 
 fn nest_out<T>(t: T) -> T#MyTrait::Output#MyTrait::Output 
 where T: MyTrait, T#MyTrait::Output: MyTrait {
-  T#MyTrait::Output#MyTrait.out(T#MyTrait.out(t))
+  T#MyTrait::Output#MyTrait::out(T#MyTrait::out(t))
 }
 
 
@@ -28,7 +28,3 @@ fn ok_apply() -> i64 {
   0i64
 }
 
-fn fail_apply() -> i64 {
-  nest_out(2u64);
-  0i64
-}

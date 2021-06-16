@@ -45,7 +45,7 @@ pub enum Type {
     TypeVariable(TypeVariable),
     Generics(TypeId, Vec<Type>),
     AssociatedType(Box<Type>, AssociatedType),
-    TraitMethod(Box<Type>, TraitMethod),
+    TraitMethod(Box<Type>, Option<TraitId>, Identifier),
     Member(Box<Type>, Identifier),
     End,
 }
@@ -81,7 +81,7 @@ impl Type {
             Type::AssociatedType(ref ty, _) => {
                 ty.as_ref().occurs(t)
             }
-            Type::TraitMethod(ref ty, _) => {
+            Type::TraitMethod(ref ty, _, _) => {
                 ty.as_ref().occurs(t)
             }
             Type::Member(ref ty, _) => {
@@ -110,7 +110,7 @@ impl Type {
                 ty.as_mut().subst(theta);
                 None
             }
-            Type::TraitMethod(ref mut ty, _) => {
+            Type::TraitMethod(ref mut ty, _, _) => {
                 ty.as_mut().subst(theta);
                 None
             }
@@ -326,16 +326,17 @@ impl TypeEquations {
     }
 
     fn solve_trait_method(&mut self, ty: Type, trs: &TraitsInfo) -> Result<Type, String> {
-        if let Type::TraitMethod(inner_ty, tr_method) = ty {
+        //if let Type::TraitMethod(inner_ty, tr_method) = ty {
+        if let Type::TraitMethod(inner_ty, Some(trait_id), method_id) = ty {
             let inner_ty = self.solve_relations(*inner_ty, trs)?;
             if inner_ty.is_solved_type() {
-                let TraitMethod { trait_id, method_id } = tr_method;
+                //let TraitMethod { trait_id, method_id } = tr_method;
                 let substs = trs.match_to_impls_for_type(&trait_id, &inner_ty);
                 if substs.len() == 1 {
                     let mut substs = substs;
                     let (subst, impl_trait) = substs.pop().unwrap();
                     let before = self.set_self_type(Some(inner_ty.clone()));
-                    let res = impl_trait.get_trait_method_from_id(self, trs, &method_id, &subst, &inner_ty);
+                    let res = impl_trait.get_trait_method_from_id(self, trs, &TraitMethodIdentifier { id: method_id }, &subst, &inner_ty);
                     self.set_self_type(before);
                     Ok(res)
                 }
@@ -344,7 +345,28 @@ impl TypeEquations {
                 }
             }
             else {
-                Ok(Type::TraitMethod(Box::new(inner_ty), tr_method))
+                Ok(Type::TraitMethod(Box::new(inner_ty), Some(trait_id), method_id))
+            }
+        }
+        else if let Type::TraitMethod(inner_ty, _, method_id) = ty {
+            let inner_ty = self.solve_relations(*inner_ty, trs)?;
+            if inner_ty.is_solved_type() {
+                //let TraitMethod { trait_id, method_id } = tr_method;
+                let substs = trs.match_to_member_for_type(&method_id, &inner_ty);
+                if substs.len() == 1 {
+                    let mut substs = substs;
+                    let (subst, impl_trait) = substs.pop().unwrap();
+                    let before = self.set_self_type(Some(inner_ty.clone()));
+                    let res = impl_trait.get_trait_method_from_id(self, trs, &TraitMethodIdentifier { id: method_id }, &subst, &inner_ty);
+                    self.set_self_type(before);
+                    Ok(res)
+                }
+                else {
+                    Err(format!("type {:?} is not implemented for method_id {:?}", inner_ty, method_id))
+                }
+            }
+            else {
+                Ok(Type::TraitMethod(Box::new(inner_ty), None, method_id))
             }
         }
         else {
@@ -457,11 +479,11 @@ impl TypeEquations {
                         (left, Type::AssociatedType(b, a)) => {
                             self.equs.push_back(TypeEquation::Equal(left, Type::AssociatedType(b, a)));
                         }
-                        (Type::TraitMethod(b, a), right) => {
-                            self.equs.push_back(TypeEquation::Equal(Type::TraitMethod(b, a), right));
+                        (Type::TraitMethod(a, b, c), right) => {
+                            self.equs.push_back(TypeEquation::Equal(Type::TraitMethod(a, b, c), right));
                         }
-                        (left, Type::TraitMethod(b, a)) => {
-                            self.equs.push_back(TypeEquation::Equal(left, Type::TraitMethod(b, a)));
+                        (left, Type::TraitMethod(a, b, c)) => {
+                            self.equs.push_back(TypeEquation::Equal(left, Type::TraitMethod(a, b, c)));
                         }
                         (Type::Member(b, a), right) => {
                             self.equs.push_back(TypeEquation::Equal(Type::Member(b, a), right));
