@@ -165,13 +165,19 @@ impl Transpile for Type {
                 format!("typename {}<{}>::{}", asso.trait_id.transpile(ta), ty.as_ref().transpile(ta), asso.type_id.transpile(ta))
             }
             Type::Generics(ref ty_id, ref gens) => {
-                let gens_trans = if gens.len() > 0 {
-                    format!("<{}>", gens.iter().map(|gen| gen.transpile(ta)).collect::<Vec<_>>().join(", "))
+                if let Some((ids, cppinline)) = ta.is_inline_struct(ty_id) {
+                    let mp = ids.iter().cloned().zip(gens.iter().map(|g| g.transpile(ta))).collect::<HashMap<_, _>>();
+                    cppinline.transpile(ta, &mp)
                 }
                 else {
-                    format!("")
-                };
-                format!("{}{}", ty_id.transpile(ta), gens_trans)
+                    let gens_trans = if gens.len() > 0 {
+                        format!("<{}>", gens.iter().map(|gen| gen.transpile(ta)).collect::<Vec<_>>().join(", "))
+                    }
+                    else {
+                        format!("")
+                    };
+                    format!("{}{}", ty_id.transpile(ta), gens_trans)
+                }
             }
             _ => unreachable!("it is not Type"),
         }
@@ -566,7 +572,7 @@ impl TypeEquations {
 }
 
 
-#[test]
+/*#[test]
 
 fn unify_test1() {
     let mut trs = TraitsInfo::new();
@@ -600,4 +606,4 @@ fn unify_test2() {
     equs.add_equation(t.clone(), Type::from_str("Hoge"));
     //equs.add_equation(Type::Type(TypeSpec::from_id(&TypeId::from_str("i64"))), Type::Member(Box::new(t), Identifier::from_str("x")));
     println!("{:?}", equs.unify(&trs));
-}
+}*/

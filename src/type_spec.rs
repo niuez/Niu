@@ -133,18 +133,24 @@ pub fn parse_type_sign(s: &str) -> IResult<&str, TypeSign> {
 
 impl Transpile for TypeSign {
     fn transpile(&self, ta: &TypeAnnotation) -> String {
-        let gens_trans = if self.gens.len() > 0 {
-            format!("<{}>", self.gens.iter().map(|gen| gen.transpile(ta)).collect::<Vec<_>>().join(", "))
+        if let Some((ids, cppinline)) = ta.is_inline_struct(&self.id) {
+            let mp = ids.iter().cloned().zip(self.gens.iter().map(|g| g.transpile(ta))).collect::<HashMap<_, _>>();
+            cppinline.transpile(ta, &mp)
         }
         else {
-            format!("")
-        };
-        /* let ty = if self.id == TypeId::from_str("Self") {
-            ta.annotation(self.id.id.get_tag_number(), 0).transpile(ta)
-        } else {
-            
-        }; */
-        format!("{}{}", self.id.transpile(ta), gens_trans)
+            let gens_trans = if self.gens.len() > 0 {
+                format!("<{}>", self.gens.iter().map(|gen| gen.transpile(ta)).collect::<Vec<_>>().join(", "))
+            }
+            else {
+                format!("")
+            };
+            /* let ty = if self.id == TypeId::from_str("Self") {
+               ta.annotation(self.id.id.get_tag_number(), 0).transpile(ta)
+               } else {
+
+               }; */
+            format!("{}{}", self.id.transpile(ta), gens_trans)
+        }
     }
 }
 
@@ -237,7 +243,6 @@ impl Transpile for TypeSpec {
 
 #[test]
 fn parse_type_spec_test() {
-    let mut equs = TypeEquations::new();
     println!("{:?}", parse_type_spec("i64"));
     println!("{:?}", parse_type_spec("i64#MyTrait::Output"));
     println!("{:?}", parse_type_spec("Pair<Pair<i64, u64>, bool>"));

@@ -1,4 +1,4 @@
-struct Vec<T> { t: T }
+struct Vec<T> $${std::vector<$ty(T)>}$$
 
 impl<T> Vec<T> {
   fn new() -> Self $${std::vector<$ty(T)>()}$$

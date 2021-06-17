@@ -6,6 +6,7 @@ use nom::sequence::*;
 use nom::branch::*;
 use nom::IResult;
 
+use crate::type_id::*;
 use crate::identifier::{ Identifier, parse_identifier, Tag };
 use crate::expression::*;
 use crate::unify::*;
@@ -21,7 +22,7 @@ pub struct CppInline {
 
 #[derive(Debug, Clone)]
 pub enum CppInlineElem {
-    Type(TypeSpec),
+    Type(TypeId),
     Arg(Identifier),
     End,
     Any(char),
@@ -32,8 +33,8 @@ impl CppInline {
         let tag = Tag::new();
         let mut cnt = 0;
         let elems = self.inlines.iter().map(|inline| match inline {
-            CppInlineElem::Type(spec) => {
-                let ty = spec.generics_to_type(gen_mp, equs, trs)?;
+            CppInlineElem::Type(tyid) => {
+                let ty = TypeSpec::from_id(tyid).generics_to_type(gen_mp, equs, trs)?;
                 equs.add_equation(tag.generate_type_variable(cnt), ty);
                 cnt += 1;
                 Ok(CppInlineInfoElem::Type(cnt - 1))
@@ -45,11 +46,22 @@ impl CppInline {
         Ok(CppInlineInfo { elems, tag })
     }
 
+    pub fn transpile(&self, ta: &TypeAnnotation, gen_mp: &HashMap<TypeId, String>) -> String {
+        self.inlines.iter().map(|inline| match inline {
+            CppInlineElem::Type(tyid) => {
+                gen_mp.get(tyid).unwrap().to_string()
+            }
+            CppInlineElem::Any(c) => {
+                c.to_string()
+            }
+            a => unreachable!("cant use inline {:?}", inline),
+        }).collect::<Vec<_>>().join("")
+    }
 }
 
 fn parse_inline_elem_type(s: &str) -> IResult<&str, CppInlineElem> {
-    let (s, (_, _, spec, _, _)) = tuple((tag("$ty("), space0, parse_type_spec, space0, tag(")")))(s)?;
-    Ok((s, CppInlineElem::Type(spec)))
+    let (s, (_, _, id, _, _)) = tuple((tag("$ty("), space0, parse_type_id, space0, tag(")")))(s)?;
+    Ok((s, CppInlineElem::Type(id)))
 }
 
 fn parse_inline_elem_arg(s: &str) -> IResult<&str, CppInlineElem> {
