@@ -89,11 +89,17 @@ impl ImplSelfCandidate {
         let mp = GenericsTypeMap::empty();
         let gen_mp = mp.next(gen_hashmp);
         let before_self_type = equs.set_self_type(Some(ty.clone()));
-        let res = if let Type::Func(args, ret, _) = self.require_methods.get(&method_id.id).unwrap().generate_type(&gen_mp, equs, trs, &method_id.id).unwrap() {
-            Type::Func(args, ret, FuncTypeInfo::SelfFunc(self.impl_ty.get_type_id().unwrap(), gen_vec))
-        }
-        else {
-            unreachable!("why dont return Type::Func")
+        let func_ty = self.require_methods.get(&method_id.id).unwrap().generate_type(&gen_mp, equs, trs, &method_id.id).unwrap();
+        let res = match func_ty {
+            Type::Func(args, ret, FuncTypeInfo::None) => {
+                let tag = Tag::new();
+                let len = gen_vec.len();
+                for (i, gen) in gen_vec.into_iter().enumerate() {
+                    equs.add_equation(tag.generate_type_variable(i), gen.1);
+                }
+                Type::Func(args, ret, FuncTypeInfo::SelfFunc(self.impl_ty.get_type_id().unwrap(), tag, len))
+            }
+            func_ty => func_ty
         };
         equs.set_self_type(before_self_type);
         res

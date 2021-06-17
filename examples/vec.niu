@@ -1,15 +1,12 @@
 struct Vec<T> { t: T }
 
 impl<T> Vec<T> {
-  fn new(t: T) -> Self { Vec { t: t } }
-  fn throw(v: Self) -> Self { v }
+  fn new() -> Self $${std::vector<$ty(T)>()}$$
+  fn push_back(self: Self, t: T) -> bool $${$arg(self).push_back($arg(t))}$$
 }
 
-fn apply<T>(v: Vec<T>) -> Vec<T> {
-  v.throw()
-}
-
-fn main() -> i64 {
-  apply(Vec<i64>::new(1i64));
-  0i64
+fn main() -> Vec<i64> {
+  let vec = Vec<i64>::new();
+  vec.push_back(1i64);
+  vec
 }

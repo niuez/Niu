@@ -16,26 +16,44 @@ pub fn new_type_variable() -> Type {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum FuncTypeInfo {
-    TraitFunc(TraitId, Box<Type>),
-    SelfFunc(TypeId, Vec<(TypeId, Type)>),
-    None,
+pub struct CppInlineInfo {
+    pub elems: Vec<CppInlineInfoElem>,
+    pub tag: Tag,
 }
 
-impl FuncTypeInfo {
-    fn subst(&mut self, theta: &TypeSubst) {
-        match self {
-            Self::TraitFunc(_, ty) => {
-                ty.as_mut().subst(theta);
-            }
-            Self::SelfFunc(_, args) => {
-                for (_, arg) in args.iter_mut() {
-                    arg.subst(theta);
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CppInlineInfoElem {
+    Type(usize),
+    Arg(Identifier),
+    End,
+    Any(char),
+}
+
+impl CppInlineInfo {
+    pub fn transpile(&self, ta: &TypeAnnotation, mp: &HashMap<Identifier, String>) -> String {
+        self.elems.iter().map(|inline| {
+            match inline {
+                CppInlineInfoElem::Type(i) => {
+                    ta.annotation(self.tag.get_num(), *i).transpile(ta)
                 }
+                CppInlineInfoElem::Arg(id) => {
+                    mp.get(id).cloned().unwrap()
+                }
+                CppInlineInfoElem::Any(c) => {
+                    c.to_string()
+                }
+                _ => unreachable!("End???"),
             }
-            Self::None => {},
-        }
+        }).collect::<Vec<_>>().join("")
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum FuncTypeInfo {
+    TraitFunc(TraitId, Tag),
+    SelfFunc(TypeId, Tag, usize),
+    CppInline(CppInlineInfo, Vec<Identifier>),
+    None,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -93,12 +111,11 @@ impl Type {
 
     fn subst(&mut self, theta: &TypeSubst) {
         let res = match *self {
-            Type::Func(ref mut args, ref mut ret, ref mut info) => {
+            Type::Func(ref mut args, ref mut ret, ref mut _info) => {
                 for arg in args.iter_mut() {
                     arg.subst(theta);
                 }
                 ret.subst(theta);
-                info.subst(theta);
                 None
             }
             Type::Generics(ref ty, ref mut gens) => {

@@ -1,10 +1,12 @@
+use std::collections::HashMap;
+
 use nom::bytes::complete::*;
 use nom::character::complete::*;
 use nom::sequence::*;
 use nom::branch::*;
 use nom::IResult;
 
-use crate::identifier::{ Identifier, parse_identifier };
+use crate::identifier::{ Identifier, parse_identifier, Tag };
 use crate::expression::*;
 use crate::unify::*;
 use crate::unary_expr::Variable;
@@ -13,41 +15,56 @@ use crate::type_spec::*;
 use crate::traits::*;
 
 #[derive(Debug, Clone)]
+pub struct CppInline {
+    inlines: Vec<CppInlineElem>,
+}
+
+#[derive(Debug, Clone)]
 pub enum CppInlineElem {
     Type(TypeSpec),
     Arg(Identifier),
-}
-
-#[derive(Debug, Clone)]
-pub struct CppInline {
-    inlines: Vec<ParseInline>,
-}
-
-#[derive(Debug, Clone)]
-enum ParseInline {
-    Elem(CppInlineElem),
     End,
     Any(char),
 }
 
-fn parse_inline_elem_type(s: &str) -> IResult<&str, ParseInline> {
+impl CppInline {
+    pub fn generate_cpp_inline_info(&self, equs: &mut TypeEquations, trs: &TraitsInfo, gen_mp: &GenericsTypeMap) -> Result<CppInlineInfo, String> {
+        let tag = Tag::new();
+        let mut cnt = 0;
+        let elems = self.inlines.iter().map(|inline| match inline {
+            CppInlineElem::Type(spec) => {
+                let ty = spec.generics_to_type(gen_mp, equs, trs)?;
+                equs.add_equation(tag.generate_type_variable(cnt), ty);
+                cnt += 1;
+                Ok(CppInlineInfoElem::Type(cnt - 1))
+            }
+            CppInlineElem::Arg(id) => Ok(CppInlineInfoElem::Arg(id.clone())),
+            CppInlineElem::Any(c) => Ok(CppInlineInfoElem::Any(*c)),
+            _ => unreachable!("End???"),
+        }).collect::<Result<Vec<_>, String>>()?;
+        Ok(CppInlineInfo { elems, tag })
+    }
+
+}
+
+fn parse_inline_elem_type(s: &str) -> IResult<&str, CppInlineElem> {
     let (s, (_, _, spec, _, _)) = tuple((tag("$ty("), space0, parse_type_spec, space0, tag(")")))(s)?;
-    Ok((s, ParseInline::Elem(CppInlineElem::Type(spec))))
+    Ok((s, CppInlineElem::Type(spec)))
 }
 
-fn parse_inline_elem_arg(s: &str) -> IResult<&str, ParseInline> {
+fn parse_inline_elem_arg(s: &str) -> IResult<&str, CppInlineElem> {
     let (s, (_, _, id, _, _)) = tuple((tag("$arg("), space0, parse_identifier, space0, tag(")")))(s)?;
-    Ok((s, ParseInline::Elem(CppInlineElem::Arg(id))))
+    Ok((s, CppInlineElem::Arg(id)))
 }
 
-fn parse_inline_end(s: &str) -> IResult<&str, ParseInline> {
+fn parse_inline_end(s: &str) -> IResult<&str, CppInlineElem> {
     let (s, _) = tag("}$$")(s)?;
-    Ok((s, ParseInline::End))
+    Ok((s, CppInlineElem::End))
 }
 
-fn parse_inline_any(s: &str) -> IResult<&str, ParseInline> {
+fn parse_inline_any(s: &str) -> IResult<&str, CppInlineElem> {
     let (s, c) = anychar(s)?;
-    Ok((s, ParseInline::Any(c)))
+    Ok((s, CppInlineElem::Any(c)))
 }
 
 pub fn parse_cpp_inline(s: &str) -> IResult<&str, CppInline> {
@@ -57,7 +74,7 @@ pub fn parse_cpp_inline(s: &str) -> IResult<&str, CppInline> {
         let (ss, inline) = alt((parse_inline_elem_type, parse_inline_elem_arg, parse_inline_end, parse_inline_any))(s)?;
         s = ss;
         match inline {
-            ParseInline::End => {
+            CppInlineElem::End => {
                 break
             }
             inline => {
@@ -71,4 +88,5 @@ pub fn parse_cpp_inline(s: &str) -> IResult<&str, CppInline> {
 #[test]
 fn parse_inline_test() {
     println!("{:?}", parse_cpp_inline("$${$ty(Vec<T>)($arg(vec)).push_back($arg(elem))}$$"));
+    println!("{:?}", parse_cpp_inline("$${ $arg(self).push_back($arg(t)) }$$"));
 }

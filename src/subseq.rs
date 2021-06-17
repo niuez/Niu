@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use nom::character::complete::*;
 use nom::combinator::*;
 use nom::multi::*;
@@ -44,16 +46,54 @@ pub fn subseq_transpile(uexpr: &UnaryExpr, subseq: &Subseq, ta: &TypeAnnotation)
                 //if let Type::Func(_, _, Some((trait_id, ty))) = ty {
                 if let Type::Func(_, _, info) = ty {
                     match info {
-                        FuncTypeInfo::TraitFunc(trait_id, ty) => {
+                        FuncTypeInfo::TraitFunc(trait_id, tag) => {
                             let args = call.args.iter().map(|arg| arg.transpile(ta));
                             let args = std::iter::once(mem_caller.transpile(ta)).chain(args).collect::<Vec<_>>().join(", ");
-                            format!("{}<{}>::{}({})", trait_id.transpile(ta), (*ty).transpile(ta), mem.mem_id.into_string(), args)
+                            let ty = ta.annotation(tag.get_num(), 0);
+                            format!("{}<{}>::{}({})", trait_id.transpile(ta), ty.transpile(ta), mem.mem_id.into_string(), args)
                         }
-                        FuncTypeInfo::SelfFunc(typeid, impl_generics) => {
-                            let gen_args = impl_generics.into_iter().map(|(_, ty)| ty.transpile(ta)).collect::<Vec<_>>().join(", ");
+                        FuncTypeInfo::SelfFunc(typeid, tag, len) => {
+                            let gen_args = (0..len).into_iter().map(|i| ta.annotation(tag.get_num(), i).transpile(ta)).collect::<Vec<_>>().join(", ");
                             let args = call.args.iter().map(|arg| arg.transpile(ta));
                             let args = std::iter::once(mem_caller.transpile(ta)).chain(args).collect::<Vec<_>>().join(", ");
                             format!("{}<{}>::{}({})", typeid.transpile(ta), gen_args, mem.mem_id.into_string(), args)
+                        }
+                        FuncTypeInfo::CppInline(cppinline, ids) => {
+                            let args = call.args.iter().map(|arg| arg.transpile(ta));
+                            let args = std::iter::once(mem_caller.transpile(ta)).chain(args);
+                            let mp = ids.into_iter().zip(args.into_iter()).collect::<HashMap<_, _>>();
+                            cppinline.transpile(ta, &mp)
+                        }
+                        FuncTypeInfo::None => {
+                            unimplemented!("Func type member?")
+                        }
+                    }
+                }
+                else {
+                    unreachable!(format!("Member Call\nuexpr = {:?}\nsubseq = {:?}\nty = {:?}", uexpr, subseq, ty))
+                }
+            }
+            else if let UnaryExpr::TraitMethod(_, _, method_id) = uexpr {
+                let ty = ta.annotation(method_id.get_tag_number(), 0);
+                //if let Type::Func(_, _, Some((trait_id, ty))) = ty {
+                if let Type::Func(_, _, info) = ty {
+                    match info {
+                        FuncTypeInfo::TraitFunc(trait_id, tag) => {
+                            let args = call.args.iter().map(|arg| arg.transpile(ta));
+                            let args = args.collect::<Vec<_>>().join(", ");
+                            let ty = ta.annotation(tag.get_num(), 0);
+                            format!("{}<{}>::{}({})", trait_id.transpile(ta), ty.transpile(ta), method_id.into_string(), args)
+                        }
+                        FuncTypeInfo::SelfFunc(typeid, tag, len) => {
+                            let gen_args = (0..len).into_iter().map(|i| ta.annotation(tag.get_num(), i).transpile(ta)).collect::<Vec<_>>().join(", ");
+                            let args = call.args.iter().map(|arg| arg.transpile(ta));
+                            let args = args.collect::<Vec<_>>().join(", ");
+                            format!("{}<{}>::{}({})", typeid.transpile(ta), gen_args, method_id.into_string(), args)
+                        }
+                        FuncTypeInfo::CppInline(cppinline, ids) => {
+                            let args = call.args.iter().map(|arg| arg.transpile(ta));
+                            let mp = ids.into_iter().zip(args.into_iter()).collect::<HashMap<_, _>>();
+                            cppinline.transpile(ta, &mp)
                         }
                         FuncTypeInfo::None => {
                             unimplemented!("Func type member?")

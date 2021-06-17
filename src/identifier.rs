@@ -22,7 +22,7 @@ pub struct Identifier {
     pub tag: Tag,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Tag(usize);
 
 impl Tag {

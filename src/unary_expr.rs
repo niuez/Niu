@@ -38,8 +38,12 @@ impl GenType for UnaryExpr {
             UnaryExpr::Block(ref b) => b.gen_type(equs, trs),
             UnaryExpr::Subseq(ref expr, ref s) => subseq_gen_type(expr.as_ref(), s, equs, trs),
             UnaryExpr::StructInst(ref inst) => inst.gen_type(equs, trs),
-            UnaryExpr::TraitMethod(ref spec, ref tr_id, ref mem_id) =>
-                Ok(Type::TraitMethod(Box::new(spec.generics_to_type(&GenericsTypeMap::empty(), equs, trs)?), tr_id.clone(), mem_id.clone())),
+            UnaryExpr::TraitMethod(ref spec, ref tr_id, ref mem_id) => {
+                let alpha = mem_id.generate_type_variable(0);
+                let right = Type::TraitMethod(Box::new(spec.generics_to_type(&GenericsTypeMap::empty(), equs, trs)?), tr_id.clone(), mem_id.clone());
+                equs.add_equation(alpha, right);
+                Ok(Type::TraitMethod(Box::new(spec.generics_to_type(&GenericsTypeMap::empty(), equs, trs)?), tr_id.clone(), mem_id.clone()))
+            }
         }
     }
 }

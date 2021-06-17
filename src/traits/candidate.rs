@@ -7,6 +7,7 @@ use nom::multi::*;
 use nom::sequence::*;
 use nom::IResult;
 
+use crate::identifier::*;
 use crate::type_id::*;
 use crate::type_spec::*;
 use crate::unify::*;
@@ -199,11 +200,14 @@ impl ImplCandidate {
         let mp = GenericsTypeMap::empty();
         let gen_mp = mp.next(gen_mp);
         let before_self_type = equs.set_self_type(Some(ty.clone()));
-        let res = if let Type::Func(args, ret, _) = self.require_methods.get(&method_id).unwrap().generate_type(&gen_mp, equs, trs, &method_id.id).unwrap() {
-            Type::Func(args, ret, FuncTypeInfo::TraitFunc(self.trait_id.clone(), Box::new(ty.clone())))
-        }
-        else {
-            unreachable!("why dont return Type::Func")
+        let func_ty = self.require_methods.get(&method_id).unwrap().generate_type(&gen_mp, equs, trs, &method_id.id).unwrap();
+        let res = match func_ty {
+            Type::Func(args, ret, FuncTypeInfo::None) => {
+                let tag = Tag::new();
+                equs.add_equation(tag.generate_type_variable(0), ty.clone());
+                Type::Func(args, ret, FuncTypeInfo::TraitFunc(self.trait_id.clone(), tag))
+            }
+            func_ty => func_ty
         };
         equs.set_self_type(before_self_type);
         res
@@ -242,12 +246,14 @@ impl ParamCandidate {
 
     pub fn get_trait_method_from_id(&self, equs: &mut TypeEquations, trs: &TraitsInfo, method_id: &TraitMethodIdentifier, subst: &SubstsMap, ty: &Type) -> Type {
         let before_self_type = equs.set_self_type(Some(subst.get(&self.trait_id.id, 0).unwrap()));
-        let method_type = self.require_methods.get(method_id).unwrap().generate_type(&GenericsTypeMap::empty(), equs, trs, &method_id.id).unwrap();
-        let res = if let Type::Func(args, ret, _) = method_type {
-            Type::Func(args, ret, FuncTypeInfo::TraitFunc(self.trait_id.clone(), Box::new(ty.clone())))
-        }
-        else {
-            unreachable!("why dont return Type::Func")
+        let func_ty = self.require_methods.get(method_id).unwrap().generate_type(&GenericsTypeMap::empty(), equs, trs, &method_id.id).unwrap();
+        let res = match func_ty {
+            Type::Func(args, ret, FuncTypeInfo::None) => {
+                let tag = Tag::new();
+                equs.add_equation(tag.generate_type_variable(0), ty.clone());
+                Type::Func(args, ret, FuncTypeInfo::TraitFunc(self.trait_id.clone(), tag))
+            }
+            func_ty => func_ty
         };
         equs.set_self_type(before_self_type);
         res

@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use nom::bytes::complete::*;
+use nom::branch::*;
 use nom::character::complete::*;
 use nom::combinator::*;
 use nom::multi::*;
@@ -31,7 +32,7 @@ pub struct FuncDefinition {
     pub where_sec: WhereSection,
     pub args: Vec<(Identifier, TypeSpec)>,
     pub return_type: TypeSpec,
-    pub block: Block,
+    pub block: FuncBlock,
 }
 
 #[derive(Debug, Clone)]
@@ -41,6 +42,7 @@ pub struct FuncDefinitionInfo {
     pub where_sec: WhereSection,
     pub args: Vec<(Identifier, TypeSpec)>,
     pub return_type: TypeSpec,
+    pub inline: Option<CppInline>,
 }
 
 impl FuncDefinitionInfo {
@@ -54,7 +56,15 @@ impl FuncDefinitionInfo {
         self.where_sec.regist_equations(&mp, equs, trs)?;
         let args = self.args.iter().map(|(_, t)| t.generics_to_type(&mp, equs, trs)).collect::<Result<Vec<Type>, String>>()?;
         let return_type = self.return_type.generics_to_type(&mp, equs, trs)?;
-        Ok(Type::Func(args, Box::new(return_type), FuncTypeInfo::None))
+
+        let type_info = match self.inline {
+            None => FuncTypeInfo::None,
+            Some(ref inline) => {
+                let args = self.args.iter().map(|(id, _)| id.clone()).collect();
+                FuncTypeInfo::CppInline(inline.generate_cpp_inline_info(equs, trs, &mp)?, args)
+            }
+        };
+        Ok(Type::Func(args, Box::new(return_type), type_info))
     }
 
     pub fn check_equal(&self, right: &Self, equs: &mut TypeEquations, trs: &TraitsInfo) -> Result<(), String> {
@@ -95,69 +105,87 @@ impl FuncDefinitionInfo {
 
 impl FuncDefinition {
     pub fn get_func_info(&self) -> (Variable, FuncDefinitionInfo) {
+
+        let inline = if let FuncBlock::CppInline(ref inline) = self.block {
+            Some(inline.clone())
+        }
+        else {
+            None
+        };
         (Variable { id: self.func_id.clone() },
          FuncDefinitionInfo {
              func_id: self.func_id.clone(),
              generics: self.generics.clone(),
              where_sec: self.where_sec.clone(),
              args: self.args.clone(),
-             return_type: self.return_type.clone()
+             return_type: self.return_type.clone(),
+             inline,
          }
          )
     }
     pub fn unify_definition(&self, equs: &mut TypeEquations, trs: &TraitsInfo) -> Result<Vec<TypeSubst>, String> {
-        equs.into_scope();
+        if let FuncBlock::Block(ref block) = self.block {
+            equs.into_scope();
 
-        let mut trs = trs.into_scope();
+            let mut trs = trs.into_scope();
 
-        for ty_id in self.generics.iter() {
-            trs.regist_generics_type(ty_id)?;
-            /* if let Some(trait_id) = trait_id {
-                trs.regist_param_candidate(equs, ty_id, trait_id)?;
-            }*/
+            for ty_id in self.generics.iter() {
+                trs.regist_generics_type(ty_id)?;
+                /* if let Some(trait_id) = trait_id {
+                   trs.regist_param_candidate(equs, ty_id, trait_id)?;
+                   }*/
+            }
+
+            self.where_sec.regist_candidate(equs, &mut trs)?;
+
+            for (i, t) in self.args.iter() {
+                let alpha = i.generate_type_variable(0);
+                let t_type = t.generics_to_type(&GenericsTypeMap::empty(), equs, &trs)?; 
+                equs.regist_variable(Variable::from_identifier(i.clone()), alpha.clone());
+                equs.add_equation(alpha, t_type);
+            }
+            let result_type = block.gen_type(equs, &trs)?;
+            let return_t = self.return_type.generics_to_type(&GenericsTypeMap::empty(), equs, &trs)?;
+            equs.add_equation(result_type, return_t);
+
+            println!("function {:?} unify", self.func_id);
+            let result = equs.unify(&mut trs);
+
+            equs.out_scope();
+            result
         }
-
-        self.where_sec.regist_candidate(equs, &mut trs)?;
-
-        for (i, t) in self.args.iter() {
-            let alpha = i.generate_type_variable(0);
-            let t_type = t.generics_to_type(&GenericsTypeMap::empty(), equs, &trs)?; 
-            equs.regist_variable(Variable::from_identifier(i.clone()), alpha.clone());
-            equs.add_equation(alpha, t_type);
+        else {
+            Ok(Vec::new())
         }
-        let result_type = self.block.gen_type(equs, &trs)?;
-        let return_t = self.return_type.generics_to_type(&GenericsTypeMap::empty(), equs, &trs)?;
-        equs.add_equation(result_type, return_t);
-
-        println!("function {:?} unify", self.func_id);
-        let result = equs.unify(&mut trs);
-
-        equs.out_scope();
-        result
     }
 }
 
 
 impl Transpile for FuncDefinition {
     fn transpile(&self, ta: &TypeAnnotation) -> String {
-        let template_str =
-            if self.generics.len() > 0 {
-                let gen = self.generics.iter().map(|g| format!("class {}", g.transpile(ta))).collect::<Vec<_>>().join(", ");
-                format!("template<{}> ", gen)
-            } 
-            else {
-                "".to_string()
-            };
+        if let FuncBlock::Block(ref block) = self.block {
+            let template_str =
+                if self.generics.len() > 0 {
+                    let gen = self.generics.iter().map(|g| format!("class {}", g.transpile(ta))).collect::<Vec<_>>().join(", ");
+                    format!("template<{}> ", gen)
+                } 
+                else {
+                    "".to_string()
+                };
 
-        let return_str = self.return_type.transpile(ta);
-        let func_str = self.func_id.into_string();
-        let arg_str = self.args.iter().map(|(id, ty)| {
-            format!("{} {}", ty.transpile(ta), id.into_string())
-        }).collect::<Vec<_>>().join(", ");
+            let return_str = self.return_type.transpile(ta);
+            let func_str = self.func_id.into_string();
+            let arg_str = self.args.iter().map(|(id, ty)| {
+                format!("{} {}", ty.transpile(ta), id.into_string())
+            }).collect::<Vec<_>>().join(", ");
 
-        let block_str = self.block.transpile(ta);
+            let block_str = block.transpile(ta);
 
-        format!("{}{} {}({}) {{\n{}\n}}\n", template_str, return_str, func_str, arg_str, block_str)
+            format!("{}{} {}({}) {{\n{}\n}}\n", template_str, return_str, func_str, arg_str, block_str)
+        }
+        else {
+            format!("")
+        }
     }
 }
 
@@ -197,11 +225,26 @@ pub fn parse_func_definition_info(s: &str) -> IResult<&str, FuncDefinitionInfo> 
         }
         None => Vec::new(),
     };
-    Ok((s, FuncDefinitionInfo { func_id, generics, where_sec, args, return_type }))
+    Ok((s, FuncDefinitionInfo { func_id, generics, where_sec, args, return_type, inline: None }))
+}
+
+fn parse_func_block_block(s: &str) -> IResult<&str, FuncBlock> {
+    let (s, (_, block, _)) = tuple((char('{'), parse_block, char('}')))(s)?;
+    Ok((s, FuncBlock::Block(block)))
+}
+
+fn parse_func_block_cppinline(s: &str) -> IResult<&str, FuncBlock> {
+    let (s, inline) = parse_cpp_inline(s)?;
+    Ok((s, FuncBlock::CppInline(inline)))
+}
+
+
+fn parse_func_block(s: &str) -> IResult<&str, FuncBlock> {
+    alt((parse_func_block_block, parse_func_block_cppinline))(s)
 }
 
 pub fn parse_func_definition(s: &str) -> IResult<&str, FuncDefinition> {
-    let (s, (info, _, _, block, _)) = tuple((parse_func_definition_info, space0, char('{'), parse_block, char('}')))(s)?;
+    let (s, (info, _, block)) = tuple((parse_func_definition_info, space0, parse_func_block))(s)?;
     Ok((s, FuncDefinition { func_id: info.func_id, generics: info.generics, where_sec: info.where_sec, args: info.args, return_type: info.return_type, block }))
 }
 
@@ -216,4 +259,9 @@ fn parse_func_definition_test() {
 fn parse_func_definition2_test() {
     println!("{:?}", parse_func_definition("fn func2<t>(x: t) -> t where t: MyTraits{ x }"));
     println!("{:?}", parse_func_definition_info("fn nest_out<T>(t: T) -> T#MyTrait::Output#MyTrait::Output where T: MyTrait, T#MyTrait::Output: MyTrait"));
+}
+
+#[test]
+fn parse_func_cppinline_test() {
+    println!("{:?}", parse_func_definition("fn push_back(self: Self, t: T) -> bool $${ $arg(self).push_back($arg(t)) }$$"));
 }
