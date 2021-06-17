@@ -26,6 +26,8 @@ pub mod traits;
 
 pub mod structs;
 
+pub mod cpp_inline;
+
 use crate::trans::Transpile;
 
 fn type_check() -> Result<String, String> {

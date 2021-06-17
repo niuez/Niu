@@ -15,6 +15,14 @@ use crate::unary_expr::Variable;
 use crate::trans::*;
 use crate::type_spec::*;
 use crate::traits::*;
+use crate::cpp_inline::*;
+
+
+#[derive(Debug)]
+pub enum FuncBlock {
+    Block(Block),
+    CppInline(CppInline),
+}
 
 #[derive(Debug)]
 pub struct FuncDefinition {
