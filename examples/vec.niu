@@ -6,7 +6,7 @@ impl<T> Vec<T> {
 }
 
 fn main() -> Vec<i64> {
-  let vec = Vec<i64>::new();
+  let vec = Vec::new();
   vec.push(1i64);
   vec
 }
