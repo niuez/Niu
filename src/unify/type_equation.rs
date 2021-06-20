@@ -193,6 +193,31 @@ pub enum TypeVariable {
 pub enum TypeEquation {
     HasTrait(Type, TraitId),
     Equal(Type, Type),
+    //Call(CallEquation),
+}
+
+#[derive(Debug)]
+pub struct CallEquation {
+    pub caller_type: Type,
+    pub trait_id: Option<TraitId>,
+    pub args: Vec<Type>,
+    pub return_type: Type,
+    pub tag: Tag,
+}
+
+impl CallEquation {
+    pub fn subst(&mut self, theta: &TypeSubst) {
+        self.caller_type.subst(theta);
+        self.args.iter_mut().for_each(|arg| arg.subst(theta));
+        self.return_type.subst(theta);
+    }
+
+    pub fn solve(mut self, equs: &mut TypeEquations, trs: &TraitsInfo) -> Result<Option<Self>, String> {
+        self.caller_type = equs.solve_relations(self.caller_type, trs)?;
+        self.args = self.args.into_iter().map(|arg| equs.solve_relations(arg, trs)).collect::<Result<Vec<_>, String>>()?;
+        self.return_type = equs.solve_relations(self.return_type, trs)?;
+        unimplemented!()
+    }
 }
 
 #[derive(Debug)]
@@ -301,8 +326,11 @@ impl TypeEquations {
                     right.subst(theta);
                 }
                 TypeEquation::HasTrait(ref mut ty, _) => {
-                    ty.subst(theta)
+                    ty.subst(theta);
                 }
+                /* TypeEquation::Call(ref mut call) => {
+                    call.subst(theta);
+                }*/
             }
         }
     }
@@ -327,9 +355,9 @@ impl TypeEquations {
                         let mut substs = substs;
                         let (subst, impl_trait) = substs.pop().unwrap();
                         let before = self.set_self_type(Some(inner_ty));
-                        let res = Ok(impl_trait.get_associated_from_id(self, trs, type_id, &subst));
+                        let res = impl_trait.get_associated_from_id(self, trs, type_id, &subst);
                         self.set_self_type(before);
-                        res
+                        self.solve_relations(res, trs)
                     }
                     else {
                         Err(format!("type {:?} is not implemented trait {:?}", inner_ty, trait_id))
@@ -361,7 +389,7 @@ impl TypeEquations {
                     let before = self.set_self_type(Some(inner_ty.clone()));
                     let res = impl_trait.get_trait_method_from_id(self, trs, &TraitMethodIdentifier { id: method_id }, &subst, &inner_ty);
                     self.set_self_type(before);
-                    Ok(res)
+                    self.solve_relations(res, trs)
                 }
                 else {
                     Err(format!("type {:?} is not implemented trait {:?}", inner_ty, trait_id))
@@ -382,7 +410,7 @@ impl TypeEquations {
                     let before = self.set_self_type(Some(inner_ty.clone()));
                     let res = impl_trait.get_trait_method_from_id(self, trs, &TraitMethodIdentifier { id: method_id }, &subst, &inner_ty);
                     self.set_self_type(before);
-                    Ok(res)
+                    self.solve_relations(res, trs)
                 }
                 else {
                     Err(format!("type {:?} is not implemented for method_id {:?}", inner_ty, method_id))
@@ -412,13 +440,16 @@ impl TypeEquations {
                         let mut iter = args.into_iter();
                         let self_ty = iter.next().ok_or(format!("trait method {:?} have no argument", mem_id))?;
                         self.add_equation(self_ty.clone(), inner_ty.clone());
-                        Ok(Type::Func(iter.collect(), returns, info))
+                        self.solve_relations(Type::Func(iter.collect(), returns, info), trs)
                     }
                     else { unreachable!() }
                 }
                 else if let Type::Generics(ref id, ref gens) = inner_ty {
                     match trs.search_typeid(id)? {
-                        StructDefinitionInfo::Def(def)  => def.get_member_type(self, trs, gens, &mem_id),
+                        StructDefinitionInfo::Def(def)  => {
+                            let res = def.get_member_type(self, trs, gens, &mem_id)?;
+                            self.solve_relations(res, trs)
+                        }
                         StructDefinitionInfo::Generics  => Err(format!("generics type has no member: {:?}", id)),
                         StructDefinitionInfo::Primitive => Err(format!("primitive type has no member: {:?}", id)),
                     }
@@ -433,7 +464,10 @@ impl TypeEquations {
             else if let Type::Generics(ref id, ref gens) = inner_ty {
                 match trs.search_typeid(id)? {
                     StructDefinitionInfo::Def(def)  => {
-                        Ok(def.get_member_type(self, trs, gens, &mem_id).unwrap_or(Type::Member(Box::new(inner_ty), mem_id)))
+                        match def.get_member_type(self, trs, gens, &mem_id) {
+                            Ok(res) => self.solve_relations(res, trs),
+                            Err(_) => Ok(Type::Member(Box::new(inner_ty), mem_id)),
+                        }
                     }
                     StructDefinitionInfo::Generics  => Err(format!("generics type has no member: {:?}", id)),
                     StructDefinitionInfo::Primitive => Err(format!("primitive type has no member: {:?}", id)),
