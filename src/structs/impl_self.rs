@@ -68,7 +68,7 @@ impl ImplSelfCandidate {
         let mut equs = TypeEquations::new();
         equs.set_self_type(Some(ty.clone()));
 
-        let gen_mp = self.generics.iter().enumerate().map(|(i, id)| (id.clone(), self.tag.generate_type_variable(i)))
+        let gen_mp = self.generics.iter().enumerate().map(|(i, id)| (id.clone(), self.tag.generate_type_variable(i, &mut equs)))
             .collect::<HashMap<_, _>>();
         let mp = GenericsTypeMap::empty();
         let gen_mp = mp.next(gen_mp);
@@ -95,7 +95,8 @@ impl ImplSelfCandidate {
                 let tag = Tag::new();
                 let len = gen_vec.len();
                 for (i, gen) in gen_vec.into_iter().enumerate() {
-                    equs.add_equation(tag.generate_type_variable(i), gen.1);
+                    let alpha = tag.generate_type_variable(i, equs);
+                    equs.add_equation(alpha, gen.1);
                 }
                 Type::Func(args, ret, FuncTypeInfo::SelfFunc(self.impl_ty.get_type_id().unwrap(), tag, len))
             }

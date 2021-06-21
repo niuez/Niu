@@ -62,9 +62,11 @@ impl TypeSign {
                     }
                 }
                 else  {
+                    let gens = self.gens.iter().map(|gen| gen.generics_to_type(mp, equs, trs)).collect::<Result<_, _>>()?;
                     trs.check_typeid_with_generics(
+                        equs,
                         self.id.clone(),
-                        self.gens.iter().map(|gen| gen.generics_to_type(mp, equs, trs)).collect::<Result<_, _>>()?,
+                        gens,
                         trs)
                 }
             }

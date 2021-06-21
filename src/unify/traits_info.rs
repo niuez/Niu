@@ -101,7 +101,7 @@ impl<'a> TraitsInfo<'a> {
         }
     }
     
-    pub fn check_typeid_with_generics(&self, id: TypeId, gens: Vec<Type>, top_trs: &Self) -> TResult {
+    pub fn check_typeid_with_generics(&self, equs: &mut TypeEquations, id: TypeId, gens: Vec<Type>, top_trs: &Self) -> TResult {
         //println!("id = {:?}", id);
         //println!("typeids = {:?}", self.typeids);
         if let Some(def_info) = self.typeids.get(&id) {
@@ -111,7 +111,7 @@ impl<'a> TraitsInfo<'a> {
                         Ok(Type::Generics(id, gens))
                     }
                     else if gens.len() == 0 && def.get_generics_len() > 0 {
-                        let gens = (0..def.get_generics_len()).map(|i| id.id.generate_type_variable(i)).collect();
+                        let gens = (0..def.get_generics_len()).map(|i| id.id.generate_type_variable(i, equs)).collect();
                         Ok(Type::Generics(id, gens))
                     }
                     else {
@@ -137,7 +137,7 @@ impl<'a> TraitsInfo<'a> {
             }
         }
         else if let Some(trs) = self.upper_info {
-            trs.check_typeid_with_generics(id, gens, top_trs)
+            trs.check_typeid_with_generics(equs, id, gens, top_trs)
         }
         else {
             Err(format!("not exist definition: {:?}", id))
@@ -176,7 +176,7 @@ impl<'a> TraitsInfo<'a> {
             }
         }
         else if let Some(trs) = self.upper_info {
-            trs.check_typeid_with_generics(id, gens, top_trs)
+            trs.check_typeid_no_auto_generics(id, gens, top_trs)
         }
         else {
             Err(format!("not exist definition: {:?}", id))

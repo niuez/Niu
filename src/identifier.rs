@@ -32,8 +32,10 @@ impl Tag {
     pub fn get_num(&self) -> usize {
         self.0
     }
-    pub fn generate_type_variable(&self, num: usize) -> Type {
-        Type::TypeVariable(TypeVariable::Counter(self.get_num(), num))
+    pub fn generate_type_variable(&self, num: usize, equs: &mut TypeEquations) -> Type {
+        let var = TypeVariable::Counter(self.get_num(), num);
+        equs.add_want_solve(&var);
+        Type::TypeVariable(var)
     }
 }
 
@@ -59,8 +61,8 @@ impl<'a> Identifier {
     pub fn into_string(&self) -> String {
         self.name.clone()
     }
-    pub fn generate_type_variable(&self, num: usize) -> Type {
-        self.tag.generate_type_variable(num)
+    pub fn generate_type_variable(&self, num: usize, equs: &mut TypeEquations) -> Type {
+        self.tag.generate_type_variable(num, equs)
     }
     pub fn get_tag_number(&self) -> usize {
         self.tag.get_num()

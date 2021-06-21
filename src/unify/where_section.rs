@@ -40,11 +40,13 @@ impl WhereSection {
             let mut tmp_equs = TypeEquations::new();
 
             let param_ty = spec.generate_type_no_auto_generics(equs, trs)?;
-            tmp_equs.add_equation(param_ty, tr_id.id.generate_type_variable(0));
+            let alpha = tr_id.id.generate_type_variable(0, &mut tmp_equs);
+            tmp_equs.add_equation(param_ty, alpha);
 
             for (asso_id, asso_spec) in asso_eqs.iter() {
                 let asso_spec_ty = asso_spec.generate_type_no_auto_generics(&equs, trs)?;
-                tmp_equs.add_equation(asso_spec_ty, asso_id.id.generate_type_variable(0));
+                let alpha = asso_id.id.generate_type_variable(0, &mut tmp_equs);
+                tmp_equs.add_equation(asso_spec_ty, alpha);
             }
             let substs = SubstsMap::new(tmp_equs.unify(trs)?);
 

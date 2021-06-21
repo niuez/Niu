@@ -171,7 +171,7 @@ impl ImplCandidate {
         let mut equs = TypeEquations::new();
         equs.set_self_type(Some(ty.clone()));
 
-        let gen_mp = self.generics.iter().enumerate().map(|(i, id)| (id.clone(), self.trait_id.id.generate_type_variable(i)))
+        let gen_mp = self.generics.iter().enumerate().map(|(i, id)| (id.clone(), self.trait_id.id.generate_type_variable(i, &mut equs)))
             .collect::<HashMap<_, _>>();
         let mp = GenericsTypeMap::empty();
         let gen_mp = mp.next(gen_mp);
@@ -204,7 +204,8 @@ impl ImplCandidate {
         let res = match func_ty {
             Type::Func(args, ret, FuncTypeInfo::None) => {
                 let tag = Tag::new();
-                equs.add_equation(tag.generate_type_variable(0), ty.clone());
+                let alpha = tag.generate_type_variable(0, equs);
+                equs.add_equation(alpha, ty.clone());
                 Type::Func(args, ret, FuncTypeInfo::TraitFunc(self.trait_id.clone(), tag))
             }
             func_ty => func_ty
@@ -235,7 +236,7 @@ impl ParamCandidate {
     }
     pub fn match_impl_for_ty(&self, ty: &Type, trs: &TraitsInfo) -> Option<SubstsMap> {
         let mut equs = TypeEquations::new();
-        let alpha = self.trait_id.id.generate_type_variable(0);
+        let alpha = self.trait_id.id.generate_type_variable(0, &mut equs);
         equs.add_equation(self.impl_ty.clone(), alpha.clone());
         equs.add_equation(ty.clone(), alpha);
         equs.unify(trs).ok().map(|res| SubstsMap::new(res))
@@ -250,7 +251,8 @@ impl ParamCandidate {
         let res = match func_ty {
             Type::Func(args, ret, FuncTypeInfo::None) => {
                 let tag = Tag::new();
-                equs.add_equation(tag.generate_type_variable(0), ty.clone());
+                let alpha = tag.generate_type_variable(0, equs);
+                equs.add_equation(alpha, ty.clone());
                 Type::Func(args, ret, FuncTypeInfo::TraitFunc(self.trait_id.clone(), tag))
             }
             func_ty => func_ty

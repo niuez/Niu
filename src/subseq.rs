@@ -24,13 +24,13 @@ pub fn subseq_gen_type(uexpr: &UnaryExpr, subseq: &Subseq, equs: &mut TypeEquati
         Subseq::Call(ref call) => {
             let caller = uexpr.gen_type(equs, trs)?;
             let args = call.args.iter().map(|arg| arg.gen_type(equs, trs)).collect::<Result<Vec<_>, String>>()?;
-            let return_type = new_type_variable();
+            let return_type = call.tag.generate_type_variable(0, equs);
             equs.add_equation(caller, Type::Func(args, Box::new(return_type.clone()), FuncTypeInfo::None));
             Ok(return_type)
         }
         Subseq::Member(ref mem) => {
             let st = uexpr.gen_type(equs, trs)?;
-            let alpha = mem.mem_id.generate_type_variable(1);
+            let alpha = mem.mem_id.generate_type_variable(1, equs);
             equs.add_equation(alpha.clone(), Type::Member(Box::new(st.clone()), mem.mem_id.clone()));
             Ok(Type::Member(Box::new(st), mem.mem_id.clone()))
         }
@@ -125,6 +125,7 @@ pub fn parse_subseq(s: &str) -> IResult<&str, Subseq> {
 #[derive(Debug)]
 pub struct Call {
     pub args: Vec<Expression>,
+    tag: Tag,
 }
 
 pub fn parse_call(s: &str) -> IResult<&str, Subseq> {
@@ -143,7 +144,7 @@ pub fn parse_call(s: &str) -> IResult<&str, Subseq> {
         }
         None => Vec::new(),
     };
-    Ok((s, (Subseq::Call(Call{ args }))))
+    Ok((s, (Subseq::Call(Call{ args, tag: Tag::new(), }))))
 }
 
 #[derive(Debug)]

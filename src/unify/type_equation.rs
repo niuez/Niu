@@ -1,4 +1,4 @@
-use std::collections::{ HashMap, VecDeque };
+use std::collections::{ HashMap, HashSet, VecDeque };
 
 use crate::unary_expr::Variable;
 use crate::func_definition::{ FuncDefinitionInfo, FuncDefinition };
@@ -9,11 +9,6 @@ use crate::type_spec::*;
 use crate::type_id::*;
 use crate::structs::*;
 use crate::identifier::*;
-
-pub fn new_type_variable() -> Type {
-    let i = get_tag_counter();
-    Type::TypeVariable(TypeVariable::Counter(i, 0))
-}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CppInlineInfo {
@@ -244,6 +239,7 @@ pub struct TypeEquations {
     pub cnt: usize,
     variables: Vec<HashMap<Variable, Type>>,
     equs: VecDeque<TypeEquation>,
+    want_solve: HashSet<TypeVariable>,
     self_type: Option<Type>,
 }
 
@@ -291,8 +287,15 @@ impl TypeEquations {
             equs: VecDeque::new(),
             cnt: 0,
             variables: Vec::new(),
+            want_solve: HashSet::new(),
             self_type: None,
         }
+    }
+    pub fn add_want_solve(&mut self, var: &TypeVariable) {
+        self.want_solve.insert(var.clone());
+    }
+    pub fn remove_want_solve(&mut self, var: &TypeVariable) -> bool {
+        self.want_solve.remove(var)
     }
     pub fn set_self_type(&mut self, self_type: Option<Type>) -> Option<Type> {
         std::mem::replace(&mut self.self_type, self_type)
@@ -632,7 +635,7 @@ impl TypeEquations {
                                 }
                             }
                         }
-                        (Type::TypeVariable(lv), rt) => {
+                        (Type::TypeVariable(lv), rt) if self.remove_want_solve(&lv) => {
                             if rt.occurs(&lv) {
                                 Err("unification failed, occurs")?;
                             }
@@ -643,7 +646,7 @@ impl TypeEquations {
                             }
                             thetas.push(th);
                         }
-                        (rt, Type::TypeVariable(lv)) => {
+                        (rt, Type::TypeVariable(lv)) if self.remove_want_solve(&lv) => {
                             if rt.occurs(&lv) {
                                 Err("unification failed, occurs")?;
                             }
@@ -661,7 +664,12 @@ impl TypeEquations {
                 }
             }
         }
-        Ok(thetas)
+        if self.want_solve.is_empty() {
+            Ok(thetas)
+        }
+        else {
+            Err(format!("want_solve {:?} cant solve now", self.want_solve))
+        }
     }
 }
 
