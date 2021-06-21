@@ -87,7 +87,7 @@ impl FuncDefinitionInfo {
             Type::Func(right_args, Box::new(right_return_type), FuncTypeInfo::None)
             );
         println!("function {:?} and {:?} are equal unify", self.func_id, right.func_id);
-        equs.unify(&mut trs)?;
+        equs.unify(&mut trs).map_err(|err| err.to_string())?;
         Ok(())
     }
 
@@ -152,7 +152,7 @@ impl FuncDefinition {
             let result = equs.unify(&mut trs);
 
             equs.out_scope();
-            result
+            result.map_err(|err| err.to_string())
         }
         else {
             Ok(Vec::new())
