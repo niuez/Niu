@@ -26,6 +26,19 @@ pub enum SelectionCandidate {
 }
 
 impl SelectionCandidate {
+    pub fn generate_equations_for_call_equation(&self, call_eq: &CallEquation, trs: &TraitsInfo) -> Result<TypeEquations, String> {
+        match *self {
+            SelectionCandidate::ImplCandidate(ref cand) => {
+                cand.generate_equations_for_call_equation(call_eq, trs)
+            }
+            SelectionCandidate::ParamCandidate(ref cand) => {
+                cand.generate_equations_for_call_equation(call_eq, trs)
+            }
+            SelectionCandidate::ImplSelfCandidate(ref cand) => {
+                cand.generate_equations_for_call_equation(call_eq, trs)
+            }
+        }
+    }
     pub fn match_impl_for_ty(&self, ty: &Type, trs: &TraitsInfo) -> Option<(SubstsMap, &Self)> {
         match *self {
             SelectionCandidate::ImplCandidate(ref cand) => {
@@ -167,6 +180,40 @@ pub struct ImplCandidate {
 
 
 impl ImplCandidate {
+    pub fn generate_equations_for_call_equation(&self, call_eq: &CallEquation, trs: &TraitsInfo) -> Result<TypeEquations, String> {
+        if call_eq.trait_id != Some(self.trait_id) {
+            return Err(format!("trait_id is not matched"))
+        }
+        let mut equs = TypeEquations::new();
+        equs.set_self_type(Some(call_eq.caller_type.clone()));
+
+        let gen_mp = self.generics.iter().enumerate().map(|(i, id)| (id.clone(), call_eq.tag.generate_type_variable(i + 1, &mut equs)))
+            .collect::<HashMap<_, _>>();
+        let mp = GenericsTypeMap::empty();
+        let gen_mp = mp.next(gen_mp);
+        let impl_ty = self.impl_ty.generics_to_type(&gen_mp, &mut equs, trs).unwrap();
+        equs.add_equation(impl_ty, call_eq.caller_type.clone());
+        self.where_sec.regist_equations(&gen_mp, &mut equs, trs)?;
+        let func_ty = self.require_methods
+            .get(&TraitMethodIdentifier { id: call_eq.func_id.clone() })
+            .ok_or(format!("require methods doesnt have {:?}", call_eq.func_id))?
+            .generate_type(&gen_mp, &mut equs, trs, &call_eq.func_id)?;
+        match func_ty {
+            Type::Func(args, ret, _) => {
+                if args.len() != call_eq.args.len() {
+                    return Err(format!("args len is not matched"))
+                }
+                for (l, r) in args.into_iter().zip(call_eq.args.iter()) {
+                    equs.add_equation(l, r.clone())
+                }
+                let return_ty = call_eq.tag.generate_type_variable(0, &mut equs);
+                equs.add_equation(*ret, return_ty);
+            }
+            _ => unreachable!()
+        }
+        Ok(equs)
+    }
+
     pub fn match_impl_for_ty(&self, ty: &Type, trs: &TraitsInfo) -> Option<SubstsMap> {
         let mut equs = TypeEquations::new();
         equs.set_self_type(Some(ty.clone()));
@@ -234,6 +281,33 @@ impl ParamCandidate {
             trait_id, impl_ty, asso_defs, require_methods,
         })
     }
+    pub fn generate_equations_for_call_equation(&self, call_eq: &CallEquation, trs: &TraitsInfo) -> Result<TypeEquations, String> {
+        if call_eq.trait_id != Some(self.trait_id) {
+            return Err(format!("trait_id is not matched"))
+        }
+        let mut equs = TypeEquations::new();
+        equs.set_self_type(Some(call_eq.caller_type.clone()));
+        equs.add_equation(self.impl_ty.clone(), call_eq.caller_type.clone());
+        let func_ty = self.require_methods
+            .get(&TraitMethodIdentifier { id: call_eq.func_id.clone() })
+            .ok_or(format!("require methods doesnt have {:?}", call_eq.func_id))?
+            .generate_type(&GenericsTypeMap::empty(), &mut equs, trs, &call_eq.func_id)?;
+        match func_ty {
+            Type::Func(args, ret, _) => {
+                if args.len() != call_eq.args.len() {
+                    return Err(format!("args len is not matched"))
+                }
+                for (l, r) in args.into_iter().zip(call_eq.args.iter()) {
+                    equs.add_equation(l, r.clone())
+                }
+                let return_ty = call_eq.tag.generate_type_variable(0, &mut equs);
+                equs.add_equation(*ret, return_ty);
+            }
+            _ => unreachable!()
+        }
+        Ok(equs)
+    }
+
     pub fn match_impl_for_ty(&self, ty: &Type, trs: &TraitsInfo) -> Option<SubstsMap> {
         let mut equs = TypeEquations::new();
         let alpha = self.trait_id.id.generate_type_variable(0, &mut equs);

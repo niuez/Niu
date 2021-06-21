@@ -207,31 +207,39 @@ pub enum TypeEquation {
     Equal(Type, Type, SolveChange),
     //Call(CallEquation),
 }
-/*
+
 #[derive(Debug)]
 pub struct CallEquation {
     pub caller_type: Type,
     pub trait_id: Option<TraitId>,
+    pub func_id: Identifier,
     pub args: Vec<Type>,
-    pub return_type: Type,
     pub tag: Tag,
+    pub change: SolveChange
 }
 
 impl CallEquation {
     pub fn subst(&mut self, theta: &TypeSubst) {
         self.caller_type.subst(theta);
         self.args.iter_mut().for_each(|arg| arg.subst(theta));
-        self.return_type.subst(theta);
     }
 
-    pub fn solve(mut self, equs: &mut TypeEquations, trs: &TraitsInfo) -> Result<Option<Self>, String> {
-        self.caller_type = equs.solve_relations(self.caller_type, trs)?;
-        self.args = self.args.into_iter().map(|arg| equs.solve_relations(arg, trs)).collect::<Result<Vec<_>, String>>()?;
-        self.return_type = equs.solve_relations(self.return_type, trs)?;
-        unimplemented!()
+    pub fn solve(mut self, equs: &mut TypeEquations, trs: &TraitsInfo) -> Result<Option<Self>, UnifyErr> {
+        let (caller_type, caller_changed) = equs.solve_relations(self.caller_type, trs)?;
+        self.caller_type = caller_type;
+
+        let args = self.args.into_iter().map(|arg| equs.solve_relations(arg, trs)).collect::<Result<Vec<_>, UnifyErr>>()?;
+        let args_changed = args.iter().map(|(_, c)| *c).fold(SolveChange::Not, |b, a| b & a);
+        self.args = args.into_iter().map(|(a, _)| a).collect();
+
+        let next_change = caller_changed & args_changed;
+        if self.change & next_change == SolveChange::Not {
+            return Err(UnifyErr::Deficiency(format!("cant solve now {:?}", self)));
+        }
+        self.change = next_change;
     }
 }
-*/
+
 
 #[derive(Debug)]
 pub struct TypeEquations {
@@ -682,6 +690,18 @@ impl TypeEquations {
                                 t.subst(&th);
                             }
                             thetas.push(th);
+                        }
+                        (Type::TypeVariable(lv), Type::TypeVariable(rv)) => {
+                            let all_not_want = self.equs.iter().map(|equ| match equ {
+                                TypeEquation::Equal(Type::TypeVariable(l), Type::TypeVariable(r), _)
+                                    if !self.want_solve.contains(l) && !self.want_solve.contains(r) => {
+                                        true
+                                    }
+                                _ => false,
+                            }).all(|f| f);
+                            if all_not_want {
+                                return Err(UnifyErr::Deficiency(format!("all not want solve variable {:?}", self.equs)))
+                            }
                         }
                         (l, r) => {
                             Err(UnifyErr::Contradiction(format!("unfication failed, {:?} != {:?}", l, r)))?
