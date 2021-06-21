@@ -1,0 +1,15 @@
+struct Vec<T> $${std::vector<$ty(T)>}$$
+
+trait Clone { }
+impl Clone for i64 { }
+
+impl<T> Vec<T> where T: Clone {
+  fn new() -> Self $${std::vector<$ty(T)>()}$$
+  fn push(self: Self, t: T) -> bool $${$arg(self).push_back($arg(t))}$$
+}
+
+fn main() -> Vec<i64> {
+  let vec = Vec::new();
+  vec.push(1i64);
+  vec
+}

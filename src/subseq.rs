@@ -10,6 +10,7 @@ use nom::IResult;
 use crate::expression::{ Expression, parse_expression };
 use crate::unary_expr::UnaryExpr;
 use crate::unify::*;
+use crate::type_spec::*;
 use crate::trans::*;
 use crate::identifier::*;
 
@@ -30,6 +31,17 @@ pub fn subseq_gen_type(uexpr: &UnaryExpr, subseq: &Subseq, equs: &mut TypeEquati
                         caller_type: Box::new(caller),
                         trait_id: None,
                         func_id: mem.mem_id.clone(),
+                        args,
+                        tag: call.tag.clone(),
+                    }))
+                }
+                UnaryExpr::TraitMethod(spec, trait_op, func_id) => {
+                    let caller = spec.generics_to_type(&GenericsTypeMap::empty(), equs, trs)?;
+                    let args = call.args.iter().map(|arg| arg.gen_type(equs, trs)).collect::<Result<Vec<_>, String>>()?;
+                    Ok(Type::CallEquation(CallEquation {
+                        caller_type: Box::new(caller),
+                        trait_id: trait_op.clone(),
+                        func_id: func_id.clone(),
                         args,
                         tag: call.tag.clone(),
                     }))
@@ -89,7 +101,7 @@ pub fn subseq_transpile(uexpr: &UnaryExpr, subseq: &Subseq, ta: &TypeAnnotation)
                 }
             }
             else if let UnaryExpr::TraitMethod(_, _, method_id) = uexpr {
-                let ty = ta.annotation(method_id.get_tag_number(), 0);
+                let ty = ta.annotation(call.tag.get_num(), 1);
                 //if let Type::Func(_, _, Some((trait_id, ty))) = ty {
                 if let Type::Func(_, _, info) = ty {
                     match info {
