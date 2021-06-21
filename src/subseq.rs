@@ -22,11 +22,26 @@ pub enum Subseq {
 pub fn subseq_gen_type(uexpr: &UnaryExpr, subseq: &Subseq, equs: &mut TypeEquations, trs: &TraitsInfo) -> TResult {
     match *subseq {
         Subseq::Call(ref call) => {
-            let caller = uexpr.gen_type(equs, trs)?;
-            let args = call.args.iter().map(|arg| arg.gen_type(equs, trs)).collect::<Result<Vec<_>, String>>()?;
-            let return_type = call.tag.generate_type_variable(0, equs);
-            equs.add_equation(caller, Type::Func(args, Box::new(return_type.clone()), FuncTypeInfo::None));
-            Ok(return_type)
+            match uexpr {
+                UnaryExpr::Subseq(mem_caller, Subseq::Member(mem)) => {
+                    let caller = mem_caller.gen_type(equs, trs)?;
+                    let args = std::iter::once(Ok(caller.clone())).chain(call.args.iter().map(|arg| arg.gen_type(equs, trs))).collect::<Result<Vec<_>, String>>()?;
+                    Ok(Type::CallEquation(CallEquation {
+                        caller_type: Box::new(caller),
+                        trait_id: None,
+                        func_id: mem.mem_id.clone(),
+                        args,
+                        tag: call.tag.clone(),
+                    }))
+                }
+                uexpr => {
+                    let caller = uexpr.gen_type(equs, trs)?;
+                    let args = call.args.iter().map(|arg| arg.gen_type(equs, trs)).collect::<Result<Vec<_>, String>>()?;
+                    let return_type = call.tag.generate_type_variable(0, equs);
+                    equs.add_equation(caller, Type::Func(args, Box::new(return_type.clone()), FuncTypeInfo::None));
+                    Ok(return_type)
+                }
+            }
         }
         Subseq::Member(ref mem) => {
             let st = uexpr.gen_type(equs, trs)?;
@@ -42,7 +57,7 @@ pub fn subseq_transpile(uexpr: &UnaryExpr, subseq: &Subseq, ta: &TypeAnnotation)
     match *subseq {
         Subseq::Call(ref call) => {
             if let UnaryExpr::Subseq(mem_caller, Subseq::Member(mem)) = uexpr {
-                let ty = ta.annotation(mem.mem_id.get_tag_number(), 1);
+                let ty = ta.annotation(call.tag.get_num(), 1);
                 //if let Type::Func(_, _, Some((trait_id, ty))) = ty {
                 if let Type::Func(_, _, info) = ty {
                     match info {
@@ -52,11 +67,11 @@ pub fn subseq_transpile(uexpr: &UnaryExpr, subseq: &Subseq, ta: &TypeAnnotation)
                             let ty = ta.annotation(tag.get_num(), 0);
                             format!("{}<{}>::{}({})", trait_id.transpile(ta), ty.transpile(ta), mem.mem_id.into_string(), args)
                         }
-                        FuncTypeInfo::SelfFunc(typeid, tag, len) => {
-                            let gen_args = (0..len).into_iter().map(|i| ta.annotation(tag.get_num(), i).transpile(ta)).collect::<Vec<_>>().join(", ");
+                        FuncTypeInfo::SelfFunc(tag) => {
+                            let ty = ta.annotation(tag.get_num(), 0).transpile(ta);
                             let args = call.args.iter().map(|arg| arg.transpile(ta));
                             let args = std::iter::once(mem_caller.transpile(ta)).chain(args).collect::<Vec<_>>().join(", ");
-                            format!("{}<{}>::{}({})", typeid.transpile(ta), gen_args, mem.mem_id.into_string(), args)
+                            format!("{}::{}({})", ty, mem.mem_id.into_string(), args)
                         }
                         FuncTypeInfo::CppInline(cppinline, ids) => {
                             let args = call.args.iter().map(|arg| arg.transpile(ta));
@@ -84,11 +99,11 @@ pub fn subseq_transpile(uexpr: &UnaryExpr, subseq: &Subseq, ta: &TypeAnnotation)
                             let ty = ta.annotation(tag.get_num(), 0);
                             format!("{}<{}>::{}({})", trait_id.transpile(ta), ty.transpile(ta), method_id.into_string(), args)
                         }
-                        FuncTypeInfo::SelfFunc(typeid, tag, len) => {
-                            let gen_args = (0..len).into_iter().map(|i| ta.annotation(tag.get_num(), i).transpile(ta)).collect::<Vec<_>>().join(", ");
+                        FuncTypeInfo::SelfFunc(tag) => {
+                            let ty = ta.annotation(tag.get_num(), 0).transpile(ta);
                             let args = call.args.iter().map(|arg| arg.transpile(ta));
                             let args = args.collect::<Vec<_>>().join(", ");
-                            format!("{}<{}>::{}({})", typeid.transpile(ta), gen_args, method_id.into_string(), args)
+                            format!("{}::{}({})", ty, method_id.into_string(), args)
                         }
                         FuncTypeInfo::CppInline(cppinline, ids) => {
                             let args = call.args.iter().map(|arg| arg.transpile(ta));

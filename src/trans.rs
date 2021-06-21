@@ -34,7 +34,13 @@ impl TypeAnnotation {
         self.theta.len() 
     }
     pub fn annotation(&self, i: usize, num: usize) -> Type {
-        self.theta.get(&(i, num)).unwrap().clone()
+        match self.theta.get(&(i, num)) {
+            Some(ty) => ty.clone(),
+            None => {
+                let err = format!("cant get annotation {} {}", i, num);
+                unreachable!(err);
+            }
+        }
     }
     pub fn trans_variable(&self, var: &Variable) -> String {
         if let Some(f) = self.func.get(var).cloned() {

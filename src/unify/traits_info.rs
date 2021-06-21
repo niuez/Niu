@@ -408,11 +408,11 @@ impl<'a> TraitsInfo<'a> {
 
         let mut unify_res = gen_equs.into_iter().map(|(mut gen_equ, cand)| {
             match gen_equ.unify(self) {
-                Ok(substs) => {
-                    Ok((gen_equ, SubstsMap::new(substs).get(&call_eq.func_id, 0)?, cand))
+                Ok(_) => {
+                    Ok((gen_equ, cand))
                 }
                 Err(UnifyErr::Deficiency(_)) => {
-                    Ok((gen_equ, Type::TypeVariable(TypeVariable::Counter(call_eq.func_id.get_tag_number(), 0)), cand))
+                    Ok((gen_equ, cand))
                 }
                 Err(UnifyErr::Contradiction(st)) => {
                     Err(st)
@@ -420,12 +420,17 @@ impl<'a> TraitsInfo<'a> {
             }
         }).filter_map(|x| x.ok()).collect::<Vec<_>>();
         if unify_res.len() == 1 {
-            let (gen_equ, ret_ty, _) = unify_res.pop().unwrap();
+            let (gen_equ, _) = unify_res.pop().unwrap();
+            let ret_ty = gen_equ.try_get_substs(TypeVariable::Counter(call_eq.tag.get_num(), 0));
+            //println!("take over by call >> ");
+            //println!("{:?}", call_eq);
+            //println!("ret = {:?}", ret_ty);
+            //println!(">> ");
             equs.take_over_equations(gen_equ);
             Ok(ret_ty)
         }
         else {
-            Err(unify_res.into_iter().map(|(_, _, cand)| cand).collect())
+            Err(unify_res.into_iter().map(|(_, cand)| cand).collect())
         }
     }
 

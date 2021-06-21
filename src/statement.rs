@@ -1,6 +1,7 @@
 use nom::branch::*;
 use nom::IResult;
 
+use crate::identifier::Tag;
 use crate::expression::{ Expression, parse_expression };
 use crate::let_declaration::{ LetDeclaration, parse_let_declaration };
 use crate::unify::*;
@@ -8,15 +9,21 @@ use crate::trans::*;
 
 #[derive(Debug)]
 pub enum Statement {
-    Expression(Expression),
+    Expression(Expression, Tag),
     LetDeclaration(LetDeclaration),
 }
 
 impl GenType for Statement {
     fn gen_type(&self, equs: &mut TypeEquations, trs: &TraitsInfo) -> TResult {
         match *self {
-            Statement::Expression(ref e) => e.gen_type(equs, trs)?,
-            Statement::LetDeclaration(ref l) => l.gen_type(equs, trs)?,
+            Statement::Expression(ref e, ref tag) => {
+                let expr = e.gen_type(equs, trs)?;
+                let alpha = tag.generate_type_variable(0, equs);
+                equs.add_equation(alpha, expr);
+            }
+            Statement::LetDeclaration(ref l) => {
+                l.gen_type(equs, trs)?;
+            }
         };
         Ok(Type::End)
     }
@@ -25,7 +32,7 @@ impl GenType for Statement {
 impl Transpile for Statement {
     fn transpile(&self, ta: &TypeAnnotation) -> String {
         match *self {
-            Statement::Expression(ref e) => e.transpile(ta),
+            Statement::Expression(ref e, _) => e.transpile(ta),
             Statement::LetDeclaration(ref l) => l.transpile(ta),
         }
     }
@@ -33,7 +40,7 @@ impl Transpile for Statement {
 
 fn parse_expression_to_statement(s: &str) -> IResult<&str, Statement> {
     let (s, expr) = parse_expression(s)?;
-    Ok((s, Statement::Expression(expr)))
+    Ok((s, Statement::Expression(expr, Tag::new())))
 }
 
 fn parse_let_declaration_to_statement(s: &str) -> IResult<&str, Statement> {

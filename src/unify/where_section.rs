@@ -48,7 +48,8 @@ impl WhereSection {
                 let alpha = asso_id.id.generate_type_variable(0, &mut tmp_equs);
                 tmp_equs.add_equation(asso_spec_ty, alpha);
             }
-            let substs = SubstsMap::new(tmp_equs.unify(trs).map_err(|err| err.to_string())?);
+            tmp_equs.unify(trs).map_err(|err| err.to_string())?;
+            let substs = SubstsMap::new(tmp_equs.take_substs().clone());
 
             let param_ty = substs.get(&tr_id.id, 0)?;
             let asso_mp = asso_eqs.iter().map(|(asso_id, _)| {

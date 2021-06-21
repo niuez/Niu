@@ -123,7 +123,7 @@ impl FuncDefinition {
          }
          )
     }
-    pub fn unify_definition(&self, equs: &mut TypeEquations, trs: &TraitsInfo) -> Result<Vec<TypeSubst>, String> {
+    pub fn unify_definition(&self, equs: &mut TypeEquations, trs: &TraitsInfo) -> Result<(), String> {
         if let FuncBlock::Block(ref block) = self.block {
             equs.into_scope();
 
@@ -149,13 +149,14 @@ impl FuncDefinition {
             equs.add_equation(result_type, return_t);
 
             println!("function {:?} unify", self.func_id);
+            //equs.debug();
             let result = equs.unify(&mut trs);
 
             equs.out_scope();
             result.map_err(|err| err.to_string())
         }
         else {
-            Ok(Vec::new())
+            Ok(())
         }
     }
 }

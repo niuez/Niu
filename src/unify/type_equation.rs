@@ -9,9 +9,7 @@ use crate::type_spec::*;
 use crate::type_id::*;
 use crate::structs::*;
 use crate::identifier::*;
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct CppInlineInfo {
+#[derive(Debug, Clone, PartialEq, Eq)] pub struct CppInlineInfo {
     pub elems: Vec<CppInlineInfoElem>,
     pub tag: Tag,
 }
@@ -46,7 +44,7 @@ impl CppInlineInfo {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum FuncTypeInfo {
     TraitFunc(TraitId, Tag),
-    SelfFunc(TypeId, Tag, usize),
+    SelfFunc(Tag),
     CppInline(CppInlineInfo, Vec<Identifier>),
     None,
 }
@@ -108,50 +106,44 @@ impl Type {
         }
     }
 
-    fn subst(&mut self, theta: &TypeSubst) {
-        let res = match *self {
+    fn subst(&mut self, theta: &TypeSubst) -> SolveChange {
+        match *self {
             Type::Func(ref mut args, ref mut ret, ref mut _info) => {
+                let mut changed = SolveChange::Not;
                 for arg in args.iter_mut() {
-                    arg.subst(theta);
+                    changed &= arg.subst(theta);
                 }
-                ret.subst(theta);
-                None
+                changed &= ret.subst(theta);
+                changed
             }
             Type::Generics(ref ty, ref mut gens) => {
-                gens.iter_mut().for_each(|gen| gen.subst(theta));
-                None
+                gens.iter_mut().map(|gen| gen.subst(theta)).fold(SolveChange::Not, |a, b| a & b)
             }
-            Type::SolvedAssociatedType(_, _) => { None },
+            Type::SolvedAssociatedType(_, _) => { SolveChange::Not },
             Type::AssociatedType(ref mut ty, _) => {
-                ty.as_mut().subst(theta);
-                None
+                ty.as_mut().subst(theta)
             }
             Type::TraitMethod(ref mut ty, _, _) => {
-                ty.as_mut().subst(theta);
-                None
+                ty.as_mut().subst(theta)
             }
             Type::Member(ref mut ty, _) => {
-                ty.as_mut().subst(theta);
-                None
+                ty.as_mut().subst(theta)
             }
             Type::CallEquation(ref mut call_eq) => {
-                call_eq.subst(theta);
-                None
+                call_eq.subst(theta)
             }
-            Type::End => { None },
+            Type::End => { SolveChange::Not },
             // TypeVariable
-            Type::TypeVariable(ref t) => {
+            ref mut ty => {
                 let TypeSubst { tv: y, t: into_t } = theta;
-                if *t == *y {
-                    Some(into_t.clone())
+                if ty.clone() == Type::TypeVariable(y.clone()) {
+                    *ty = into_t.clone();
+                    SolveChange::Changed
                 }
                 else {
-                    None
+                    SolveChange::Not
                 }
             }
-        };
-        if let Some(res) = res {
-            *self = res;
         }
     }
 
@@ -198,6 +190,15 @@ pub enum SolveChange {
     Not,
 }
 
+impl SolveChange {
+    pub fn cnt(&self) -> usize {
+        match self {
+            Self::Changed => 1,
+            Self::Not => 0,
+        }
+    }
+}
+
 impl std::ops::BitAnd for SolveChange {
     type Output = Self;
     fn bitand(self, right: Self) -> Self {
@@ -205,6 +206,12 @@ impl std::ops::BitAnd for SolveChange {
             (Self::Not, Self::Not) => Self::Not,
             _ => Self::Changed,
         }
+    }
+}
+
+impl std::ops::BitAndAssign for SolveChange {
+    fn bitand_assign(&mut self, right: Self) {
+        *self = *self & right;
     }
 }
 
@@ -222,7 +229,6 @@ pub struct CallEquation {
     pub func_id: Identifier,
     pub args: Vec<Type>,
     pub tag: Tag,
-    pub change: SolveChange,
 }
 
 impl CallEquation {
@@ -230,9 +236,11 @@ impl CallEquation {
         self.caller_type.as_ref().occurs(tv)
             || self.args.iter().map(|arg| arg.occurs(tv)).any(|f| f)
     }
-    pub fn subst(&mut self, theta: &TypeSubst) {
-        self.caller_type.as_mut().subst(theta);
-        self.args.iter_mut().for_each(|arg| arg.subst(theta));
+    pub fn subst(&mut self, theta: &TypeSubst) -> SolveChange {
+        let mut changed = SolveChange::Not;
+        changed &= self.caller_type.as_mut().subst(theta);
+        self.args.iter_mut().map(|arg| arg.subst(theta))
+            .fold(changed, |a, b| a & b)
     }
 
     pub fn solve(mut self, equs: &mut TypeEquations, trs: &TraitsInfo) -> Result<(Type, SolveChange), UnifyErr> {
@@ -250,13 +258,7 @@ impl CallEquation {
                 Ok((ret_ty, SolveChange::Changed))
             }
             Err(cands) => {
-                if self.change & next_change == SolveChange::Not {
-                    Err(UnifyErr::Deficiency(format!("cant solve now {:?}\ncands: {:?}", self, cands)))
-                }
-                else {
-                    self.change = next_change;
-                    Ok((Type::CallEquation(self), next_change))
-                }
+                Ok((Type::CallEquation(self), next_change))
             }
         }
     }
@@ -267,13 +269,15 @@ impl CallEquation {
 pub struct TypeEquations {
     func: HashMap<Variable, FuncDefinitionInfo>,
     pub cnt: usize,
+    change_cnt: usize,
     variables: Vec<HashMap<Variable, Type>>,
     equs: VecDeque<TypeEquation>,
     want_solve: HashSet<TypeVariable>,
+    substs: Vec<TypeSubst>,
     self_type: Option<Type>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TypeSubst {
     pub tv: TypeVariable,
     pub t: Type,
@@ -331,14 +335,36 @@ impl TypeEquations {
             func: HashMap::new(),
             equs: VecDeque::new(),
             cnt: 0,
+            change_cnt: 0,
             variables: Vec::new(),
             want_solve: HashSet::new(),
+            substs: Vec::new(),
             self_type: None,
         }
     }
+    pub fn debug(&self){
+        println!("TypeEquations {{");
+        for equ in self.equs.iter() {
+            println!("    {:?}", equ);
+        }
+        for subst in self.substs.iter() {
+            println!("     {:?}", subst);
+        }
+        println!("    {:?}", self.want_solve);
+        println!("}}");
+    }
+    pub fn try_get_substs(&self, tv: TypeVariable) -> Type {
+        self.substs.iter().find(|TypeSubst { tv: tsv, t: _t }| *tsv == tv)
+            .map_or(Type::TypeVariable(tv.clone()), |TypeSubst{ tv: _tv, t }| t.clone())
+    }
+    pub fn take_substs(&mut self) -> Vec<TypeSubst> {
+        std::mem::replace(&mut self.substs, Vec::new())
+    }
     pub fn take_over_equations(&mut self, mut gen_equs: Self) {
         self.equs.append(&mut gen_equs.equs);
-        for elem in std::mem::replace(&mut self.want_solve, HashSet::new()).into_iter() {
+        self.substs.append(&mut gen_equs.substs);
+        self.change_cnt += gen_equs.change_cnt;
+        for elem in std::mem::replace(&mut gen_equs.want_solve, HashSet::new()).into_iter() {
             self.want_solve.insert(elem);
         }
     }
@@ -359,9 +385,11 @@ impl TypeEquations {
     }
     pub fn add_has_trait(&mut self, ty: Type, tr: TraitId) {
         self.equs.push_back(TypeEquation::HasTrait(ty, tr, SolveChange::Changed));
+        self.change_cnt += 1;
     }
     pub fn add_equation(&mut self, left: Type, right: Type) {
         self.equs.push_back(TypeEquation::Equal(left, right, SolveChange::Changed));
+        self.change_cnt += 1;
     }
     pub fn into_scope(&mut self) {
         self.variables.push(HashMap::new());
@@ -391,14 +419,17 @@ impl TypeEquations {
         self.equs.clear();
     }
     fn subst(&mut self, theta: &TypeSubst) {
+        self.change_cnt = 0;
         for equation in self.equs.iter_mut() {
             match *equation {
-                TypeEquation::Equal(ref mut left, ref mut right, _) => {
-                    left.subst(theta);
-                    right.subst(theta);
+                TypeEquation::Equal(ref mut left, ref mut right, ref mut changed) => {
+                    *changed &= left.subst(theta);
+                    *changed &= right.subst(theta);
+                    self.change_cnt += changed.cnt();
                 }
-                TypeEquation::HasTrait(ref mut ty, _, _) => {
-                    ty.subst(theta);
+                TypeEquation::HasTrait(ref mut ty, _, ref mut changed) => {
+                    *changed &= ty.subst(theta);
+                    self.change_cnt += changed.cnt();
                 }
                 /* TypeEquation::Call(ref mut call) => {
                     call.subst(theta);
@@ -602,98 +633,64 @@ impl TypeEquations {
         }
     }
 
-    pub fn unify(&mut self, trs: &TraitsInfo) -> Result<Vec<TypeSubst>, UnifyErr> {
-        let mut thetas = Vec::new();
-        println!("unify");
+    pub fn unify(&mut self, trs: &TraitsInfo) -> Result<(), UnifyErr> {
+        /* println!("unify");
         for (i, equ) in self.equs.iter().enumerate() {
             println!("{}. {:?}", i, equ);
-        } 
+        } */
         while let Some(equation) = self.equs.pop_front() {
-            //println!("equation = {:?}", equation);
             match equation {
                 TypeEquation::HasTrait(left, tr, before_changed) => {
+                    self.change_cnt -= before_changed.cnt();
                     let (left, left_changed) = self.solve_relations(left, trs)?;
                     if left.is_solved_type() {
                         if !self.solve_has_trait(&left, &tr, trs) {
                             Err(UnifyErr::Contradiction(format!("type {:?} is not implemented trait", tr)))?;
                         }
                     }
-                    else if before_changed & left_changed == SolveChange::Not {
-                        Err(UnifyErr::Deficiency(format!("type {:?} cant solve for trait {:?}", left, tr)))?;
-                    }
                     else {
                         self.equs.push_back(TypeEquation::HasTrait(left, tr, left_changed));
+                        self.change_cnt += left_changed.cnt();
                     }
                 }
                 TypeEquation::Equal(left, right, before_changed) => {
+                    self.change_cnt -= before_changed.cnt();
                     let (left, left_changed) = self.solve_relations(left, trs)?;
                     let (right, right_changed) = self.solve_relations(right, trs)?;
                     let changed = left_changed & right_changed;
                     match (left, right) {
                         (l, r) if l == r => {}
                         (Type::AssociatedType(b, a), right) => {
-                            if before_changed & changed == SolveChange::Not {
-                                Err(UnifyErr::Deficiency(format!("cant solve now {:?}", Type::AssociatedType(b, a))))?
-                            }
-                            else {
-                                self.equs.push_back(TypeEquation::Equal(Type::AssociatedType(b, a), right, changed));
-                            }
+                            self.equs.push_back(TypeEquation::Equal(Type::AssociatedType(b, a), right, changed));
+                            self.change_cnt += changed.cnt();
                         }
                         (left, Type::AssociatedType(b, a)) => {
-                            if before_changed & changed == SolveChange::Not {
-                                Err(UnifyErr::Deficiency(format!("cant solve now {:?}", Type::AssociatedType(b, a))))?
-                            }
-                            else {
-                                self.equs.push_back(TypeEquation::Equal(left, Type::AssociatedType(b, a), changed));
-                            }
+                            self.equs.push_back(TypeEquation::Equal(left, Type::AssociatedType(b, a), changed));
+                            self.change_cnt += changed.cnt();
                         }
                         (Type::TraitMethod(a, b, c), right) => {
-                            if before_changed & changed == SolveChange::Not {
-                                Err(UnifyErr::Deficiency(format!("cant solve now {:?}", Type::TraitMethod(a, b, c))))?
-                            }
-                            else {
-                                self.equs.push_back(TypeEquation::Equal(Type::TraitMethod(a, b, c), right, changed));
-                            }
+                            self.equs.push_back(TypeEquation::Equal(Type::TraitMethod(a, b, c), right, changed));
+                            self.change_cnt += changed.cnt();
                         }
                         (left, Type::TraitMethod(a, b, c)) => {
-                            if before_changed & changed == SolveChange::Not {
-                                Err(UnifyErr::Deficiency(format!("cant solve now{:?}", Type::TraitMethod(a, b, c))))?
-                            }
-                            else {
-                                self.equs.push_back(TypeEquation::Equal(left, Type::TraitMethod(a, b, c), changed));
-                            }
+                            self.equs.push_back(TypeEquation::Equal(left, Type::TraitMethod(a, b, c), changed));
+                            self.change_cnt += changed.cnt();
                         }
                         (Type::Member(b, a), right) => {
-                            if before_changed & changed == SolveChange::Not {
-                                Err(UnifyErr::Deficiency(format!("cant solve now {:?}", Type::Member(b, a))))?
-                            }
-                            else {
-                                self.equs.push_back(TypeEquation::Equal(Type::Member(b, a), right, changed));
-                            }
+                            self.equs.push_back(TypeEquation::Equal(Type::Member(b, a), right, changed));
+                            self.change_cnt += changed.cnt();
                         }
                         (left, Type::Member(b, a)) => {
-                            if before_changed & changed == SolveChange::Not {
-                                Err(UnifyErr::Deficiency(format!("cant solve now {:?}", Type::Member(b, a))))?
-                            }
-                            else {
-                                self.equs.push_back(TypeEquation::Equal(left, Type::Member(b, a), changed));
-                            }
+                            self.equs.push_back(TypeEquation::Equal(left, Type::Member(b, a), changed));
+                            self.change_cnt += changed.cnt();
                         }
                         (Type::CallEquation(call), right) => {
-                            if before_changed & changed == SolveChange::Not {
-                                Err(UnifyErr::Deficiency(format!("cant solve now {:?}", call)))?
-                            }
-                            else {
-                                self.equs.push_back(TypeEquation::Equal(Type::CallEquation(call), right, changed));
-                            }
+                            self.equs.push_back(TypeEquation::Equal(Type::CallEquation(call), right, changed));
+                            self.change_cnt += changed.cnt();
                         }
                         (left, Type::CallEquation(call)) => {
-                            if before_changed & changed == SolveChange::Not {
-                                Err(UnifyErr::Deficiency(format!("cant solve now {:?}", call)))?
-                            }
-                            else {
-                                self.equs.push_back(TypeEquation::Equal(left, Type::CallEquation(call), changed));
-                            }
+                            self.equs.push_back(TypeEquation::Equal(left, Type::CallEquation(call), changed));
+                            self.change_cnt += changed.cnt();
                         }
                         (Type::Func(l_args, l_return, _), Type::Func(r_args, r_return, _)) => {
                             if l_args.len() != r_args.len() {
@@ -725,10 +722,10 @@ impl TypeEquations {
                             }
                             let th = TypeSubst { tv: lv.clone(), t: rt.clone() };
                             self.subst(&th);
-                            for TypeSubst { t, .. } in thetas.iter_mut() {
+                            for TypeSubst { t, .. } in self.substs.iter_mut() {
                                 t.subst(&th);
                             }
-                            thetas.push(th);
+                            self.substs.push(th);
                         }
                         (rt, Type::TypeVariable(lv)) if self.remove_want_solve(&lv) => {
                             if rt.occurs(&lv) {
@@ -736,12 +733,12 @@ impl TypeEquations {
                             }
                             let th = TypeSubst { tv: lv.clone(), t: rt.clone() };
                             self.subst(&th);
-                            for TypeSubst { t, .. } in thetas.iter_mut() {
+                            for TypeSubst { t, .. } in self.substs.iter_mut() {
                                 t.subst(&th);
                             }
-                            thetas.push(th);
+                            self.substs.push(th);
                         }
-                        (Type::TypeVariable(lv), Type::TypeVariable(rv)) => {
+                        (Type::TypeVariable(_), Type::TypeVariable(_)) => {
                             let all_not_want = self.equs.iter().map(|equ| match equ {
                                 TypeEquation::Equal(Type::TypeVariable(l), Type::TypeVariable(r), _)
                                     if !self.want_solve.contains(l) && !self.want_solve.contains(r) => {
@@ -759,9 +756,12 @@ impl TypeEquations {
                     }
                 }
             }
+            if self.change_cnt == 0 && self.equs.len() > 0 {
+                return Err(UnifyErr::Deficiency(format!("change cnt = 0 {:?}", self.equs)));
+            }
         }
         if self.want_solve.is_empty() {
-            Ok(thetas)
+            Ok(())
         }
         else {
             Err(UnifyErr::Deficiency(format!("want_solve {:?} cant solve now", self.want_solve)))

@@ -55,19 +55,18 @@ impl FullContent {
         self.regist_self_impls(&mut trs)?;
 
         for im in self.impls.iter() {
-            for TypeSubst { tv, t } in im.unify_require_methods(&mut equs, &mut trs)? {
-                ta.insert(tv, t);
-            }
-            equs.clear_equations();
+            im.unify_require_methods(&mut equs, &mut trs)?;
         }
 
         for f in self.funcs.iter() {
             equs.regist_func_info(f);
             ta.regist_func_info(f);
-            for TypeSubst { tv, t } in f.unify_definition(&mut equs, &mut trs)? {
-                ta.insert(tv, t);
-            }
-            equs.clear_equations();
+            f.unify_definition(&mut equs, &mut trs)?;
+        }
+
+        for TypeSubst { tv, t } in equs.take_substs() {
+            ta.insert(tv, t);
+
         }
         Ok(ta)
     }
