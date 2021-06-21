@@ -60,6 +60,7 @@ pub enum Type {
     AssociatedType(Box<Type>, AssociatedType),
     TraitMethod(Box<Type>, Option<TraitId>, Identifier),
     Member(Box<Type>, Identifier),
+    CallEquation(CallEquation),
     End,
 }
 
@@ -100,6 +101,9 @@ impl Type {
             Type::Member(ref ty, _) => {
                 ty.as_ref().occurs(t)
             }
+            Type::CallEquation(ref call_eq) => {
+                call_eq.occurs(t)
+            }
             _ => false,
         }
     }
@@ -128,6 +132,10 @@ impl Type {
             }
             Type::Member(ref mut ty, _) => {
                 ty.as_mut().subst(theta);
+                None
+            }
+            Type::CallEquation(ref mut call_eq) => {
+                call_eq.subst(theta);
                 None
             }
             Type::End => { None },
@@ -205,38 +213,52 @@ impl std::ops::BitAnd for SolveChange {
 pub enum TypeEquation {
     HasTrait(Type, TraitId, SolveChange),
     Equal(Type, Type, SolveChange),
-    //Call(CallEquation),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CallEquation {
-    pub caller_type: Type,
+    pub caller_type: Box<Type>,
     pub trait_id: Option<TraitId>,
     pub func_id: Identifier,
     pub args: Vec<Type>,
     pub tag: Tag,
-    pub change: SolveChange
+    pub change: SolveChange,
 }
 
 impl CallEquation {
+    pub fn occurs(&self, tv: &TypeVariable) -> bool {
+        self.caller_type.as_ref().occurs(tv)
+            || self.args.iter().map(|arg| arg.occurs(tv)).any(|f| f)
+    }
     pub fn subst(&mut self, theta: &TypeSubst) {
-        self.caller_type.subst(theta);
+        self.caller_type.as_mut().subst(theta);
         self.args.iter_mut().for_each(|arg| arg.subst(theta));
     }
 
-    pub fn solve(mut self, equs: &mut TypeEquations, trs: &TraitsInfo) -> Result<Option<Self>, UnifyErr> {
-        let (caller_type, caller_changed) = equs.solve_relations(self.caller_type, trs)?;
-        self.caller_type = caller_type;
+    pub fn solve(mut self, equs: &mut TypeEquations, trs: &TraitsInfo) -> Result<(Type, SolveChange), UnifyErr> {
+        let (caller_type, caller_changed) = equs.solve_relations(*self.caller_type, trs)?;
+        self.caller_type = Box::new(caller_type);
 
         let args = self.args.into_iter().map(|arg| equs.solve_relations(arg, trs)).collect::<Result<Vec<_>, UnifyErr>>()?;
         let args_changed = args.iter().map(|(_, c)| *c).fold(SolveChange::Not, |b, a| b & a);
         self.args = args.into_iter().map(|(a, _)| a).collect();
 
         let next_change = caller_changed & args_changed;
-        if self.change & next_change == SolveChange::Not {
-            return Err(UnifyErr::Deficiency(format!("cant solve now {:?}", self)));
+
+        match trs.regist_for_call_equtions(equs, &self) {
+            Ok(ret_ty) => {
+                Ok((ret_ty, SolveChange::Changed))
+            }
+            Err(cands) => {
+                if self.change & next_change == SolveChange::Not {
+                    Err(UnifyErr::Deficiency(format!("cant solve now {:?}\ncands: {:?}", self, cands)))
+                }
+                else {
+                    self.change = next_change;
+                    Ok((Type::CallEquation(self), next_change))
+                }
+            }
         }
-        self.change = next_change;
     }
 }
 
@@ -314,6 +336,12 @@ impl TypeEquations {
             self_type: None,
         }
     }
+    pub fn take_over_equations(&mut self, mut gen_equs: Self) {
+        self.equs.append(&mut gen_equs.equs);
+        for elem in std::mem::replace(&mut self.want_solve, HashSet::new()).into_iter() {
+            self.want_solve.insert(elem);
+        }
+    }
     pub fn add_want_solve(&mut self, var: &TypeVariable) {
         self.want_solve.insert(var.clone());
     }
@@ -380,14 +408,20 @@ impl TypeEquations {
     }
 
     fn solve_relations(&mut self, ty: Type, trs: &TraitsInfo) -> Result<(Type, SolveChange), UnifyErr> {
+        let (ty, b0) = self.solve_call_equation(ty, trs)?;
         let (ty, b1) = self.solve_associated_type(ty, trs)?;
         let (ty, b2) = self.solve_trait_method(ty, trs)?;
         let (ty, b3) = self.solve_member(ty, trs)?;
         let (ty, b4) = self.solve_generics(ty, trs)?;
-        Ok((ty, b1 & b2 & b3 & b4))
+        Ok((ty, b0 & b1 & b2 & b3 & b4))
     }
 
-
+    fn solve_call_equation(&mut self, ty: Type, trs: &TraitsInfo) -> Result<(Type, SolveChange), UnifyErr> {
+        match ty {
+            Type::CallEquation(call) => call.solve(self, trs),
+            _ => Ok((ty, SolveChange::Not)),
+        }
+    }
     fn solve_associated_type(&mut self, ty: Type, trs: &TraitsInfo) -> Result<(Type, SolveChange), UnifyErr> {
         match ty {
             Type::AssociatedType(inner_ty, asso) => {
@@ -643,6 +677,22 @@ impl TypeEquations {
                             }
                             else {
                                 self.equs.push_back(TypeEquation::Equal(left, Type::Member(b, a), changed));
+                            }
+                        }
+                        (Type::CallEquation(call), right) => {
+                            if before_changed & changed == SolveChange::Not {
+                                Err(UnifyErr::Deficiency(format!("cant solve now {:?}", call)))?
+                            }
+                            else {
+                                self.equs.push_back(TypeEquation::Equal(Type::CallEquation(call), right, changed));
+                            }
+                        }
+                        (left, Type::CallEquation(call)) => {
+                            if before_changed & changed == SolveChange::Not {
+                                Err(UnifyErr::Deficiency(format!("cant solve now {:?}", call)))?
+                            }
+                            else {
+                                self.equs.push_back(TypeEquation::Equal(left, Type::CallEquation(call), changed));
                             }
                         }
                         (Type::Func(l_args, l_return, _), Type::Func(r_args, r_return, _)) => {

@@ -352,6 +352,83 @@ impl<'a> TraitsInfo<'a> {
         self.match_to_self_impls(typeid, ty, self)
     }
 
+    fn generate_call_equations_for_trait(&self, trait_id: &TraitId, call_eq: &CallEquation, top_trs: &Self) -> Vec<(TypeEquations, &SelectionCandidate)> {
+        let mut ans = Vec::new();
+        if let Some(impls) = self.impls.get(trait_id) {
+            let mut vs = impls.iter()
+                .map(|impl_trait| {
+                    impl_trait.generate_equations_for_call_equation(call_eq, top_trs).ok().map(|eq| (eq, impl_trait))
+                })
+                .filter_map(|x| x)
+                .collect::<Vec<_>>();
+            ans.append(&mut vs);
+        }
+
+        if let Some(trs) = self.upper_info {
+            let mut vs = trs.generate_call_equations_for_trait(trait_id, call_eq, top_trs);
+            ans.append(&mut vs);
+        }
+        ans
+    }
+
+    fn generate_call_equations_for_self_type(&self, typeid: &TypeId, call_eq: &CallEquation, top_trs: &Self) -> Vec<(TypeEquations, &SelectionCandidate)> {
+        let mut ans = Vec::new();
+        if let Some(impls) = self.self_impls.get(typeid) {
+            let mut vs = impls.iter()
+                .map(|impl_trait| {
+                    impl_trait.generate_equations_for_call_equation(call_eq, top_trs).ok().map(|eq| (eq, impl_trait))
+                })
+                .filter_map(|x| x)
+                .collect::<Vec<_>>();
+            ans.append(&mut vs);
+        }
+
+        if let Some(trs) = self.upper_info {
+            let mut vs = trs.generate_call_equations_for_self_type(typeid, call_eq, top_trs);
+            ans.append(&mut vs);
+        }
+        ans
+    }
+
+    pub fn regist_for_call_equtions(&self, equs: &mut TypeEquations, call_eq: &CallEquation) -> Result<Type, Vec<&SelectionCandidate>> {
+        let mut st = HashSet::new();
+        self.search_traits_for_member(&call_eq.func_id, &mut st);
+        let mut gen_equs = Vec::new();
+        for t in st.into_iter() {
+            let mut vs = self.generate_call_equations_for_trait(&t, call_eq, self);
+            gen_equs.append(&mut vs);
+        }
+
+        let mut st = HashSet::new();
+        self.search_typeid_for_member(&call_eq.func_id, &mut st);
+        for t in st.into_iter() {
+            let mut vs = self.generate_call_equations_for_self_type(&t, call_eq, self);
+            gen_equs.append(&mut vs);
+        }
+
+        let mut unify_res = gen_equs.into_iter().map(|(mut gen_equ, cand)| {
+            match gen_equ.unify(self) {
+                Ok(substs) => {
+                    Ok((gen_equ, SubstsMap::new(substs).get(&call_eq.func_id, 0)?, cand))
+                }
+                Err(UnifyErr::Deficiency(_)) => {
+                    Ok((gen_equ, Type::TypeVariable(TypeVariable::Counter(call_eq.func_id.get_tag_number(), 0)), cand))
+                }
+                Err(UnifyErr::Contradiction(st)) => {
+                    Err(st)
+                }
+            }
+        }).filter_map(|x| x.ok()).collect::<Vec<_>>();
+        if unify_res.len() == 1 {
+            let (gen_equ, ret_ty, _) = unify_res.pop().unwrap();
+            equs.take_over_equations(gen_equ);
+            Ok(ret_ty)
+        }
+        else {
+            Err(unify_res.into_iter().map(|(_, _, cand)| cand).collect())
+        }
+    }
+
 
     fn search_traits_for_member(&self, mem_id: &Identifier, st: &mut HashSet<TraitId>) {
         if let Some(traits) = self.member_to_traits.get(mem_id) {
