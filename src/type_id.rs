@@ -31,6 +31,7 @@ impl Transpile for TypeId {
             "i64" => "std::int_fast64_t",
             "u64" => "std::uint_fast64_t",
             "bool" => "bool",
+            "void" => "void",
             s => s,
         }.to_string()
     }

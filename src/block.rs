@@ -22,17 +22,19 @@ impl GenType for Block {
         for s in self.statements.iter() {
             let _exp = s.gen_type(equs, trs)?;
         }
-        self.return_exp.as_ref().unwrap().gen_type(equs, trs)
+        self.return_exp.as_ref().map_or(Ok(Type::from_str("void")), |exp| exp.gen_type(equs, trs))
     }
 }
 
 impl Transpile for Block {
     fn transpile(&self, ta: &TypeAnnotation) -> String {
-        let mut vec = self.statements.iter().map(|s| s.transpile(ta)).collect::<Vec<_>>();
+        let statements = self.statements.iter().map(|s| format!("{};\n", s.transpile(ta))).collect::<Vec<_>>().join("");
         if let Some(ref return_exp) = self.return_exp {
-            vec.push(format!("return {};", return_exp.transpile(ta)));
+            format!("{}return {};\n", statements, return_exp.transpile(ta))
         }
-        vec.join(";\n")
+        else {
+            statements
+        }
     }
 }
 

@@ -34,7 +34,12 @@ impl Tag {
     }
     pub fn generate_type_variable(&self, num: usize, equs: &mut TypeEquations) -> Type {
         let var = TypeVariable::Counter(self.get_num(), num);
-        equs.add_want_solve(&var);
+        equs.add_want_solve(&var, false);
+        Type::TypeVariable(var)
+    }
+    pub fn generate_not_void_type_variable(&self, num: usize, equs: &mut TypeEquations) -> Type {
+        let var = TypeVariable::Counter(self.get_num(), num);
+        equs.add_want_solve(&var, true);
         Type::TypeVariable(var)
     }
 }
@@ -63,6 +68,9 @@ impl<'a> Identifier {
     }
     pub fn generate_type_variable(&self, num: usize, equs: &mut TypeEquations) -> Type {
         self.tag.generate_type_variable(num, equs)
+    }
+    pub fn generate_not_void_type_variable(&self, num: usize, equs: &mut TypeEquations) -> Type {
+        self.tag.generate_not_void_type_variable(num, equs)
     }
     pub fn get_tag_number(&self) -> usize {
         self.tag.get_num()

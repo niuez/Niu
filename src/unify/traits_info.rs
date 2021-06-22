@@ -31,7 +31,9 @@ impl<'a> TraitsInfo<'a> {
             typeids: vec![
                 (TypeId::from_str("i64"), StructDefinitionInfo::Primitive),
                 (TypeId::from_str("u64"), StructDefinitionInfo::Primitive),
-                (TypeId::from_str("bool"), StructDefinitionInfo::Primitive)].into_iter().collect(),
+                (TypeId::from_str("bool"), StructDefinitionInfo::Primitive),
+                (TypeId::from_str("void"), StructDefinitionInfo::Primitive),
+                ].into_iter().collect(),
             traits: HashMap::new(),
             impls: HashMap::new(),
             self_impls: HashMap::new(),

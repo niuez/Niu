@@ -267,6 +267,7 @@ pub struct TypeEquations {
     variables: Vec<HashMap<Variable, Type>>,
     equs: VecDeque<TypeEquation>,
     want_solve: HashSet<TypeVariable>,
+    not_void_vars: HashSet<TypeVariable>,
     substs: Vec<TypeSubst>,
     self_type: Option<Type>,
 }
@@ -332,6 +333,7 @@ impl TypeEquations {
             change_cnt: 0,
             variables: Vec::new(),
             want_solve: HashSet::new(),
+            not_void_vars: HashSet::new(),
             substs: Vec::new(),
             self_type: None,
         }
@@ -362,8 +364,11 @@ impl TypeEquations {
             self.want_solve.insert(elem);
         }
     }
-    pub fn add_want_solve(&mut self, var: &TypeVariable) {
+    pub fn add_want_solve(&mut self, var: &TypeVariable, is_not_void: bool) {
         self.want_solve.insert(var.clone());
+        if is_not_void {
+            self.not_void_vars.insert(var.clone());
+        }
     }
     pub fn remove_want_solve(&mut self, var: &TypeVariable) -> bool {
         self.want_solve.remove(var)
@@ -754,11 +759,19 @@ impl TypeEquations {
                 return Err(UnifyErr::Deficiency(format!("change cnt = 0 {:?}", self.equs)));
             }
         }
-        if self.want_solve.is_empty() {
-            Ok(())
+
+        let voids = self.substs.iter()
+            .filter(|TypeSubst { tv, .. }| self.not_void_vars.contains(tv))
+            .filter(|TypeSubst{ t, .. }| *t == Type::from_str("void"))
+            .collect::<Vec<_>>();
+        if !self.want_solve.is_empty() {
+            Err(UnifyErr::Deficiency(format!("want_solve {:?} cant solve now", self.want_solve)))
+        }
+        else if voids.len() > 0 {
+            Err(UnifyErr::Contradiction(format!("voids appear {:?}", voids)))
         }
         else {
-            Err(UnifyErr::Deficiency(format!("want_solve {:?} cant solve now", self.want_solve)))
+            Ok(())
         }
     }
 }

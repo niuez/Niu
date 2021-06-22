@@ -1,0 +1,6 @@
+fn func() -> void {}
+
+fn main() -> void {
+  func();
+}
+
