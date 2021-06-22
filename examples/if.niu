@@ -1,0 +1,10 @@
+fn main() -> void {
+  let a = 2;
+  let b = 5;
+  let x = if a == 0 {
+    0
+  }
+  else {
+    b / a
+  };
+}

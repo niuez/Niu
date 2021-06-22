@@ -1,0 +1,42 @@
+struct Hoge {
+  a: i64,
+  b: u64,
+}
+
+struct Huga<S, T> {
+  s: S,
+  t: T
+}
+
+impl Hoge {
+  fn get_a(hoge: Hoge) -> i64 {
+    hoge.a
+  }
+  fn b_sum(hoge: Hoge, c: u64) -> u64 {
+    hoge.b + c
+  }
+}
+
+impl<S, T> Huga<S, T> {
+  fn new_huga(s: S, t: T) -> Huga<S, T> {
+    Huga { s: s, t: t }
+  }
+  fn get_s(huga: Huga<S, T>) -> S {
+    huga.s
+  }
+}
+
+fn main() -> void {
+  let hoge = Hoge { a: 1i64, b: 2u64 };
+  let huga = Huga { s: hoge, t: true };
+
+  let a1 = hoge.get_a();
+  let a2 = Hoge::get_a(hoge);
+
+  let b1 = hoge.b_sum(1u64);
+  let b2 = Hoge::b_sum(hoge, 1u64);
+  
+  let new_huga = Huga::new_huga(1i64, 2u64);
+  let s1 = huga.get_s();
+  let s2 = Huga::get_s(huga);
+}
