@@ -138,7 +138,7 @@ impl FuncDefinition {
             self.where_sec.regist_candidate(equs, &mut trs)?;
 
             for (i, t) in self.args.iter() {
-                let alpha = i.generate_type_variable(0, equs);
+                let alpha = i.generate_not_void_type_variable(0, equs);
                 let t_type = t.generics_to_type(&GenericsTypeMap::empty(), equs, &trs)?; 
                 equs.regist_variable(Variable::from_identifier(i.clone()), alpha.clone());
                 equs.add_equation(alpha, t_type);
