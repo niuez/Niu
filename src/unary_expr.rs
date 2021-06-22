@@ -7,7 +7,6 @@ use nom::combinator::*;
 use nom::multi::*;
 
 use crate::literal::{ Literal, parse_literal };
-use crate::type_id::*;
 use crate::identifier::{ Identifier, parse_identifier };
 use crate::expression::{ Expression, parse_expression };
 use crate::subseq::{ Subseq, parse_subseq, subseq_gen_type, subseq_transpile };

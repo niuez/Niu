@@ -7,7 +7,6 @@ use crate::traits::*;
 use crate::unify::*;
 use crate::type_spec::*;
 use crate::type_id::*;
-use crate::structs::*;
 use crate::identifier::*;
 #[derive(Debug, Clone, PartialEq, Eq)] pub struct CppInlineInfo {
     pub elems: Vec<CppInlineInfoElem>,
@@ -116,7 +115,7 @@ impl Type {
                 changed &= ret.subst(theta);
                 changed
             }
-            Type::Generics(ref ty, ref mut gens) => {
+            Type::Generics(ref _ty, ref mut gens) => {
                 gens.iter_mut().map(|gen| gen.subst(theta)).fold(SolveChange::Not, |a, b| a & b)
             }
             Type::SolvedAssociatedType(_, _) => { SolveChange::Not },
@@ -145,11 +144,6 @@ impl Type {
                 }
             }
         }
-    }
-
-    fn clone_type_variable(&self) -> TypeVariable {
-        if let Type::TypeVariable(ref tv) = *self { tv.clone() }
-        else { unreachable!("it is not TypeVariable") }
     }
 }
 
@@ -257,7 +251,7 @@ impl CallEquation {
             Ok(ret_ty) => {
                 Ok((ret_ty, SolveChange::Changed))
             }
-            Err(cands) => {
+            Err(_cands) => {
                 Ok((Type::CallEquation(self), next_change))
             }
         }

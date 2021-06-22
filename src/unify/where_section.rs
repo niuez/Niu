@@ -6,9 +6,7 @@ use nom::combinator::*;
 use nom::multi::*;
 use nom::sequence::*;
 use nom::IResult;
-use nom::branch::*;
 
-use crate::type_id::*;
 use crate::type_spec::*;
 use crate::traits::*;
 

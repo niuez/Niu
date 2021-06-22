@@ -8,12 +8,9 @@ use nom::IResult;
 
 use crate::type_id::*;
 use crate::identifier::{ Identifier, parse_identifier, Tag };
-use crate::expression::*;
 use crate::unify::*;
-use crate::unary_expr::Variable;
 use crate::trans::*;
 use crate::type_spec::*;
-use crate::traits::*;
 
 #[derive(Debug, Clone)]
 pub struct CppInline {
@@ -47,7 +44,7 @@ impl CppInline {
         Ok(CppInlineInfo { elems, tag })
     }
 
-    pub fn transpile(&self, ta: &TypeAnnotation, gen_mp: &HashMap<TypeId, String>) -> String {
+    pub fn transpile(&self, _ta: &TypeAnnotation, gen_mp: &HashMap<TypeId, String>) -> String {
         self.inlines.iter().map(|inline| match inline {
             CppInlineElem::Type(tyid) => {
                 gen_mp.get(tyid).unwrap().to_string()
@@ -55,7 +52,7 @@ impl CppInline {
             CppInlineElem::Any(c) => {
                 c.to_string()
             }
-            a => unreachable!("cant use inline {:?}", inline),
+            _ => unreachable!("cant use inline {:?}", inline),
         }).collect::<Vec<_>>().join("")
     }
 }

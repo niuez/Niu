@@ -10,7 +10,6 @@ use crate::statement::{ Statement, parse_statement };
 use crate::expression::{ Expression, parse_expression };
 use crate::unify::*;
 use crate::trans::*;
-use crate::identifier::Tag;
 
 #[derive(Debug)]
 pub struct Block {

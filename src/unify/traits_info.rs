@@ -6,7 +6,6 @@ use crate::traits::*;
 use crate::type_spec::*;
 use crate::unify::*;
 use crate::type_id::*;
-use crate::func_definition::*;
 
 #[derive(Debug, Clone)]
 pub enum StructDefinitionInfo {

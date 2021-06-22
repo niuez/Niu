@@ -12,7 +12,6 @@ use crate::type_id::*;
 use crate::type_spec::*;
 use crate::unify::*;
 //use crate::unary_expr::Variable;
-use crate::trans::*;
 use crate::traits::*;
 use crate::func_definition::*;
 
@@ -134,7 +133,6 @@ impl ImplSelfCandidate {
         let res = match func_ty {
             Type::Func(args, ret, FuncTypeInfo::None) => {
                 let tag = Tag::new();
-                let len = gen_vec.len();
                 for (i, gen) in gen_vec.into_iter().enumerate() {
                     let alpha = tag.generate_type_variable(i, equs);
                     equs.add_equation(alpha, gen.1);

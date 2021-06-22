@@ -7,10 +7,8 @@ use nom::bytes::complete::*;
 
 use crate::expression::{ Expression, parse_expression };
 use crate::block::{ Block, parse_block };
-use crate::type_id::TypeId;
 use crate::unify::*;
 use crate::trans::*;
-use crate::type_spec::TypeSpec;
 
 #[derive(Debug)]
 struct IfPair {

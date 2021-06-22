@@ -15,7 +15,6 @@ use crate::unify::*;
 use crate::unary_expr::Variable;
 use crate::trans::*;
 use crate::type_spec::*;
-use crate::traits::*;
 use crate::cpp_inline::*;
 
 
@@ -190,10 +189,10 @@ impl Transpile for FuncDefinition {
     }
 }
 
-fn parse_generics_arg(s: &str) -> IResult<&str, (TypeId, Option<TraitId>)> {
+/*fn parse_generics_arg(s: &str) -> IResult<&str, (TypeId, Option<TraitId>)> {
     let (s, (id, _, opt)) = tuple((parse_type_id, space0, opt(tuple((char(':'), space0, parse_trait_id)))))(s)?;
     Ok((s, (id, opt.map(|(_, _, tr)| tr))))
-}
+}*/
 
 pub fn parse_func_definition_info(s: &str) -> IResult<&str, FuncDefinitionInfo> {
     let (s, (_, _, func_id, _, generics_opt, _, _, _, op, _, _, _, _, return_type, _, where_sec)) = 

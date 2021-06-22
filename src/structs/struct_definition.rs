@@ -45,7 +45,7 @@ impl StructDefinition {
     }
     pub fn get_member_type(&self, equs: &mut TypeEquations, trs: &TraitsInfo, gens: &Vec<Type>, id: &Identifier) -> TResult {
         match self.member {
-            StructMember::MemberInfo(MemberInfo { ref members_order, ref members }) => {
+            StructMember::MemberInfo(MemberInfo { ref members, .. }) => {
                 match members.get(id) {
                     Some(spec) => {
                         let mp = self.generics.iter().cloned().zip(gens.iter().cloned()).collect();

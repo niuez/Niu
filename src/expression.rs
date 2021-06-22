@@ -9,10 +9,8 @@ use nom::bytes::complete::*;
 use nom::branch::*;
 
 use crate::unary_expr::{ UnaryExpr, parse_unary_expr };
-use crate::type_id::TypeId;
 use crate::unify::*;
 use crate::trans::*;
-use crate::type_spec::TypeSpec;
 
 pub use if_expr::*;
 

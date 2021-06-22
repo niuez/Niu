@@ -8,10 +8,8 @@ use nom::IResult;
 
 
 use crate::unary_expr::UnaryExpr;
-use crate::type_id::TypeId;
 use crate::unify::*;
 use crate::trans::*;
-use crate::type_spec::TypeSpec;
 
 #[derive(Debug)]
 pub enum Literal {
