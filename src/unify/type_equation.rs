@@ -357,12 +357,15 @@ impl TypeEquations {
         std::mem::replace(&mut self.substs, Vec::new())
     }
     pub fn take_over_equations(&mut self, mut gen_equs: Self) {
-        self.equs.append(&mut gen_equs.equs);
-        self.substs.append(&mut gen_equs.substs);
-        self.change_cnt += gen_equs.change_cnt;
         for elem in std::mem::replace(&mut gen_equs.want_solve, HashSet::new()).into_iter() {
             self.want_solve.insert(elem);
         }
+        for TypeSubst { tv, .. } in gen_equs.substs.iter() {
+            self.want_solve.remove(tv);
+        }
+        self.equs.append(&mut gen_equs.equs);
+        self.substs.append(&mut gen_equs.substs);
+        self.change_cnt += gen_equs.change_cnt;
     }
     pub fn add_want_solve(&mut self, var: &TypeVariable, is_not_void: bool) {
         self.want_solve.insert(var.clone());
@@ -737,7 +740,29 @@ impl TypeEquations {
                             }
                             self.substs.push(th);
                         }
-                        (Type::TypeVariable(_), Type::TypeVariable(_)) => {
+                        (Type::TypeVariable(lv), rt) => {
+                            if rt.occurs(&lv) {
+                                Err(UnifyErr::Contradiction(format!("unification failed, occurs")))?;
+                            }
+                            let th = TypeSubst { tv: lv.clone(), t: rt.clone() };
+                            self.subst(&th);
+                            for TypeSubst { t, .. } in self.substs.iter_mut() {
+                                t.subst(&th);
+                            }
+                            self.substs.push(th);
+                        }
+                        (rt, Type::TypeVariable(lv)) => {
+                            if rt.occurs(&lv) {
+                                Err(UnifyErr::Contradiction(format!("unification failed, occurs")))?;
+                            }
+                            let th = TypeSubst { tv: lv.clone(), t: rt.clone() };
+                            self.subst(&th);
+                            for TypeSubst { t, .. } in self.substs.iter_mut() {
+                                t.subst(&th);
+                            }
+                            self.substs.push(th);
+                        }
+                        /*(Type::TypeVariable(_), Type::TypeVariable(_)) => {
                             let all_not_want = self.equs.iter().map(|equ| match equ {
                                 TypeEquation::Equal(Type::TypeVariable(l), Type::TypeVariable(r), _)
                                     if !self.want_solve.contains(l) && !self.want_solve.contains(r) => {
@@ -748,7 +773,7 @@ impl TypeEquations {
                             if all_not_want {
                                 return Err(UnifyErr::Deficiency(format!("all not want solve variable {:?}", self.equs)))
                             }
-                        }
+                        }*/
                         (l, r) => {
                             Err(UnifyErr::Contradiction(format!("unfication failed, {:?} != {:?}", l, r)))?
                         }
