@@ -5,6 +5,7 @@ use nom::character::complete::*;
 use nom::sequence::*;
 use nom::combinator::*;
 use nom::multi::*;
+use nom::bytes::complete::*;
 
 use crate::type_id::*;
 use crate::traits::*;
@@ -159,6 +160,7 @@ impl Transpile for TypeSign {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum TypeSpec {
     TypeSign(TypeSign),
+    Pointer(Box<TypeSpec>),
     Associated(Box<TypeSpec>, AssociatedType),
 }
 
@@ -167,6 +169,9 @@ impl TypeSpec {
         match *self {
             TypeSpec::TypeSign(ref sign) => {
                 sign.generics_to_type(mp, equs, trs)
+            }
+            TypeSpec::Pointer(ref spec) => {
+                unimplemented!();
             }
             TypeSpec::Associated(ref spec, ref asso) => {
                 Ok(Type::AssociatedType(Box::new(spec.as_ref().generics_to_type(mp, equs, trs)?), asso.clone()))
@@ -179,6 +184,9 @@ impl TypeSpec {
             TypeSpec::TypeSign(ref sign) => {
                 sign.generate_type_no_auto_generics(equs, trs)
             }
+            TypeSpec::Pointer(ref spec) => {
+                unimplemented!();
+            }
             TypeSpec::Associated(ref spec, ref asso) => {
                 Ok(Type::AssociatedType(Box::new(spec.as_ref().generate_type_no_auto_generics(equs, trs)?), asso.clone()))
             }
@@ -188,6 +196,9 @@ impl TypeSpec {
     pub fn associated_type_depth(&self) -> usize {
         match self {
             TypeSpec::TypeSign(_) => 0,
+            TypeSpec::Pointer(spec) => {
+                spec.associated_type_depth()
+            }
             TypeSpec::Associated(spec, _) => 1 + spec.associated_type_depth(),
         }
     }
@@ -195,6 +206,9 @@ impl TypeSpec {
     pub fn get_type_id(&self) -> Result<TypeId, String> {
         match self {
             TypeSpec::TypeSign(sign) => Ok(sign.get_type_id()),
+            TypeSpec::Pointer(spec) => {
+                unimplemented!();
+            }
             TypeSpec::Associated(_, _) => Err(format!("cant get typeid from {:?}", self)),
         }
     }
@@ -207,15 +221,27 @@ impl TypeSpec {
     }
 }
 
+fn parse_pointer(s: &str) -> IResult<&str, ()> {
+    let (s, _) = tuple((space0, tag("*")))(s)?;
+    Ok((s, ()))
+}
+
+fn parse_type_spec_subseq(s: &str, prev: TypeSpec) -> IResult<&str, TypeSpec> {
+    if let Ok((ss, (_, _, _, asso_ty))) = tuple((space0, char('#'), space0, parse_associated_type))(s) {
+        parse_type_spec_subseq(ss, TypeSpec::Associated(Box::new(prev), asso_ty))
+    }
+    else if let Ok((ss, _)) = parse_pointer(s) {
+        parse_type_spec_subseq(ss, TypeSpec::Pointer(Box::new(prev)))
+    }
+    else {
+        Ok((s, prev))
+    }
+}
+
 pub fn parse_type_spec(s: &str) -> IResult<&str, TypeSpec> {
     let (s, type_id) = parse_type_sign(s)?;
-    let mut now = s;
-    let mut prev = TypeSpec::TypeSign(type_id);
-    while let Ok((s, (_, _, _, asso_ty))) = tuple((space0, char('#'), space0, parse_associated_type))(now) {
-        now = s;
-        prev = TypeSpec::Associated(Box::new(prev), asso_ty);
-    }
-    Ok((now, prev))
+    let prev = TypeSpec::TypeSign(type_id);
+    parse_type_spec_subseq(s, prev)
 }
 
 /* 
@@ -235,6 +261,9 @@ impl Transpile for TypeSpec {
     fn transpile(&self, ta: &TypeAnnotation) -> String {
         match *self {
             TypeSpec::TypeSign(ref sign) => sign.transpile(ta),
+            TypeSpec::Pointer(ref spec) => {
+                format!("{}*", spec.transpile(ta))
+            }
             TypeSpec::Associated(ref spec, AssociatedType { ref trait_id, ref type_id } ) => {
                 format!("typename {}<{}>::{}", trait_id.transpile(ta), spec.transpile(ta), type_id.transpile(ta))
             }
