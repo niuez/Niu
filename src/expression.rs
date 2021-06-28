@@ -569,7 +569,7 @@ impl ParseOperator for OperatorAddSub {
 
 #[derive(Debug)]
 pub struct ExpMulDivRem {
-    pub unary_exprs: Vec<UnaryExpr>,
+    pub unary_exprs: Vec<ExpUnaryOpe>,
     pub opes: Vec<OperatorMulDivRem>,
 }
 
@@ -612,14 +612,14 @@ impl Transpile for OperatorMulDivRem {
 }
 
 impl ParseExpression for ExpMulDivRem {
-    type Child = UnaryExpr;
+    type Child = ExpUnaryOpe;
     type Operator = OperatorMulDivRem;
     fn new_expr(unary_exprs: Vec<Self::Child>, opes: Vec<Self::Operator>) -> Self {
         Self { unary_exprs, opes }
     }
     fn parse_expression(s: &str) -> IResult<&str, Self> {
         let (s, (head, _, tails)) = 
-            tuple((parse_unary_expr, space0, many0(tuple((Self::Operator::parse_operator, space0, parse_unary_expr, space0)))))(s)?;
+            tuple((parse_exp_unary_ope, space0, many0(tuple((Self::Operator::parse_operator, space0, parse_exp_unary_ope, space0)))))(s)?;
         let mut unary_exprs = vec![head];
         let mut opes = Vec::new();
 
@@ -642,6 +642,52 @@ impl ParseOperator for OperatorMulDivRem {
         };
         Ok((s, ope))
     }
+}
+
+#[derive(Debug)]
+pub enum ExpUnaryOpe {
+    UnaryExpr(UnaryExpr),
+    Ref(Box<ExpUnaryOpe>),
+    Deref(Box<ExpUnaryOpe>),
+}
+
+impl GenType for ExpUnaryOpe {
+    fn gen_type(&self, equs: &mut TypeEquations, trs: &TraitsInfo) -> TResult {
+        match self {
+            Self::UnaryExpr(ref exp) => exp.gen_type(equs, trs),
+            Self::Ref(ref exp) => exp.as_ref().gen_type(equs, trs),
+            Self::Deref(ref exp) => exp.as_ref().gen_type(equs, trs),
+        }
+    }
+}
+
+impl Transpile for ExpUnaryOpe {
+    fn transpile(&self, ta: &TypeAnnotation) -> String {
+        match self {
+            Self::UnaryExpr(ref exp) => exp.transpile(ta),
+            Self::Ref(ref exp) => exp.as_ref().transpile(ta),
+            Self::Deref(ref exp) => exp.as_ref().transpile(ta),
+        }
+    }
+}
+
+pub fn parse_exp_unary_ope_ref(s: &str) -> IResult<&str, ExpUnaryOpe> {
+    let (s, (_, _, exp)) = tuple((char('&'), space0, parse_exp_unary_ope))(s)?;
+    Ok((s, ExpUnaryOpe::Ref(Box::new(exp))))
+}
+
+pub fn parse_exp_unary_ope_deref(s: &str) -> IResult<&str, ExpUnaryOpe> {
+    let (s, (_, _, exp)) = tuple((char('*'), space0, parse_exp_unary_ope))(s)?;
+    Ok((s, ExpUnaryOpe::Deref(Box::new(exp))))
+}
+
+pub fn parse_exp_unary_ope_unary_exp(s: &str) -> IResult<&str, ExpUnaryOpe> {
+    let (s, exp) = parse_unary_expr(s)?;
+    Ok((s, ExpUnaryOpe::UnaryExpr(exp)))
+}
+
+pub fn parse_exp_unary_ope(s: &str) -> IResult<&str, ExpUnaryOpe> {
+    alt((parse_exp_unary_ope_ref, parse_exp_unary_ope_deref, parse_exp_unary_ope_unary_exp))(s)
 }
 
 
@@ -683,6 +729,12 @@ fn parse_conditions_test() {
 #[test]
 fn parse_all_test() {
     println!("{:?}", parse_expression("1 + 2 == 3 * 4 || 5 << 6 & 7 >> 8 != 9 | 0 ^ 1 && 2 % 3 < 4 / 5 && 6 > 7 && 8 < 9 || 0 <= 1 && 2 >= 3"));
+}
+
+#[test]
+fn parse_ref_test() {
+    println!("{:?}", parse_expression("*var"));
+    println!("{:?}", parse_expression("&var"));
 }
 
 #[test]
