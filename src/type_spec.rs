@@ -5,6 +5,7 @@ use nom::character::complete::*;
 use nom::sequence::*;
 use nom::combinator::*;
 use nom::multi::*;
+use nom::branch::*;
 use nom::bytes::complete::*;
 
 use crate::type_id::*;
@@ -221,27 +222,33 @@ impl TypeSpec {
     }
 }
 
-fn parse_pointer(s: &str) -> IResult<&str, ()> {
-    let (s, _) = tuple((space0, tag("*")))(s)?;
-    Ok((s, ()))
-}
-
 fn parse_type_spec_subseq(s: &str, prev: TypeSpec) -> IResult<&str, TypeSpec> {
     if let Ok((ss, (_, _, _, asso_ty))) = tuple((space0, char('#'), space0, parse_associated_type))(s) {
         parse_type_spec_subseq(ss, TypeSpec::Associated(Box::new(prev), asso_ty))
-    }
-    else if let Ok((ss, _)) = parse_pointer(s) {
-        parse_type_spec_subseq(ss, TypeSpec::Pointer(Box::new(prev)))
     }
     else {
         Ok((s, prev))
     }
 }
 
-pub fn parse_type_spec(s: &str) -> IResult<&str, TypeSpec> {
-    let (s, type_id) = parse_type_sign(s)?;
-    let prev = TypeSpec::TypeSign(type_id);
+fn parse_type_spec_pointer(s: &str) -> IResult<&str, TypeSpec> {
+    let (s, (_, _, spec)) = tuple((tag("*"), space0, parse_type_spec))(s)?;
+    Ok((s, TypeSpec::Pointer(Box::new(spec))))
+}
+
+fn parse_type_spec_paren(s: &str) -> IResult<&str, TypeSpec> {
+    let (s, (_, _, spec, _)) = tuple((tag("("), space0, parse_type_spec, tag(")")))(s)?;
+    Ok((s, spec))
+}
+
+fn parse_type_spec_sign(s: &str) -> IResult<&str, TypeSpec> {
+    let (s, sign) = parse_type_sign(s)?;
+    let prev = TypeSpec::TypeSign(sign);
     parse_type_spec_subseq(s, prev)
+}
+
+pub fn parse_type_spec(s: &str) -> IResult<&str, TypeSpec> {
+    alt((parse_type_spec_pointer, parse_type_spec_paren, parse_type_spec_sign))(s)
 }
 
 /* 
@@ -278,6 +285,10 @@ fn parse_type_spec_test() {
     println!("{:?}", parse_type_spec("i64#MyTrait::Output"));
     println!("{:?}", parse_type_spec("Pair<Pair<i64, u64>, bool>"));
     println!("{:?}", parse_type_spec("T#MyTrait::Output#MyTrait::Output"));
+    println!("{:?}", parse_type_spec("(i64)"));
+    println!("{:?}", parse_type_spec("*i64"));
+    println!("{:?}", parse_type_spec("*(*i64)"));
+    println!("{:?}", parse_type_spec("*(T#MyTrait::Output)"));
     // println!("{:?}", parse_type_spec("Pair<Pair<i64, u64>, bool>").unwrap().1.gen_type(&mut equs));
 }
     
