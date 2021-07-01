@@ -58,6 +58,8 @@ pub enum Type {
     TraitMethod(Box<Type>, Option<TraitId>, Identifier),
     Member(Box<Type>, Identifier),
     CallEquation(CallEquation),
+    Ref(Box<Type>),
+    Deref(Box<Type>),
     End,
 }
 
@@ -75,7 +77,7 @@ impl Type {
     }
     fn occurs(&self, t: &TypeVariable) -> bool {
         match *self {
-            Type::TypeVariable(ref s) if s == t => true,
+            Type::TypeVariable(ref s) => s == t,
             Type::Func(ref args, ref ret, _) => {
                 for arg in args.iter() {
                     if arg.occurs(t) { return true; }
@@ -92,6 +94,9 @@ impl Type {
             Type::AssociatedType(ref ty, _) => {
                 ty.as_ref().occurs(t)
             }
+            Type::SolvedAssociatedType(ref ty, _) => {
+                ty.as_ref().occurs(t)
+            }
             Type::TraitMethod(ref ty, _, _) => {
                 ty.as_ref().occurs(t)
             }
@@ -101,7 +106,13 @@ impl Type {
             Type::CallEquation(ref call_eq) => {
                 call_eq.occurs(t)
             }
-            _ => false,
+            Type::Ref(ref ty) => {
+                ty.as_ref().occurs(t)
+            }
+            Type::Deref(ref ty) => {
+                ty.as_ref().occurs(t)
+            }
+            Type::End => false,
         }
     }
 
@@ -130,6 +141,12 @@ impl Type {
             }
             Type::CallEquation(ref mut call_eq) => {
                 call_eq.subst(theta)
+            }
+            Type::Ref(ref mut ty) => {
+                ty.as_mut().subst(theta)
+            }
+            Type::Deref(ref mut ty) => {
+                ty.as_mut().subst(theta)
             }
             Type::End => { SolveChange::Not },
             // TypeVariable
@@ -446,7 +463,8 @@ impl TypeEquations {
         let (ty, b2) = self.solve_trait_method(ty, trs)?;
         let (ty, b3) = self.solve_member(ty, trs)?;
         let (ty, b4) = self.solve_generics(ty, trs)?;
-        Ok((ty, b0 & b1 & b2 & b3 & b4))
+        let (ty, b5) = self.solve_deref(ty, trs)?;
+        Ok((ty, b0 & b1 & b2 & b3 & b4 & b5))
     }
 
     fn solve_call_equation(&mut self, ty: Type, trs: &TraitsInfo) -> Result<(Type, SolveChange), UnifyErr> {
@@ -635,6 +653,19 @@ impl TypeEquations {
         }
     }
 
+    fn solve_deref(&mut self, ty: Type, trs: &TraitsInfo) -> Result<(Type, SolveChange), UnifyErr> {
+        if let Type::Deref(ty) = ty {
+            let (ty, inner_change) = self.solve_relations(*ty, trs)?;
+            match ty {
+                Type::Ref(ty) => Ok((*ty, SolveChange::Changed)),
+                ty => Ok((ty, inner_change)),
+            }
+        }
+        else {
+            Ok((ty, SolveChange::Not))
+        }
+    }
+
     pub fn unify(&mut self, trs: &TraitsInfo) -> Result<(), UnifyErr> {
         /* println!("unify");
         for (i, equ) in self.equs.iter().enumerate() {
@@ -694,6 +725,14 @@ impl TypeEquations {
                             self.equs.push_back(TypeEquation::Equal(left, Type::CallEquation(call), changed));
                             self.change_cnt += changed.cnt();
                         }
+                        (Type::Deref(ty), right) => {
+                            self.equs.push_back(TypeEquation::Equal(Type::Deref(ty), right, changed));
+                            self.change_cnt += changed.cnt();
+                        }
+                        (left, Type::Deref(ty)) => {
+                            self.equs.push_back(TypeEquation::Equal(left, Type::Deref(ty), changed));
+                            self.change_cnt += changed.cnt();
+                        }
                         (Type::Func(l_args, l_return, _), Type::Func(r_args, r_return, _)) => {
                             if l_args.len() != r_args.len() {
                                 Err(UnifyErr::Deficiency(format!("length of args is not equal. {:?}, {:?} vs {:?}, {:?}",
@@ -717,6 +756,9 @@ impl TypeEquations {
                                     self.add_equation(l, r);
                                 }
                             }
+                        }
+                        (Type::Ref(l_ty), Type::Ref(r_ty)) => {
+                            self.add_equation(*l_ty, *r_ty);
                         }
                         (Type::TypeVariable(lv), rt) if self.remove_want_solve(&lv) => {
                             if rt.occurs(&lv) {
