@@ -172,7 +172,7 @@ impl TypeSpec {
                 sign.generics_to_type(mp, equs, trs)
             }
             TypeSpec::Pointer(ref spec) => {
-                unimplemented!();
+                Ok(Type::Ref(Box::new(spec.as_ref().generics_to_type(mp, equs, trs)?)))
             }
             TypeSpec::Associated(ref spec, ref asso) => {
                 Ok(Type::AssociatedType(Box::new(spec.as_ref().generics_to_type(mp, equs, trs)?), asso.clone()))
@@ -186,7 +186,7 @@ impl TypeSpec {
                 sign.generate_type_no_auto_generics(equs, trs)
             }
             TypeSpec::Pointer(ref spec) => {
-                unimplemented!();
+                Ok(Type::Ref(Box::new(spec.as_ref().generate_type_no_auto_generics(equs, trs)?)))
             }
             TypeSpec::Associated(ref spec, ref asso) => {
                 Ok(Type::AssociatedType(Box::new(spec.as_ref().generate_type_no_auto_generics(equs, trs)?), asso.clone()))
@@ -208,7 +208,7 @@ impl TypeSpec {
         match self {
             TypeSpec::TypeSign(sign) => Ok(sign.get_type_id()),
             TypeSpec::Pointer(spec) => {
-                unimplemented!();
+                Err(format!("cant get typeid from pointer {:?}", self))
             }
             TypeSpec::Associated(_, _) => Err(format!("cant get typeid from {:?}", self)),
         }
@@ -232,7 +232,7 @@ fn parse_type_spec_subseq(s: &str, prev: TypeSpec) -> IResult<&str, TypeSpec> {
 }
 
 fn parse_type_spec_pointer(s: &str) -> IResult<&str, TypeSpec> {
-    let (s, (_, _, spec)) = tuple((tag("*"), space0, parse_type_spec))(s)?;
+    let (s, (_, _, spec)) = tuple((tag("&"), space0, parse_type_spec))(s)?;
     Ok((s, TypeSpec::Pointer(Box::new(spec))))
 }
 

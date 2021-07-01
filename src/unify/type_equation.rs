@@ -170,6 +170,9 @@ impl Transpile for Type {
             Type::SolvedAssociatedType(ref ty, ref asso) => {
                 format!("typename {}<{}>::{}", asso.trait_id.transpile(ta), ty.as_ref().transpile(ta), asso.type_id.transpile(ta))
             }
+            Type::Ref(ref ty) => {
+                format!("{}*", ty.as_ref().transpile(ta))
+            }
             Type::Generics(ref ty_id, ref gens) => {
                 if let Some((ids, cppinline)) = ta.is_inline_struct(ty_id) {
                     let mp = ids.iter().cloned().zip(gens.iter().map(|g| g.transpile(ta))).collect::<HashMap<_, _>>();

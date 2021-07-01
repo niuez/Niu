@@ -1,0 +1,8 @@
+fn get_pointer_value(a: &i64) -> i64 {
+  *a
+}
+
+fn main() -> void {
+  let a = 91i64;
+  let b = get_pointer_value(&a);
+}

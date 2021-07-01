@@ -655,8 +655,8 @@ impl GenType for ExpUnaryOpe {
     fn gen_type(&self, equs: &mut TypeEquations, trs: &TraitsInfo) -> TResult {
         match self {
             Self::UnaryExpr(ref exp) => exp.gen_type(equs, trs),
-            Self::Ref(ref exp) => exp.as_ref().gen_type(equs, trs),
-            Self::Deref(ref exp) => exp.as_ref().gen_type(equs, trs),
+            Self::Ref(ref exp) => Ok(Type::Ref(Box::new(exp.as_ref().gen_type(equs, trs)?))),
+            Self::Deref(ref exp) => Ok(Type::Deref(Box::new(exp.as_ref().gen_type(equs, trs)?))),
         }
     }
 }
@@ -665,8 +665,8 @@ impl Transpile for ExpUnaryOpe {
     fn transpile(&self, ta: &TypeAnnotation) -> String {
         match self {
             Self::UnaryExpr(ref exp) => exp.transpile(ta),
-            Self::Ref(ref exp) => exp.as_ref().transpile(ta),
-            Self::Deref(ref exp) => exp.as_ref().transpile(ta),
+            Self::Ref(ref exp) => format!("&{}", exp.as_ref().transpile(ta)),
+            Self::Deref(ref exp) => format!("*{}", exp.as_ref().transpile(ta)),
         }
     }
 }
