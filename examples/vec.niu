@@ -2,11 +2,11 @@ struct Vec<T> $${std::vector<$ty(T)>}$$
 
 impl<T> Vec<T> {
   fn new() -> Self $${std::vector<$ty(T)>()}$$
-  fn push(self: Self, t: T) -> bool $${$arg(self).push_back($arg(t))}$$
+  fn push(self: &Self, t: T) -> bool $${$arg(self)->push_back($arg(t))}$$
 }
 
 fn main() -> Vec<i64> {
   let vec = Vec::new();
-  vec.push(1i64);
+  (&vec).push(1i64);
   vec
 }

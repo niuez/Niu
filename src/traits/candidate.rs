@@ -185,14 +185,19 @@ impl ImplCandidate {
             }
         }
         let mut equs = TypeEquations::new();
-        equs.set_self_type(Some(call_eq.caller_type.as_ref().clone()));
+        let self_type = call_eq.tag.generate_type_variable(2, &mut equs);
+        equs.set_self_type(Some(self_type.clone()));
 
-        let gen_mp = self.generics.iter().enumerate().map(|(i, id)| (id.clone(), call_eq.tag.generate_type_variable(i + 2, &mut equs)))
+        if let Some(ref caller_type) = call_eq.caller_type {
+            equs.add_equation(self_type.clone(), caller_type.as_ref().clone());
+        }
+
+        let gen_mp = self.generics.iter().enumerate().map(|(i, id)| (id.clone(), call_eq.tag.generate_type_variable(i + 3, &mut equs)))
             .collect::<HashMap<_, _>>();
         let mp = GenericsTypeMap::empty();
         let gen_mp = mp.next(gen_mp);
         let impl_ty = self.impl_ty.generics_to_type(&gen_mp, &mut equs, trs).unwrap();
-        equs.add_equation(impl_ty, call_eq.caller_type.as_ref().clone());
+        equs.add_equation(impl_ty, self_type.clone());
         self.where_sec.regist_equations(&gen_mp, &mut equs, trs)?;
         let func_ty = self.require_methods
             .get(&TraitMethodIdentifier { id: call_eq.func_id.clone() })
@@ -205,7 +210,7 @@ impl ImplCandidate {
                     FuncTypeInfo::None => {
                         let tag = Tag::new();
                         let alpha = tag.generate_type_variable(0, &mut equs);
-                        equs.add_equation(alpha, call_eq.caller_type.as_ref().clone());
+                        equs.add_equation(alpha, self_type.clone());
                         FuncTypeInfo::TraitFunc(self.trait_id.clone(), tag)
                     }
                     info => info,
@@ -299,8 +304,14 @@ impl ParamCandidate {
             }
         }
         let mut equs = TypeEquations::new();
-        equs.set_self_type(Some(call_eq.caller_type.as_ref().clone()));
-        equs.add_equation(self.impl_ty.clone(), call_eq.caller_type.as_ref().clone());
+        let self_type = call_eq.tag.generate_type_variable(2, &mut equs);
+        equs.set_self_type(Some(self_type.clone()));
+
+        if let Some(ref caller_type) = call_eq.caller_type {
+            equs.add_equation(self_type.clone(), caller_type.as_ref().clone());
+        }
+
+        equs.add_equation(self.impl_ty.clone(), self_type.clone());
         let func_ty = self.require_methods
             .get(&TraitMethodIdentifier { id: call_eq.func_id.clone() })
             .ok_or(format!("require methods doesnt have {:?}", call_eq.func_id))?
@@ -312,7 +323,7 @@ impl ParamCandidate {
                     FuncTypeInfo::None => {
                         let tag = Tag::new();
                         let alpha = tag.generate_type_variable(0, &mut equs);
-                        equs.add_equation(alpha, call_eq.caller_type.as_ref().clone());
+                        equs.add_equation(alpha, self_type.clone());
                         FuncTypeInfo::TraitFunc(self.trait_id.clone(), tag)
                     }
                     info => info,

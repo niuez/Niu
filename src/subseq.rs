@@ -28,7 +28,7 @@ pub fn subseq_gen_type(uexpr: &UnaryExpr, subseq: &Subseq, equs: &mut TypeEquati
                     let caller = mem_caller.gen_type(equs, trs)?;
                     let args = std::iter::once(Ok(caller.clone())).chain(call.args.iter().map(|arg| arg.gen_type(equs, trs))).collect::<Result<Vec<_>, String>>()?;
                     Ok(Type::CallEquation(CallEquation {
-                        caller_type: Box::new(caller),
+                        caller_type: None,
                         trait_id: None,
                         func_id: mem.mem_id.clone(),
                         args,
@@ -39,7 +39,7 @@ pub fn subseq_gen_type(uexpr: &UnaryExpr, subseq: &Subseq, equs: &mut TypeEquati
                     let caller = spec.generics_to_type(&GenericsTypeMap::empty(), equs, trs)?;
                     let args = call.args.iter().map(|arg| arg.gen_type(equs, trs)).collect::<Result<Vec<_>, String>>()?;
                     Ok(Type::CallEquation(CallEquation {
-                        caller_type: Box::new(caller),
+                        caller_type: Some(Box::new(caller)),
                         trait_id: trait_op.clone(),
                         func_id: func_id.clone(),
                         args,

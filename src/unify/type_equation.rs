@@ -238,7 +238,7 @@ pub enum TypeEquation {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CallEquation {
-    pub caller_type: Box<Type>,
+    pub caller_type: Option<Box<Type>>,
     pub trait_id: Option<TraitId>,
     pub func_id: Identifier,
     pub args: Vec<Type>,
@@ -247,19 +247,25 @@ pub struct CallEquation {
 
 impl CallEquation {
     pub fn occurs(&self, tv: &TypeVariable) -> bool {
-        self.caller_type.as_ref().occurs(tv)
+        self.caller_type.as_ref().map_or(false, |t| t.occurs(tv))
             || self.args.iter().map(|arg| arg.occurs(tv)).any(|f| f)
     }
     pub fn subst(&mut self, theta: &TypeSubst) -> SolveChange {
         let mut changed = SolveChange::Not;
-        changed &= self.caller_type.as_mut().subst(theta);
+        changed &= self.caller_type.as_mut().map_or(SolveChange::Not, |t| t.subst(theta));
         self.args.iter_mut().map(|arg| arg.subst(theta))
             .fold(changed, |a, b| a & b)
     }
 
     pub fn solve(mut self, equs: &mut TypeEquations, trs: &TraitsInfo) -> Result<(Type, SolveChange), UnifyErr> {
-        let (caller_type, caller_changed) = equs.solve_relations(*self.caller_type, trs)?;
-        self.caller_type = Box::new(caller_type);
+        let caller_changed = if let Some(caller_type) = self.caller_type {
+            let (caller_type, caller_changed) = equs.solve_relations(*caller_type, trs)?;
+            self.caller_type = Some(Box::new(caller_type));
+            caller_changed
+        }
+        else {
+            SolveChange::Not
+        };
 
         let args = self.args.into_iter().map(|arg| equs.solve_relations(arg, trs)).collect::<Result<Vec<_>, UnifyErr>>()?;
         let args_changed = args.iter().map(|(_, c)| *c).fold(SolveChange::Not, |b, a| b & a);
