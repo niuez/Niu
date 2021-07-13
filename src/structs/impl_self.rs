@@ -21,7 +21,7 @@ pub struct ImplSelfDefinition {
     pub impl_ty: TypeSpec,
     pub where_sec: WhereSection,
     pub require_methods: HashMap<Identifier, FuncDefinition>,
-    tag: Tag,
+    pub tag: Tag,
 }
 
 #[derive(Debug, Clone)]

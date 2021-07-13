@@ -9,7 +9,7 @@ use crate::type_id::*;
 
 #[derive(Debug, Clone)]
 pub enum StructDefinitionInfo {
-    Def(StructDefinition),
+    Def(StructMemberDefinition),
     Generics,
     Primitive
 }
@@ -53,7 +53,7 @@ impl<'a> TraitsInfo<'a> {
             upper_info: Some(self),
         }
     }
-    pub fn regist_structs_info(&mut self, st: &StructDefinition) -> Result<(), String> {
+    pub fn regist_structs_info(&mut self, st: &StructMemberDefinition) -> Result<(), String> {
         let id = st.get_id();
         match self.typeids.insert(id.clone(), StructDefinitionInfo::Def(st.clone())) {
             Some(_) => Err(format!("duplicate struct definition: {:?}", id)),

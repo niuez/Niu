@@ -18,6 +18,9 @@ pub struct WhereSection {
 }
 
 impl WhereSection {
+    pub fn empty() -> Self {
+        WhereSection { has_traits: Vec::new() }
+    }
     pub fn regist_equations(&self, mp: &GenericsTypeMap, equs: &mut TypeEquations, trs: &TraitsInfo) -> Result<(), String> {
         for (spec, _, tr_id, asso_eqs) in self.has_traits.iter() {
             let ty = spec.generics_to_type(mp, equs, trs)?;

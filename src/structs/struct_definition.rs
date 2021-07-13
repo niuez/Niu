@@ -8,10 +8,12 @@ use nom::sequence::*;
 use nom::combinator::*;
 use nom::branch::*;
 
-use crate::identifier::{ Identifier, parse_identifier };
+use crate::identifier::{ Identifier, parse_identifier, Tag };
 use crate::type_id::*;
 use crate::type_spec::*;
 use crate::cpp_inline::*;
+use crate::structs::*;
+use crate::func_definition::*;
 //use crate::unary_expr::Variable;
 use crate::unify::*;
 
@@ -30,13 +32,32 @@ pub enum StructMember {
 }
 
 #[derive(Debug, Clone)]
-pub struct StructDefinition {
+pub struct StructMemberDefinition {
     pub struct_id: TypeId,
     pub generics: Vec<TypeId>,
     pub member: StructMember,
 }
 
+#[derive(Debug)]
+pub struct StructDefinition {
+    pub member_def: StructMemberDefinition,
+    pub impl_self: ImplSelfDefinition,
+}
+
 impl StructDefinition {
+    pub fn get_member_def(&self) -> &StructMemberDefinition {
+        &self.member_def
+    }
+    pub fn unify_require_methods(&self, equs: &mut TypeEquations, trs: &TraitsInfo) -> Result<(), String> {
+        self.impl_self.unify_require_methods(equs, trs)
+    }
+
+    pub fn get_impl_self_def(&self) -> &ImplSelfDefinition {
+        &self.impl_self
+    }
+}
+
+impl StructMemberDefinition {
     pub fn get_id(&self) -> TypeId {
         self.struct_id.clone()
     }
@@ -104,32 +125,53 @@ fn parse_struct_cpp_inline(s: &str) -> IResult<&str, StructMember> {
     Ok((s, StructMember::CppInline(cppinline)))
 }
 
-pub fn parse_struct_definition(s: &str) -> IResult<&str, StructDefinition> {
+pub fn parse_struct_member_definition(s: &str) -> IResult<&str, StructMemberDefinition> {
     let (s, (_, _, struct_id, _, generics, _, member)) =
         tuple((tag("struct"), space1, parse_type_id, space0, parse_generics_annotation, space0, alt((parse_struct_members, parse_struct_cpp_inline))))(s)?;
-    Ok((s, StructDefinition { struct_id, generics, member }))
+    Ok((s, StructMemberDefinition { struct_id, generics, member }))
+}
+
+pub fn parse_struct_definition(s: &str) -> IResult<&str, StructDefinition> {
+    let (s, (member_def, _, _, _, funcs, _)) = tuple((parse_struct_member_definition, space0, char('{'), space0,
+            many0(tuple((parse_func_definition, space0))), char('}')))(s)?;
+    let require_methods = funcs.into_iter().map(|(func, _)| (func.func_id.clone(), func)).collect();
+    let impl_self = ImplSelfDefinition {
+        generics: member_def.generics.clone(),
+        impl_ty: TypeSpec::TypeSign(TypeSign {
+            id: member_def.struct_id.clone(),
+            gens: member_def.generics.iter().map(|id| TypeSpec::from_id(id)).collect(),
+        }),
+        where_sec: WhereSection::empty(),
+        require_methods,
+        tag: Tag::new(),
+    };
+    Ok((s, StructDefinition {
+        member_def,
+        impl_self,
+    }))
 }
 
 impl Transpile for StructDefinition {
     fn transpile(&self, ta: &TypeAnnotation) -> String {
-        match self.member {
+        match self.member_def.member {
             StructMember::MemberInfo(MemberInfo { ref members_order, ref members }) => {
-                let template = if self.generics.len() > 0 {
-                    format!("template <{}> ", self.generics.iter().map(|gen| format!("class {}", gen.transpile(ta))).collect::<Vec<_>>().join(", "))
+                let template = if self.member_def.generics.len() > 0 {
+                    format!("template <{}> ", self.member_def.generics.iter().map(|gen| format!("class {}", gen.transpile(ta))).collect::<Vec<_>>().join(", "))
                 }
                 else {
                     format!("")
                 };
                 let members_str = members_order.iter().map(|mem| members.get_key_value(mem).unwrap()).map(|(mem, ty)| format!("{} {};", ty.transpile(ta), mem.into_string())).collect::<Vec<_>>().join("\n");
                 let constructor = format!("{}({}):{} {{ }}",
-                self.struct_id.transpile(ta),
-                members_order.iter().map(|mem| members.get_key_value(mem).unwrap())
-                .map(|(mem, ty)| format!("{} {}", ty.transpile(ta), mem.into_string())).collect::<Vec<_>>().join(", "),
-                members_order.iter().map(|mem| members.get_key_value(mem).unwrap())
-                .map(|(mem, _)| format!("{}({})", mem.into_string(), mem.into_string())).collect::<Vec<_>>().join(", ")
+                    self.member_def.struct_id.transpile(ta),
+                    members_order.iter().map(|mem| members.get_key_value(mem).unwrap())
+                        .map(|(mem, ty)| format!("{} {}", ty.transpile(ta), mem.into_string())).collect::<Vec<_>>().join(", "),
+                    members_order.iter().map(|mem| members.get_key_value(mem).unwrap())
+                        .map(|(mem, _)| format!("{}({})", mem.into_string(), mem.into_string())).collect::<Vec<_>>().join(", ")
                 );
+                let methods = self.impl_self.require_methods.iter().map(|(_, func)| format!("static {}", func.transpile(ta))).collect::<Vec<_>>().join("\n");
 
-                format!("{}struct {} {{\n{}\n{}\n}} ;\n", template, self.struct_id.transpile(ta), members_str, constructor)
+                format!("{}struct {} {{\n{}\n{}\n{}\n}} ;\n", template, self.member_def.struct_id.transpile(ta), members_str, constructor, methods)
             }
             _ => format!(""),
         }
@@ -148,7 +190,7 @@ fn parse_struct_definition2_test() {
 
 /*#[test]
 fn get_member_type_test() {
-    let def = StructDefinition {
+    let def = StructMemberDefinition {
         struct_id: parse_type_id("Hoge").unwrap().1,
         generics: vec![parse_type_id("S").unwrap().1, parse_type_id("T").unwrap().1],
         members_order: vec![Identifier::from_str("s"), Identifier::from_str("t")],

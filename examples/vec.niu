@@ -1,8 +1,7 @@
-struct Vec<T> $${std::vector<$ty(T)>}$$
-
-impl<T> Vec<T> {
+struct Vec<T> $${std::vector<$ty(T)>}$$ {
   fn new() -> Self $${std::vector<$ty(T)>()}$$
   fn push(self: &Self, t: T) -> bool $${$arg(self)->push_back($arg(t))}$$
+  fn get(self: &Self, i: u64) -> T $${$arg(self)->at($arg(i))}$$
 }
 
 fn main() -> Vec<i64> {

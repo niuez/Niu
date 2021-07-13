@@ -27,7 +27,7 @@ impl TypeAnnotation {
         let (fvar, finfo) = func.get_func_info();
         self.func.insert(fvar, finfo);
     }
-    pub fn regist_structs_info(&mut self, st: &StructDefinition) {
+    pub fn regist_structs_info(&mut self, st: &StructMemberDefinition) {
         self.structs.insert(st.struct_id.clone(), (st.generics.clone(), st.member.clone()));
     }
     pub fn size(&self) -> usize {

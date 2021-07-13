@@ -1,14 +1,7 @@
 struct Hoge {
   a: i64,
   b: u64,
-}
-
-struct Huga<S, T> {
-  s: S,
-  t: T
-}
-
-impl Hoge {
+} {
   fn get_a(hoge: Hoge) -> i64 {
     hoge.a
   }
@@ -17,7 +10,10 @@ impl Hoge {
   }
 }
 
-impl<S, T> Huga<S, T> {
+struct Huga<S, T> {
+  s: S,
+  t: T
+} {
   fn new_huga(s: S, t: T) -> Huga<S, T> {
     Huga { s: s, t: t }
   }

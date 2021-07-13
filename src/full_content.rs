@@ -16,7 +16,6 @@ pub struct FullContent {
     pub structs: Vec<StructDefinition>,
     pub traits: Vec<TraitDefinition>,
     pub impls: Vec<ImplDefinition>,
-    pub self_impls: Vec<ImplSelfDefinition>,
     pub funcs: Vec<FuncDefinition>,
 }
 
@@ -34,8 +33,8 @@ impl FullContent {
         Ok(())
     }
     fn regist_self_impls(&mut self, trs: &mut TraitsInfo) -> Result<(), String> {
-        for im in self.self_impls.iter() {
-            trs.regist_self_impl(im)?;
+        for st in self.structs.iter() {
+            trs.regist_self_impl(st.get_impl_self_def())?;
         }
         Ok(())
     }
@@ -46,13 +45,17 @@ impl FullContent {
         let mut trs = TraitsInfo::new();
 
         for st in self.structs.iter() {
-            trs.regist_structs_info(&st)?;
-            ta.regist_structs_info(st);
+            trs.regist_structs_info(st.get_member_def())?;
+            ta.regist_structs_info(st.get_member_def());
         }
 
         self.regist_traits(&mut trs)?;
         self.regist_impls(&mut trs)?;
         self.regist_self_impls(&mut trs)?;
+
+        for st in self.structs.iter() {
+            st.unify_require_methods(&mut equs, &mut trs)?;
+        }
 
         for im in self.impls.iter() {
             im.unify_require_methods(&mut equs, &mut trs)?;
@@ -101,7 +104,6 @@ enum ContentElement {
     Func(FuncDefinition),
     Trait(TraitDefinition),
     ImplTrait(ImplDefinition),
-    ImplSelf(ImplSelfDefinition),
 }
 
 fn parse_element_struct(s: &str) -> IResult<&str, ContentElement> {
@@ -124,13 +126,8 @@ fn parse_element_impl_trait(s: &str) -> IResult<&str, ContentElement> {
     Ok((s, ContentElement::ImplTrait(it)))
 }
 
-fn parse_element_self_impl_trait(s: &str) -> IResult<&str, ContentElement> {
-    let (s, it) = parse_impl_self_definition(s)?;
-    Ok((s, ContentElement::ImplSelf(it)))
-}
-
 fn parse_content_element(s: &str) -> IResult<&str, ContentElement> {
-    alt((parse_element_struct, parse_element_func, parse_element_trait, parse_element_impl_trait, parse_element_self_impl_trait))(s)
+    alt((parse_element_struct, parse_element_func, parse_element_trait, parse_element_impl_trait))(s)
 }
 
 pub fn parse_full_content(s: &str) -> IResult<&str, FullContent> {
@@ -140,17 +137,15 @@ pub fn parse_full_content(s: &str) -> IResult<&str, FullContent> {
     let mut funcs = Vec::new();
     let mut traits = Vec::new();
     let mut impls = Vec::new();
-    let mut self_impls = Vec::new();
     for (e, _) in elems {
         match e {
             ContentElement::Struct(s) => structs.push(s),
             ContentElement::Func(f) => funcs.push(f),
             ContentElement::Trait(t) => traits.push(t),
             ContentElement::ImplTrait(it) => impls.push(it),
-            ContentElement::ImplSelf(it) => self_impls.push(it),
         }
     }
-    Ok((s, FullContent { structs, funcs, traits, impls, self_impls, }))
+    Ok((s, FullContent { structs, funcs, traits, impls, }))
 }
 
 #[test]
