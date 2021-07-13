@@ -49,6 +49,12 @@ pub enum FuncTypeInfo {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub enum AutoRefTag {
+    Tag(Tag),
+    Count(usize),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Type {
     SolvedAssociatedType(Box<Type>, AssociatedType),
     Func(Vec<Type>, Box<Type>, FuncTypeInfo),
@@ -60,6 +66,7 @@ pub enum Type {
     CallEquation(CallEquation),
     Ref(Box<Type>),
     Deref(Box<Type>),
+    AutoRef(Box<Type>, AutoRefTag),
     End,
 }
 
@@ -112,6 +119,9 @@ impl Type {
             Type::Deref(ref ty) => {
                 ty.as_ref().occurs(t)
             }
+            Type::AutoRef(ref ty, _) => {
+                ty.as_ref().occurs(t)
+            }
             Type::End => false,
         }
     }
@@ -146,6 +156,9 @@ impl Type {
                 ty.as_mut().subst(theta)
             }
             Type::Deref(ref mut ty) => {
+                ty.as_mut().subst(theta)
+            }
+            Type::AutoRef(ref mut ty, _) => {
                 ty.as_mut().subst(theta)
             }
             Type::End => { SolveChange::Not },
@@ -188,7 +201,7 @@ impl Transpile for Type {
                     format!("{}{}", ty_id.transpile(ta), gens_trans)
                 }
             }
-            _ => unreachable!("it is not Type"),
+            ref ty => unreachable!(format!("it is not Type {:?}", ty)),
         }
     }
 }
@@ -386,6 +399,9 @@ impl TypeEquations {
         for elem in std::mem::replace(&mut gen_equs.want_solve, HashSet::new()).into_iter() {
             self.want_solve.insert(elem);
         }
+        for subst in gen_equs.substs.iter() {
+            self.subst(subst);
+        }
         for TypeSubst { tv, .. } in gen_equs.substs.iter() {
             self.want_solve.remove(tv);
         }
@@ -448,6 +464,9 @@ impl TypeEquations {
     }
     fn subst(&mut self, theta: &TypeSubst) {
         self.change_cnt = 0;
+        for TypeSubst { t, .. } in self.substs.iter_mut() {
+            t.subst(theta);
+        }
         for equation in self.equs.iter_mut() {
             match *equation {
                 TypeEquation::Equal(ref mut left, ref mut right, ref mut changed) => {
@@ -742,6 +761,35 @@ impl TypeEquations {
                             self.equs.push_back(TypeEquation::Equal(left, Type::Deref(ty), changed));
                             self.change_cnt += changed.cnt();
                         }
+                        (left, Type::AutoRef(ty, AutoRefTag::Tag(tag))) | (Type::AutoRef(ty, AutoRefTag::Tag(tag)), left) => {
+                            let (ty, ty_changed) = self.solve_relations(*ty, trs)?;
+                            let mut oks = (0usize..=1).map(|ref_cnt| {
+                                let mut tmp_equs = TypeEquations::new();
+                                let mut right = ty.clone();
+                                for _ in 0..ref_cnt { right = Type::Ref(Box::new(right)) }
+                                tmp_equs.add_equation(left.clone(), right);
+                                (ref_cnt, tmp_equs)
+                            }).filter_map(
+                                |(i, mut tmp_equs)| match tmp_equs.unify(trs) {
+                                    Err(UnifyErr::Contradiction(_)) => None,
+                                    _ => Some((i, tmp_equs)),
+                                }
+                            ).collect::<Vec<_>>();
+                            println!("--------------------");
+                            println!("AUTOREF {:?} : {:?} {:?}", left, ty, tag);
+                            println!("oks = {:?}", oks);
+                            if oks.len() == 1 {
+                                println!("OK");
+                                let (i, tmp_equs) = oks.pop().unwrap();
+                                self.take_over_equations(tmp_equs);
+                                let var = tag.generate_type_variable(2, self);
+                                self.add_equation(var, Type::AutoRef(Box::new(ty), AutoRefTag::Count(i)));
+                            }
+                            else {
+                                println!("NG");
+                                self.equs.push_back(TypeEquation::Equal(left, Type::AutoRef(Box::new(ty), AutoRefTag::Tag(tag)), changed & ty_changed));
+                            }
+                        }
                         (Type::Func(l_args, l_return, _), Type::Func(r_args, r_return, _)) => {
                             if l_args.len() != r_args.len() {
                                 Err(UnifyErr::Deficiency(format!("length of args is not equal. {:?}, {:?} vs {:?}, {:?}",
@@ -775,9 +823,6 @@ impl TypeEquations {
                             }
                             let th = TypeSubst { tv: lv.clone(), t: rt.clone() };
                             self.subst(&th);
-                            for TypeSubst { t, .. } in self.substs.iter_mut() {
-                                t.subst(&th);
-                            }
                             self.substs.push(th);
                         }
                         (rt, Type::TypeVariable(lv)) if self.remove_want_solve(&lv) => {
@@ -786,9 +831,6 @@ impl TypeEquations {
                             }
                             let th = TypeSubst { tv: lv.clone(), t: rt.clone() };
                             self.subst(&th);
-                            for TypeSubst { t, .. } in self.substs.iter_mut() {
-                                t.subst(&th);
-                            }
                             self.substs.push(th);
                         }
                         (Type::TypeVariable(lv), rt) => {
@@ -797,9 +839,6 @@ impl TypeEquations {
                             }
                             let th = TypeSubst { tv: lv.clone(), t: rt.clone() };
                             self.subst(&th);
-                            for TypeSubst { t, .. } in self.substs.iter_mut() {
-                                t.subst(&th);
-                            }
                             self.substs.push(th);
                         }
                         (rt, Type::TypeVariable(lv)) => {
@@ -808,9 +847,6 @@ impl TypeEquations {
                             }
                             let th = TypeSubst { tv: lv.clone(), t: rt.clone() };
                             self.subst(&th);
-                            for TypeSubst { t, .. } in self.substs.iter_mut() {
-                                t.subst(&th);
-                            }
                             self.substs.push(th);
                         }
                         /*(Type::TypeVariable(_), Type::TypeVariable(_)) => {

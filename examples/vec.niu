@@ -7,5 +7,6 @@ struct Vec<T> $${std::vector<$ty(T)>}$$ {
 fn main() -> Vec<i64> {
   let vec = Vec::new();
   (&vec).push(1i64);
+  vec.push(2i64);
   vec
 }

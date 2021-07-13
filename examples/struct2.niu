@@ -20,6 +20,9 @@ struct Huga<S, T> {
   fn get_s(huga: Huga<S, T>) -> S {
     huga.s
   }
+  fn get_ref_s(huga: &Self) -> S {
+    (*huga).s
+  }
 }
 
 fn main() -> void {
@@ -35,4 +38,5 @@ fn main() -> void {
   let new_huga = Huga::new_huga(1i64, 2u64);
   let s1 = huga.get_s();
   let s2 = Huga::get_s(huga);
+  let s3 = huga.get_ref_s();
 }
