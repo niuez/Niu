@@ -28,6 +28,8 @@ pub mod structs;
 
 pub mod cpp_inline;
 
+pub mod mut_checker;
+
 use crate::trans::Transpile;
 
 fn type_check() -> Result<String, String> {

@@ -162,6 +162,7 @@ impl Transpile for TypeSign {
 pub enum TypeSpec {
     TypeSign(TypeSign),
     Pointer(Box<TypeSpec>),
+    MutPointer(Box<TypeSpec>),
     Associated(Box<TypeSpec>, AssociatedType),
 }
 
@@ -173,6 +174,9 @@ impl TypeSpec {
             }
             TypeSpec::Pointer(ref spec) => {
                 Ok(Type::Ref(Box::new(spec.as_ref().generics_to_type(mp, equs, trs)?)))
+            }
+            TypeSpec::MutPointer(ref spec) => {
+                Ok(Type::MutRef(Box::new(spec.as_ref().generics_to_type(mp, equs, trs)?)))
             }
             TypeSpec::Associated(ref spec, ref asso) => {
                 Ok(Type::AssociatedType(Box::new(spec.as_ref().generics_to_type(mp, equs, trs)?), asso.clone()))
@@ -188,6 +192,9 @@ impl TypeSpec {
             TypeSpec::Pointer(ref spec) => {
                 Ok(Type::Ref(Box::new(spec.as_ref().generate_type_no_auto_generics(equs, trs)?)))
             }
+            TypeSpec::MutPointer(ref spec) => {
+                Ok(Type::Ref(Box::new(spec.as_ref().generate_type_no_auto_generics(equs, trs)?)))
+            }
             TypeSpec::Associated(ref spec, ref asso) => {
                 Ok(Type::AssociatedType(Box::new(spec.as_ref().generate_type_no_auto_generics(equs, trs)?), asso.clone()))
             }
@@ -200,6 +207,9 @@ impl TypeSpec {
             TypeSpec::Pointer(spec) => {
                 spec.associated_type_depth()
             }
+            TypeSpec::MutPointer(spec) => {
+                spec.associated_type_depth()
+            }
             TypeSpec::Associated(spec, _) => 1 + spec.associated_type_depth(),
         }
     }
@@ -207,7 +217,10 @@ impl TypeSpec {
     pub fn get_type_id(&self) -> Result<TypeId, String> {
         match self {
             TypeSpec::TypeSign(sign) => Ok(sign.get_type_id()),
-            TypeSpec::Pointer(spec) => {
+            TypeSpec::Pointer(_) => {
+                Err(format!("cant get typeid from pointer {:?}", self))
+            }
+            TypeSpec::MutPointer(_) => {
                 Err(format!("cant get typeid from pointer {:?}", self))
             }
             TypeSpec::Associated(_, _) => Err(format!("cant get typeid from {:?}", self)),
@@ -236,6 +249,11 @@ fn parse_type_spec_pointer(s: &str) -> IResult<&str, TypeSpec> {
     Ok((s, TypeSpec::Pointer(Box::new(spec))))
 }
 
+fn parse_type_spec_mutpointer(s: &str) -> IResult<&str, TypeSpec> {
+    let (s, (_, _, spec)) = tuple((tag("&mut"), space0, parse_type_spec))(s)?;
+    Ok((s, TypeSpec::MutPointer(Box::new(spec))))
+}
+
 fn parse_type_spec_paren(s: &str) -> IResult<&str, TypeSpec> {
     let (s, (_, _, spec, _)) = tuple((tag("("), space0, parse_type_spec, tag(")")))(s)?;
     Ok((s, spec))
@@ -248,7 +266,7 @@ fn parse_type_spec_sign(s: &str) -> IResult<&str, TypeSpec> {
 }
 
 pub fn parse_type_spec(s: &str) -> IResult<&str, TypeSpec> {
-    alt((parse_type_spec_pointer, parse_type_spec_paren, parse_type_spec_sign))(s)
+    alt((parse_type_spec_mutpointer, parse_type_spec_pointer, parse_type_spec_paren, parse_type_spec_sign))(s)
 }
 
 /* 
@@ -269,6 +287,9 @@ impl Transpile for TypeSpec {
         match *self {
             TypeSpec::TypeSign(ref sign) => sign.transpile(ta),
             TypeSpec::Pointer(ref spec) => {
+                format!("const {}*", spec.transpile(ta))
+            }
+            TypeSpec::MutPointer(ref spec) => {
                 format!("{}*", spec.transpile(ta))
             }
             TypeSpec::Associated(ref spec, AssociatedType { ref trait_id, ref type_id } ) => {

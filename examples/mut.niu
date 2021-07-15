@@ -1,0 +1,7 @@
+fn mut_func(a: &mut i64) -> void {
+}
+
+fn main() -> void {
+  let b = 1i64;
+  mut_func(&mut b);
+}

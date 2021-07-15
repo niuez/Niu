@@ -648,6 +648,7 @@ impl ParseOperator for OperatorMulDivRem {
 pub enum ExpUnaryOpe {
     UnaryExpr(UnaryExpr),
     Ref(Box<ExpUnaryOpe>),
+    MutRef(Box<ExpUnaryOpe>),
     Deref(Box<ExpUnaryOpe>),
 }
 
@@ -656,6 +657,7 @@ impl GenType for ExpUnaryOpe {
         match self {
             Self::UnaryExpr(ref exp) => exp.gen_type(equs, trs),
             Self::Ref(ref exp) => Ok(Type::Ref(Box::new(exp.as_ref().gen_type(equs, trs)?))),
+            Self::MutRef(ref exp) => Ok(Type::MutRef(Box::new(exp.as_ref().gen_type(equs, trs)?))),
             Self::Deref(ref exp) => Ok(Type::Deref(Box::new(exp.as_ref().gen_type(equs, trs)?))),
         }
     }
@@ -666,6 +668,7 @@ impl Transpile for ExpUnaryOpe {
         match self {
             Self::UnaryExpr(ref exp) => exp.transpile(ta),
             Self::Ref(ref exp) => format!("&{}", exp.as_ref().transpile(ta)),
+            Self::MutRef(ref exp) => format!("&{}", exp.as_ref().transpile(ta)),
             Self::Deref(ref exp) => format!("*{}", exp.as_ref().transpile(ta)),
         }
     }
@@ -674,6 +677,10 @@ impl Transpile for ExpUnaryOpe {
 pub fn parse_exp_unary_ope_ref(s: &str) -> IResult<&str, ExpUnaryOpe> {
     let (s, (_, _, exp)) = tuple((char('&'), space0, parse_exp_unary_ope))(s)?;
     Ok((s, ExpUnaryOpe::Ref(Box::new(exp))))
+}
+pub fn parse_exp_unary_ope_mutref(s: &str) -> IResult<&str, ExpUnaryOpe> {
+    let (s, (_, _, exp)) = tuple((tag("&mut"), space0, parse_exp_unary_ope))(s)?;
+    Ok((s, ExpUnaryOpe::MutRef(Box::new(exp))))
 }
 
 pub fn parse_exp_unary_ope_deref(s: &str) -> IResult<&str, ExpUnaryOpe> {
@@ -687,7 +694,7 @@ pub fn parse_exp_unary_ope_unary_exp(s: &str) -> IResult<&str, ExpUnaryOpe> {
 }
 
 pub fn parse_exp_unary_ope(s: &str) -> IResult<&str, ExpUnaryOpe> {
-    alt((parse_exp_unary_ope_ref, parse_exp_unary_ope_deref, parse_exp_unary_ope_unary_exp))(s)
+    alt((parse_exp_unary_ope_mutref, parse_exp_unary_ope_ref, parse_exp_unary_ope_deref, parse_exp_unary_ope_unary_exp))(s)
 }
 
 

@@ -72,15 +72,12 @@ pub fn subseq_transpile(uexpr: &UnaryExpr, subseq: &Subseq, ta: &TypeAnnotation)
     match *subseq {
         Subseq::Call(ref call) => {
             if let UnaryExpr::Subseq(mem_caller, Subseq::Member(mem)) = uexpr {
-                let ref_cnt =
-                    if let Type::AutoRef(_, AutoRefTag::Count(ref_cnt)) = ta.annotation(call.tag.get_num(), "AutoRefType", 0) {
-                    ref_cnt
-                }
-                else {
-                    unreachable!("it is not AutoRef")
+                let caller_trans = match ta.annotation(call.tag.get_num(), "AutoRefType", 0) {
+                    Type::AutoRef(_, AutoRefTag::Nothing) => format!("{}", mem_caller.transpile(ta)),
+                    Type::AutoRef(_, AutoRefTag::Ref) => format!("(&{})", mem_caller.transpile(ta)),
+                    Type::AutoRef(_, AutoRefTag::MutRef) => format!("(&{})", mem_caller.transpile(ta)),
+                    _ => unreachable!("it is not AutoRef"),
                 };
-                let caller_trans = format!("{}{}", (0..ref_cnt).map(|_| "&").collect::<Vec<_>>().join(""), mem_caller.transpile(ta));
-                let caller_trans = if ref_cnt == 0 { caller_trans } else { format!("({})", caller_trans) };
                 let ty = ta.annotation(call.tag.get_num(), "FuncTypeInfo", 0);
                 //if let Type::Func(_, _, Some((trait_id, ty))) = ty {
                 if let Type::Func(_, _, info) = ty {

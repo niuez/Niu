@@ -51,7 +51,9 @@ pub enum FuncTypeInfo {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AutoRefTag {
     Tag(Tag),
-    Count(usize),
+    Nothing,
+    Ref,
+    MutRef,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -65,6 +67,7 @@ pub enum Type {
     Member(Box<Type>, Identifier),
     CallEquation(CallEquation),
     Ref(Box<Type>),
+    MutRef(Box<Type>),
     Deref(Box<Type>),
     AutoRef(Box<Type>, AutoRefTag),
     End,
@@ -116,6 +119,9 @@ impl Type {
             Type::Ref(ref ty) => {
                 ty.as_ref().occurs(t)
             }
+            Type::MutRef(ref ty) => {
+                ty.as_ref().occurs(t)
+            }
             Type::Deref(ref ty) => {
                 ty.as_ref().occurs(t)
             }
@@ -153,6 +159,9 @@ impl Type {
                 call_eq.subst(theta)
             }
             Type::Ref(ref mut ty) => {
+                ty.as_mut().subst(theta)
+            }
+            Type::MutRef(ref mut ty) => {
                 ty.as_mut().subst(theta)
             }
             Type::Deref(ref mut ty) => {
@@ -763,16 +772,18 @@ impl TypeEquations {
                         }
                         (left, Type::AutoRef(ty, AutoRefTag::Tag(tag))) | (Type::AutoRef(ty, AutoRefTag::Tag(tag)), left) => {
                             let (ty, ty_changed) = self.solve_relations(*ty, trs)?;
-                            let mut oks = (0usize..=1).map(|ref_cnt| {
-                                let mut tmp_equs = TypeEquations::new();
-                                let mut right = ty.clone();
-                                for _ in 0..ref_cnt { right = Type::Ref(Box::new(right)) }
-                                tmp_equs.add_equation(left.clone(), right);
-                                (ref_cnt, tmp_equs)
+                            let mut oks = vec![
+                                    (AutoRefTag::Nothing, ty.clone()),
+                                    (AutoRefTag::Ref, Type::Ref(Box::new(ty.clone()))),
+                                    (AutoRefTag::MutRef, Type::MutRef(Box::new(ty.clone()))),].into_iter()
+                                .map(|(ref_tag, right)| {
+                                    let mut tmp_equs = TypeEquations::new();
+                                    tmp_equs.add_equation(left.clone(), right);
+                                    (ref_tag, tmp_equs)
                             }).filter_map(
-                                |(i, mut tmp_equs)| match tmp_equs.unify(trs) {
+                                |(ref_tag, mut tmp_equs)| match tmp_equs.unify(trs) {
                                     Err(UnifyErr::Contradiction(_)) => None,
-                                    _ => Some((i, tmp_equs)),
+                                    _ => Some((ref_tag, tmp_equs)),
                                 }
                             ).collect::<Vec<_>>();
                             println!("--------------------");
@@ -780,10 +791,10 @@ impl TypeEquations {
                             println!("oks = {:?}", oks);
                             if oks.len() == 1 {
                                 println!("OK");
-                                let (i, tmp_equs) = oks.pop().unwrap();
+                                let (ref_tag, tmp_equs) = oks.pop().unwrap();
                                 self.take_over_equations(tmp_equs);
                                 let var = tag.generate_type_variable("AutoRefType", 0, self);
-                                self.add_equation(var, Type::AutoRef(Box::new(ty), AutoRefTag::Count(i)));
+                                self.add_equation(var, Type::AutoRef(Box::new(ty), ref_tag));
                             }
                             else {
                                 println!("NG");
@@ -815,6 +826,9 @@ impl TypeEquations {
                             }
                         }
                         (Type::Ref(l_ty), Type::Ref(r_ty)) => {
+                            self.add_equation(*l_ty, *r_ty);
+                        }
+                        (Type::MutRef(l_ty), Type::MutRef(r_ty)) => {
                             self.add_equation(*l_ty, *r_ty);
                         }
                         (Type::TypeVariable(lv), rt) if self.remove_want_solve(&lv) => {
