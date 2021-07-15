@@ -12,7 +12,7 @@ use crate::unify::*;
 pub struct TypeAnnotation {
     func: HashMap<Variable, FuncDefinitionInfo>,
     structs: HashMap<TypeId, (Vec<TypeId>, StructMember)>,
-    theta: HashMap<(usize, usize), Type>,
+    theta: HashMap<(usize, &'static str, usize), Type>,
 }
 
 impl TypeAnnotation {
@@ -20,8 +20,8 @@ impl TypeAnnotation {
         Self { func: HashMap::new(), structs: HashMap::new(), theta: HashMap::new(), }
     }
     pub fn insert(&mut self, tv: TypeVariable, t: Type) {
-        let TypeVariable::Counter(i, num) = tv;
-        self.theta.insert((i, num), t);
+        let TypeVariable::Counter(i, label, num) = tv;
+        self.theta.insert((i, label, num), t);
     }
     pub fn regist_func_info(&mut self, func: &FuncDefinition) {
         let (fvar, finfo) = func.get_func_info();
@@ -33,11 +33,11 @@ impl TypeAnnotation {
     pub fn size(&self) -> usize {
         self.theta.len() 
     }
-    pub fn annotation(&self, i: usize, num: usize) -> Type {
-        match self.theta.get(&(i, num)) {
+    pub fn annotation(&self, i: usize, label: &'static str, num: usize) -> Type {
+        match self.theta.get(&(i, label, num)) {
             Some(ty) => ty.clone(),
             None => {
-                let err = format!("cant get annotation {} {}", i, num);
+                let err = format!("cant get annotation {} {} {}", i, label, num);
                 unreachable!(err);
             }
         }

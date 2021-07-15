@@ -32,7 +32,7 @@ impl CppInline {
         let elems = self.inlines.iter().map(|inline| match inline {
             CppInlineElem::Type(tyid) => {
                 let ty = TypeSpec::from_id(tyid).generics_to_type(gen_mp, equs, trs)?;
-                let alpha = tag.generate_type_variable(cnt, equs);
+                let alpha = tag.generate_type_variable("CppInlineInfoType", cnt, equs);
                 equs.add_equation(alpha, ty);
                 cnt += 1;
                 Ok(CppInlineInfoElem::Type(cnt - 1))

@@ -112,7 +112,7 @@ impl<'a> TraitsInfo<'a> {
                         Ok(Type::Generics(id, gens))
                     }
                     else if gens.len() == 0 && def.get_generics_len() > 0 {
-                        let gens = (0..def.get_generics_len()).map(|i| id.id.generate_type_variable(i, equs)).collect();
+                        let gens = (0..def.get_generics_len()).map(|i| id.id.generate_type_variable("Generics", i, equs)).collect();
                         Ok(Type::Generics(id, gens))
                     }
                     else {
@@ -422,7 +422,8 @@ impl<'a> TraitsInfo<'a> {
         }).filter_map(|x| x.ok()).collect::<Vec<_>>();
         if unify_res.len() == 1 {
             let (gen_equ, _) = unify_res.pop().unwrap();
-            let ret_ty = gen_equ.try_get_substs(TypeVariable::Counter(call_eq.tag.get_num(), 0));
+            let ret_ty = gen_equ.try_get_substs(TypeVariable::Counter(call_eq.tag.get_num(), "ReturnType", 0));
+
             //println!("take over by call >> ");
             //println!("{:?}", call_eq);
             //println!("ret = {:?}", ret_ty);

@@ -41,20 +41,20 @@ impl WhereSection {
             let mut tmp_equs = TypeEquations::new();
 
             let param_ty = spec.generate_type_no_auto_generics(equs, trs)?;
-            let alpha = tr_id.id.generate_type_variable(0, &mut tmp_equs);
+            let alpha = tr_id.id.generate_type_variable("ParamType", 0, &mut tmp_equs);
             tmp_equs.add_equation(param_ty, alpha);
 
             for (asso_id, asso_spec) in asso_eqs.iter() {
                 let asso_spec_ty = asso_spec.generate_type_no_auto_generics(&equs, trs)?;
-                let alpha = asso_id.id.generate_type_variable(0, &mut tmp_equs);
+                let alpha = asso_id.id.generate_type_variable("AssociatedType", 0, &mut tmp_equs);
                 tmp_equs.add_equation(asso_spec_ty, alpha);
             }
             tmp_equs.unify(trs).map_err(|err| err.to_string())?;
             let substs = SubstsMap::new(tmp_equs.take_substs().clone());
 
-            let param_ty = substs.get(&tr_id.id, 0)?;
+            let param_ty = substs.get(&tr_id.id, "ParamType", 0)?;
             let asso_mp = asso_eqs.iter().map(|(asso_id, _)| {
-                    let asso_spec_ty = substs.get(&asso_id.id, 0)?;
+                    let asso_spec_ty = substs.get(&asso_id.id, "AssociatedType", 0)?;
                     Ok((asso_id.clone(), asso_spec_ty))
                 }).collect::<Result<HashMap<_, _>, String>>()?;
 

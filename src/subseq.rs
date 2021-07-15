@@ -52,7 +52,7 @@ pub fn subseq_gen_type(uexpr: &UnaryExpr, subseq: &Subseq, equs: &mut TypeEquati
                 uexpr => {
                     let caller = uexpr.gen_type(equs, trs)?;
                     let args = call.args.iter().map(|arg| arg.gen_type(equs, trs)).collect::<Result<Vec<_>, String>>()?;
-                    let return_type = call.tag.generate_type_variable(0, equs);
+                    let return_type = call.tag.generate_type_variable("ReturnType", 0, equs);
                     equs.add_equation(caller, Type::Func(args, Box::new(return_type.clone()), FuncTypeInfo::None));
                     Ok(return_type)
                 }
@@ -60,7 +60,7 @@ pub fn subseq_gen_type(uexpr: &UnaryExpr, subseq: &Subseq, equs: &mut TypeEquati
         }
         Subseq::Member(ref mem) => {
             let st = uexpr.gen_type(equs, trs)?;
-            let alpha = mem.mem_id.generate_type_variable(1, equs);
+            let alpha = mem.mem_id.generate_type_variable("MemberType", 0, equs);
             equs.add_equation(alpha.clone(), Type::Member(Box::new(st.clone()), mem.mem_id.clone()));
             Ok(Type::Member(Box::new(st), mem.mem_id.clone()))
         }
@@ -73,7 +73,7 @@ pub fn subseq_transpile(uexpr: &UnaryExpr, subseq: &Subseq, ta: &TypeAnnotation)
         Subseq::Call(ref call) => {
             if let UnaryExpr::Subseq(mem_caller, Subseq::Member(mem)) = uexpr {
                 let ref_cnt =
-                    if let Type::AutoRef(_, AutoRefTag::Count(ref_cnt)) = ta.annotation(call.tag.get_num(), 2) {
+                    if let Type::AutoRef(_, AutoRefTag::Count(ref_cnt)) = ta.annotation(call.tag.get_num(), "AutoRefType", 0) {
                     ref_cnt
                 }
                 else {
@@ -81,18 +81,18 @@ pub fn subseq_transpile(uexpr: &UnaryExpr, subseq: &Subseq, ta: &TypeAnnotation)
                 };
                 let caller_trans = format!("{}{}", (0..ref_cnt).map(|_| "&").collect::<Vec<_>>().join(""), mem_caller.transpile(ta));
                 let caller_trans = if ref_cnt == 0 { caller_trans } else { format!("({})", caller_trans) };
-                let ty = ta.annotation(call.tag.get_num(), 1);
+                let ty = ta.annotation(call.tag.get_num(), "FuncTypeInfo", 0);
                 //if let Type::Func(_, _, Some((trait_id, ty))) = ty {
                 if let Type::Func(_, _, info) = ty {
                     match info {
                         FuncTypeInfo::TraitFunc(trait_id, tag) => {
                             let args = call.args.iter().map(|arg| arg.transpile(ta));
                             let args = std::iter::once(caller_trans).chain(args).collect::<Vec<_>>().join(", ");
-                            let ty = ta.annotation(tag.get_num(), 0);
+                            let ty = ta.annotation(tag.get_num(), "SelfType", 0);
                             format!("{}<{}>::{}({})", trait_id.transpile(ta), ty.transpile(ta), mem.mem_id.into_string(), args)
                         }
                         FuncTypeInfo::SelfFunc(tag) => {
-                            let ty = ta.annotation(tag.get_num(), 0).transpile(ta);
+                            let ty = ta.annotation(tag.get_num(), "SelfType", 0).transpile(ta);
                             let args = call.args.iter().map(|arg| arg.transpile(ta));
                             let args = std::iter::once(caller_trans).chain(args).collect::<Vec<_>>().join(", ");
                             format!("{}::{}({})", ty, mem.mem_id.into_string(), args)
@@ -113,18 +113,18 @@ pub fn subseq_transpile(uexpr: &UnaryExpr, subseq: &Subseq, ta: &TypeAnnotation)
                 }
             }
             else if let UnaryExpr::TraitMethod(_, _, method_id) = uexpr {
-                let ty = ta.annotation(call.tag.get_num(), 1);
+                let ty = ta.annotation(call.tag.get_num(), "FuncTypeInfo", 0);
                 //if let Type::Func(_, _, Some((trait_id, ty))) = ty {
                 if let Type::Func(_, _, info) = ty {
                     match info {
                         FuncTypeInfo::TraitFunc(trait_id, tag) => {
                             let args = call.args.iter().map(|arg| arg.transpile(ta));
                             let args = args.collect::<Vec<_>>().join(", ");
-                            let ty = ta.annotation(tag.get_num(), 0);
+                            let ty = ta.annotation(tag.get_num(), "SelfType", 0);
                             format!("{}<{}>::{}({})", trait_id.transpile(ta), ty.transpile(ta), method_id.into_string(), args)
                         }
                         FuncTypeInfo::SelfFunc(tag) => {
-                            let ty = ta.annotation(tag.get_num(), 0).transpile(ta);
+                            let ty = ta.annotation(tag.get_num(), "SelfType", 0).transpile(ta);
                             let args = call.args.iter().map(|arg| arg.transpile(ta));
                             let args = args.collect::<Vec<_>>().join(", ");
                             format!("{}::{}({})", ty, method_id.into_string(), args)

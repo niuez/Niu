@@ -21,7 +21,7 @@ pub struct LetDeclaration {
 
 impl GenType for LetDeclaration {
     fn gen_type(&self, equs: &mut TypeEquations, trs: &TraitsInfo) -> TResult {
-        let alpha = self.id.generate_not_void_type_variable(0, equs);
+        let alpha = self.id.generate_not_void_type_variable("LetType", 0, equs);
         equs.regist_variable(Variable::from_identifier(self.id.clone()), alpha.clone());
         let value_type = self.value.gen_type(equs, trs)?;
         equs.add_equation(alpha.clone(), value_type);
@@ -36,7 +36,7 @@ impl GenType for LetDeclaration {
 impl Transpile for LetDeclaration {
     fn transpile(&self, ta: &TypeAnnotation) -> String {
         format!("{} {} = {}",
-                ta.annotation(self.id.get_tag_number(), 0).transpile(ta),
+                ta.annotation(self.id.get_tag_number(), "LetType", 0).transpile(ta),
                 self.id.into_string(),
                 self.value.transpile(ta)
         )

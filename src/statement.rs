@@ -18,7 +18,7 @@ impl GenType for Statement {
         match *self {
             Statement::Expression(ref e, ref tag) => {
                 let expr = e.gen_type(equs, trs)?;
-                let alpha = tag.generate_type_variable(0, equs);
+                let alpha = tag.generate_type_variable("StatementType", 0, equs);
                 equs.add_equation(alpha, expr);
             }
             Statement::LetDeclaration(ref l) => {

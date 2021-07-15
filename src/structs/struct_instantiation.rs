@@ -24,7 +24,7 @@ pub struct StructInstantiation {
 
 impl GenType for StructInstantiation {
     fn gen_type(&self, equs: &mut TypeEquations, trs: &TraitsInfo) -> TResult {
-        let inst_ty = self.tag.generate_type_variable(0, equs);
+        let inst_ty = self.tag.generate_type_variable("InstantiationType", 0, equs);
         for (id, expr) in self.members.iter() {
             let st = Box::new(inst_ty.clone());
             let right = expr.gen_type(equs, trs)?;
@@ -64,7 +64,7 @@ impl Transpile for StructInstantiation {
             .map(|mem| self.members.get(mem).unwrap())
             .map(|exp| exp.transpile(ta))
             .collect::<Vec<_>>().join(", ");
-        format!("{}({})", ta.annotation(self.tag.get_num(), 0).transpile(ta), args)
+        format!("{}({})", ta.annotation(self.tag.get_num(), "InstantiationType", 0).transpile(ta), args)
     }
 }
 

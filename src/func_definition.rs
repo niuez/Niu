@@ -48,7 +48,7 @@ impl FuncDefinitionInfo {
     pub fn generate_type(&self, before_mp: &GenericsTypeMap, equs: &mut TypeEquations, trs: &TraitsInfo, call_id: &Identifier) -> TResult {
         let mut gen_mp = HashMap::new();
         for (i, g_id) in self.generics.iter().enumerate() {
-            let ty_var = call_id.generate_type_variable(i, equs);
+            let ty_var = call_id.generate_type_variable("Generics", i, equs);
             gen_mp.insert(g_id.clone(), ty_var.clone());
         }
         let mp = before_mp.next(gen_mp);
@@ -92,7 +92,7 @@ impl FuncDefinitionInfo {
 
     pub fn get_generics_annotation(&self, ta: &TypeAnnotation, call_id: &Identifier) -> String {
         if self.generics.len() > 0 {
-            let gen = self.generics.iter().enumerate().map(|(i, _)| { let res = ta.annotation(call_id.get_tag_number(), i); res.transpile(ta) })
+            let gen = self.generics.iter().enumerate().map(|(i, _)| { let res = ta.annotation(call_id.get_tag_number(), "Generics", i); res.transpile(ta) })
                           .collect::<Vec<_>>().join(", ");
             format!("<{}>", gen)
         }
@@ -138,7 +138,7 @@ impl FuncDefinition {
             self.where_sec.regist_candidate(equs, &mut trs)?;
 
             for (i, t) in self.args.iter() {
-                let alpha = i.generate_not_void_type_variable(0, equs);
+                let alpha = i.generate_not_void_type_variable("ForRegist", 0, equs);
                 let t_type = t.generics_to_type(&GenericsTypeMap::empty(), equs, &trs)?; 
                 equs.regist_variable(Variable::from_identifier(i.clone()), alpha.clone());
                 equs.add_equation(alpha, t_type);

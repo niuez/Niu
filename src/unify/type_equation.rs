@@ -26,7 +26,7 @@ impl CppInlineInfo {
         self.elems.iter().map(|inline| {
             match inline {
                 CppInlineInfoElem::Type(i) => {
-                    ta.annotation(self.tag.get_num(), *i).transpile(ta)
+                    ta.annotation(self.tag.get_num(), "CppInlineInfoType", *i).transpile(ta)
                 }
                 CppInlineInfoElem::Arg(id) => {
                     mp.get(id).cloned().unwrap()
@@ -208,7 +208,7 @@ impl Transpile for Type {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum TypeVariable {
-    Counter(usize, usize),
+    Counter(usize, &'static str, usize),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -319,23 +319,23 @@ pub struct TypeSubst {
 
 #[derive(Debug, Clone)]
 pub struct SubstsMap {
-    mp: HashMap<(usize, usize), Type>,
+    mp: HashMap<(usize, &'static str, usize), Type>,
 }
 
 impl SubstsMap {
     pub fn new(vec: Vec<TypeSubst>) -> Self {
         SubstsMap {
-            mp: vec.into_iter().map(|TypeSubst { tv: TypeVariable::Counter(i, n), t }| ((i, n), t)).collect()
+            mp: vec.into_iter().map(|TypeSubst { tv: TypeVariable::Counter(i, label, n), t }| ((i, label, n), t)).collect()
         }
     }
-    pub fn get(&self, id: &Identifier, i: usize) -> TResult {
-        match self.mp.get(&(id.get_tag_number(), i)) {
+    pub fn get(&self, id: &Identifier, label: &'static str, i: usize) -> TResult {
+        match self.mp.get(&(id.get_tag_number(), label, i)) {
             Some(t) => Ok(t.clone()),
             None => Err(format!("undefined TypeVariable({:?}, {:?})", id, i)),
         }
     }
-    pub fn get_from_tag(&self, tag: &Tag, i: usize) -> TResult {
-        match self.mp.get(&(tag.get_num(), i)) {
+    pub fn get_from_tag(&self, tag: &Tag, label: &'static str, i: usize) -> TResult {
+        match self.mp.get(&(tag.get_num(), label, i)) {
             Some(t) => Ok(t.clone()),
             None => Err(format!("undefined TypeVariable({:?}, {:?})", tag, i)),
         }
@@ -782,7 +782,7 @@ impl TypeEquations {
                                 println!("OK");
                                 let (i, tmp_equs) = oks.pop().unwrap();
                                 self.take_over_equations(tmp_equs);
-                                let var = tag.generate_type_variable(2, self);
+                                let var = tag.generate_type_variable("AutoRefType", 0, self);
                                 self.add_equation(var, Type::AutoRef(Box::new(ty), AutoRefTag::Count(i)));
                             }
                             else {
