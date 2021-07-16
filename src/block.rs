@@ -48,9 +48,9 @@ impl MutCheck for Block {
         for st in self.statements.iter() {
             st.mut_check(ta, vars)?;
         }
-        let res = self.return_exp.as_ref().map_or(Ok(MutResult::NotMut), |exp| exp.mut_check(ta, vars));
+        self.return_exp.as_ref().map_or(Ok(MutResult::NotMut), |exp| exp.mut_check(ta, vars))?;
         vars.out_scope();
-        res
+        Ok(MutResult::NotMut)
     }
 }
 

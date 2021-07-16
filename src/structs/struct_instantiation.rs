@@ -14,6 +14,7 @@ use crate::unary_expr::*;
 //use crate::unary_expr::Variable;
 use crate::trans::*;
 use crate::unify::*;
+use crate::mut_checker::*;
 
 #[derive(Debug)]
 pub struct StructInstantiation {
@@ -65,6 +66,15 @@ impl Transpile for StructInstantiation {
             .map(|exp| exp.transpile(ta))
             .collect::<Vec<_>>().join(", ");
         format!("{}({})", ta.annotation(self.tag.get_num(), "InstantiationType", 0).transpile(ta), args)
+    }
+}
+
+impl MutCheck for StructInstantiation {
+    fn mut_check(&self, ta: &TypeAnnotation, vars: &mut VariablesInfo) -> Result<MutResult, String> {
+        for (_, expr) in self.members.iter() {
+            expr.mut_check(ta, vars)?;
+        }
+        Ok(MutResult::NotMut)
     }
 }
 

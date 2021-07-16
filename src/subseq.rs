@@ -12,6 +12,7 @@ use crate::unary_expr::UnaryExpr;
 use crate::unify::*;
 use crate::type_spec::*;
 use crate::trans::*;
+use crate::mut_checker::*;
 use crate::identifier::*;
 
 #[derive(Debug)]
@@ -152,6 +153,51 @@ pub fn subseq_transpile(uexpr: &UnaryExpr, subseq: &Subseq, ta: &TypeAnnotation)
         }
     }
 }
+
+pub fn subseq_mut_check(uexpr: &UnaryExpr, subseq: &Subseq, ta: &TypeAnnotation, vars: &mut VariablesInfo) -> Result<MutResult, String> {
+    match *subseq {
+        Subseq::Call(ref call) => {
+            match uexpr {
+                UnaryExpr::Subseq(mem_caller, Subseq::Member(mem)) => {
+                    for arg in call.args.iter() {
+                        arg.mut_check(ta, vars)?;
+                    }
+                    match ta.annotation(call.tag.get_num(), "AutoRefType", 0) {
+                        Type::AutoRef(_, AutoRefTag::MutRef) => {
+                            if let MutResult::Mut = mem_caller.mut_check(ta, vars)? {
+                                Ok(MutResult::NotMut)
+                            }
+                            else {
+                                Err(format!("caller {:?} is needed mutable but not", mem_caller))
+                            }
+                        }
+                        Type::AutoRef(_, AutoRefTag::Nothing) => Ok(MutResult::NotMut),
+                        Type::AutoRef(_, AutoRefTag::Ref) => Ok(MutResult::NotMut),
+                        _ => unreachable!("it is not AutoRef"),
+                    }
+                }
+                UnaryExpr::TraitMethod(spec, trait_op, func_id) => {
+                    for arg in call.args.iter() {
+                        arg.mut_check(ta, vars)?;
+                    }
+                    Ok(MutResult::NotMut)
+                }
+                uexpr => {
+                    uexpr.mut_check(ta, vars)?;
+                    for arg in call.args.iter() {
+                        arg.mut_check(ta, vars)?;
+                    }
+                    Ok(MutResult::NotMut)
+                }
+            }
+        }
+        Subseq::Member(ref mem) => {
+            let uexpr = uexpr.mut_check(ta, vars)?;
+            Ok(uexpr)
+        }
+    }
+}
+
 
 pub fn parse_subseq(s: &str) -> IResult<&str, Subseq> {
     let (s, (_, x)) = tuple((space0, alt((parse_call, parse_member))))(s)?;

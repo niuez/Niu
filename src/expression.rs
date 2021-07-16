@@ -9,8 +9,10 @@ use nom::bytes::complete::*;
 use nom::branch::*;
 
 use crate::unary_expr::{ UnaryExpr, parse_unary_expr };
+use crate::identifier::*;
 use crate::unify::*;
 use crate::trans::*;
+use crate::mut_checker::*;
 
 pub use if_expr::*;
 
@@ -34,6 +36,15 @@ impl Transpile for Expression {
         match *self {
             Expression::Expression(ref e) => e.transpile(ta),
             Expression::IfExpr(ref ifexpr) => ifexpr.as_ref().transpile(ta),
+        }
+    }
+}
+
+impl MutCheck for Expression {
+    fn mut_check(&self, ta: &TypeAnnotation, vars: &mut VariablesInfo) -> Result<MutResult, String> {
+        match *self {
+            Expression::Expression(ref e) => e.mut_check(ta, vars),
+            Expression::IfExpr(ref ifexpr) => ifexpr.as_ref().mut_check(ta, vars),
         }
     }
 }
@@ -107,7 +118,6 @@ impl Transpile for OperatorOr {
     }
 }
 
-
 impl ParseExpression for ExpOr {
     type Child = ExpAnd;
     type Operator = OperatorOr;
@@ -123,6 +133,20 @@ impl ParseOperator for OperatorOr {
     fn parse_operator(s: &str) -> IResult<&str, Self> {
         let (s, _) = tag("||")(s)?;
         Ok((s, OperatorOr()))
+    }
+}
+
+impl MutCheck for ExpOr {
+    fn mut_check(&self, ta: &TypeAnnotation, vars: &mut VariablesInfo) -> Result<MutResult, String> {
+        if self.terms.len() == 1 {
+            self.terms.last().unwrap().mut_check(ta, vars)
+        }
+        else {
+            for term in self.terms.iter() {
+                term.mut_check(ta, vars)?;
+            }
+            Ok(MutResult::NotMut)
+        }
     }
 }
 
@@ -182,6 +206,20 @@ impl ParseOperator for OperatorAnd {
     fn parse_operator(s: &str) -> IResult<&str, Self> {
         let (s, _) = tag("&&")(s)?;
         Ok((s, OperatorAnd()))
+    }
+}
+
+impl MutCheck for ExpAnd {
+    fn mut_check(&self, ta: &TypeAnnotation, vars: &mut VariablesInfo) -> Result<MutResult, String> {
+        if self.terms.len() == 1 {
+            self.terms.last().unwrap().mut_check(ta, vars)
+        }
+        else {
+            for term in self.terms.iter() {
+                term.mut_check(ta, vars)?;
+            }
+            Ok(MutResult::NotMut)
+        }
     }
 }
 
@@ -274,6 +312,20 @@ impl ParseOperator for OperatorOrd {
     }
 }
 
+impl MutCheck for ExpOrd {
+    fn mut_check(&self, ta: &TypeAnnotation, vars: &mut VariablesInfo) -> Result<MutResult, String> {
+        if self.terms.len() == 1 {
+            self.terms.last().unwrap().mut_check(ta, vars)
+        }
+        else {
+            for term in self.terms.iter() {
+                term.mut_check(ta, vars)?;
+            }
+            Ok(MutResult::NotMut)
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct ExpBitOr {
     pub terms: Vec<ExpBitXor>,
@@ -325,6 +377,20 @@ impl ParseOperator for OperatorBitOr {
     fn parse_operator(s: &str) -> IResult<&str, Self> {
         let (s, _) = char('|')(s)?;
         Ok((s, OperatorBitOr()))
+    }
+}
+
+impl MutCheck for ExpBitOr {
+    fn mut_check(&self, ta: &TypeAnnotation, vars: &mut VariablesInfo) -> Result<MutResult, String> {
+        if self.terms.len() == 1 {
+            self.terms.last().unwrap().mut_check(ta, vars)
+        }
+        else {
+            for term in self.terms.iter() {
+                term.mut_check(ta, vars)?;
+            }
+            Ok(MutResult::NotMut)
+        }
     }
 }
 
@@ -382,6 +448,20 @@ impl ParseOperator for OperatorBitXor {
     }
 }
 
+impl MutCheck for ExpBitXor {
+    fn mut_check(&self, ta: &TypeAnnotation, vars: &mut VariablesInfo) -> Result<MutResult, String> {
+        if self.terms.len() == 1 {
+            self.terms.last().unwrap().mut_check(ta, vars)
+        }
+        else {
+            for term in self.terms.iter() {
+                term.mut_check(ta, vars)?;
+            }
+            Ok(MutResult::NotMut)
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct ExpBitAnd {
     pub terms: Vec<ExpShift>,
@@ -433,6 +513,20 @@ impl ParseOperator for OperatorBitAnd {
     fn parse_operator(s: &str) -> IResult<&str, Self> {
         let (s, _) = char('&')(s)?;
         Ok((s, OperatorBitAnd()))
+    }
+}
+
+impl MutCheck for ExpBitAnd {
+    fn mut_check(&self, ta: &TypeAnnotation, vars: &mut VariablesInfo) -> Result<MutResult, String> {
+        if self.terms.len() == 1 {
+            self.terms.last().unwrap().mut_check(ta, vars)
+        }
+        else {
+            for term in self.terms.iter() {
+                term.mut_check(ta, vars)?;
+            }
+            Ok(MutResult::NotMut)
+        }
     }
 }
 
@@ -501,6 +595,19 @@ impl ParseOperator for OperatorShift {
     }
 }
 
+impl MutCheck for ExpShift {
+    fn mut_check(&self, ta: &TypeAnnotation, vars: &mut VariablesInfo) -> Result<MutResult, String> {
+        if self.terms.len() == 1 {
+            self.terms.last().unwrap().mut_check(ta, vars)
+        }
+        else {
+            for term in self.terms.iter() {
+                term.mut_check(ta, vars)?;
+            }
+            Ok(MutResult::NotMut)
+        }
+    }
+}
 
 #[derive(Debug)]
 pub struct ExpAddSub {
@@ -564,6 +671,20 @@ impl ParseOperator for OperatorAddSub {
             _ => unreachable!()
         };
         Ok((s, ope))
+    }
+}
+
+impl MutCheck for ExpAddSub {
+    fn mut_check(&self, ta: &TypeAnnotation, vars: &mut VariablesInfo) -> Result<MutResult, String> {
+        if self.terms.len() == 1 {
+            self.terms.last().unwrap().mut_check(ta, vars)
+        }
+        else {
+            for term in self.terms.iter() {
+                term.mut_check(ta, vars)?;
+            }
+            Ok(MutResult::NotMut)
+        }
     }
 }
 
@@ -644,12 +765,26 @@ impl ParseOperator for OperatorMulDivRem {
     }
 }
 
+impl MutCheck for ExpMulDivRem {
+    fn mut_check(&self, ta: &TypeAnnotation, vars: &mut VariablesInfo) -> Result<MutResult, String> {
+        if self.unary_exprs.len() == 1 {
+            self.unary_exprs.last().unwrap().mut_check(ta, vars)
+        }
+        else {
+            for term in self.unary_exprs.iter() {
+                term.mut_check(ta, vars)?;
+            }
+            Ok(MutResult::NotMut)
+        }
+    }
+}
+
 #[derive(Debug)]
 pub enum ExpUnaryOpe {
     UnaryExpr(UnaryExpr),
     Ref(Box<ExpUnaryOpe>),
     MutRef(Box<ExpUnaryOpe>),
-    Deref(Box<ExpUnaryOpe>),
+    Deref(Box<ExpUnaryOpe>, Tag),
 }
 
 impl GenType for ExpUnaryOpe {
@@ -658,7 +793,12 @@ impl GenType for ExpUnaryOpe {
             Self::UnaryExpr(ref exp) => exp.gen_type(equs, trs),
             Self::Ref(ref exp) => Ok(Type::Ref(Box::new(exp.as_ref().gen_type(equs, trs)?))),
             Self::MutRef(ref exp) => Ok(Type::MutRef(Box::new(exp.as_ref().gen_type(equs, trs)?))),
-            Self::Deref(ref exp) => Ok(Type::Deref(Box::new(exp.as_ref().gen_type(equs, trs)?))),
+            Self::Deref(ref exp, ref tag) => {
+                let alpha = tag.generate_not_void_type_variable("DerefType", 0, equs);
+                let right = exp.as_ref().gen_type(equs, trs)?;
+                equs.add_equation(alpha.clone(), right);
+                Ok(Type::Deref(Box::new(alpha)))
+            }
         }
     }
 }
@@ -669,7 +809,31 @@ impl Transpile for ExpUnaryOpe {
             Self::UnaryExpr(ref exp) => exp.transpile(ta),
             Self::Ref(ref exp) => format!("&{}", exp.as_ref().transpile(ta)),
             Self::MutRef(ref exp) => format!("&{}", exp.as_ref().transpile(ta)),
-            Self::Deref(ref exp) => format!("*{}", exp.as_ref().transpile(ta)),
+            Self::Deref(ref exp, _) => format!("*{}", exp.as_ref().transpile(ta)),
+        }
+    }
+}
+
+impl MutCheck for ExpUnaryOpe {
+    fn mut_check(&self, ta: &TypeAnnotation, vars: &mut VariablesInfo) -> Result<MutResult, String> {
+        match self {
+            Self::UnaryExpr(ref exp) => exp.mut_check(ta, vars),
+            Self::Ref(ref exp) => {
+                exp.mut_check(ta, vars)?;
+                Ok(MutResult::NotMut)
+            }
+            Self::MutRef(ref exp) => {
+                exp.mut_check(ta, vars)?;
+                Ok(MutResult::NotMut)
+            }
+            Self::Deref(ref exp, ref tag) => {
+                exp.mut_check(ta, vars)?;
+                let deref_ty = ta.annotation(tag.get_num(), "DerefType", 0);
+                match deref_ty {
+                    Type::MutRef(_) => Ok(MutResult::Mut),
+                    _ => Ok(MutResult::NotMut),
+                }
+            }
         }
     }
 }
@@ -685,7 +849,7 @@ pub fn parse_exp_unary_ope_mutref(s: &str) -> IResult<&str, ExpUnaryOpe> {
 
 pub fn parse_exp_unary_ope_deref(s: &str) -> IResult<&str, ExpUnaryOpe> {
     let (s, (_, _, exp)) = tuple((char('*'), space0, parse_exp_unary_ope))(s)?;
-    Ok((s, ExpUnaryOpe::Deref(Box::new(exp))))
+    Ok((s, ExpUnaryOpe::Deref(Box::new(exp), Tag::new())))
 }
 
 pub fn parse_exp_unary_ope_unary_exp(s: &str) -> IResult<&str, ExpUnaryOpe> {

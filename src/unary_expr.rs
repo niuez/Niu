@@ -9,11 +9,12 @@ use nom::multi::*;
 use crate::literal::{ Literal, parse_literal };
 use crate::identifier::{ Identifier, parse_identifier };
 use crate::expression::{ Expression, parse_expression };
-use crate::subseq::{ Subseq, parse_subseq, subseq_gen_type, subseq_transpile };
+use crate::subseq::*;
 use crate::block::{ parse_block, Block };
 use crate::structs::*;
 use crate::unify::*;
 use crate::trans::*;
+use crate::mut_checker::*;
 use crate::type_spec::*;
 use crate::traits::*;
 
@@ -66,6 +67,25 @@ impl Transpile for UnaryExpr {
     }
 }
 
+impl MutCheck for UnaryExpr {
+    fn mut_check(&self, ta: &TypeAnnotation, vars: &mut VariablesInfo) -> Result<MutResult, String> {
+        match *self {
+            UnaryExpr::Variable(ref v) => v.mut_check(ta, vars),
+            UnaryExpr::Literal(ref l) => l.mut_check(ta, vars),
+            UnaryExpr::Parentheses(ref p) => p.mut_check(ta, vars),
+            UnaryExpr::Block(ref b) => b.mut_check(ta, vars),
+            UnaryExpr::Subseq(ref expr, ref s) => subseq_mut_check(expr.as_ref(), s, ta, vars),
+            UnaryExpr::StructInst(ref inst) => inst.mut_check(ta, vars),
+            UnaryExpr::TraitMethod(ref spec, Some(ref trait_id), ref method_id) => {
+                Ok(MutResult::NotMut)
+            }
+            UnaryExpr::TraitMethod(ref spec, _, ref method_id) => {
+                Ok(MutResult::NotMut)
+            }
+        }
+    }
+}
+
 pub fn parse_unary_expr(s: &str) -> IResult<&str, UnaryExpr> {
     let (s, x) = alt((
             parse_unary_trait_method,
@@ -107,6 +127,12 @@ impl Transpile for Variable {
     }
 }
 
+impl MutCheck for Variable {
+    fn mut_check(&self, ta: &TypeAnnotation, vars: &mut VariablesInfo) -> Result<MutResult, String> {
+        Ok(vars.find_variable(&self.id).unwrap_or(MutResult::NotMut))
+    }
+}
+
 pub fn parse_variable(s: &str) -> IResult<&str, UnaryExpr> {
     let(s, id) = parse_identifier(s)?;
     Ok((s, UnaryExpr::Variable(Variable { id })))
@@ -126,6 +152,13 @@ impl GenType for Parentheses {
 impl Transpile for Parentheses {
     fn transpile(&self, ta: &TypeAnnotation) -> String {
         format!("({})", self.expr.transpile(ta))
+    }
+}
+
+impl MutCheck for Parentheses {
+    fn mut_check(&self, ta: &TypeAnnotation, vars: &mut VariablesInfo) -> Result<MutResult, String> {
+        self.expr.mut_check(ta, vars)?;
+        Ok(MutResult::NotMut)
     }
 }
 

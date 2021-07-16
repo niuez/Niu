@@ -9,6 +9,7 @@ use crate::expression::{ Expression, parse_expression };
 use crate::block::{ Block, parse_block };
 use crate::unify::*;
 use crate::trans::*;
+use crate::mut_checker::*;
 
 #[derive(Debug)]
 struct IfPair {
@@ -46,6 +47,19 @@ impl Transpile for IfExpr {
         let elif_trans = self.elifp.iter().map(|ifp| format!("\nelse if({}) {{\n {} \n}}\n", ifp.cond.transpile(ta), ifp.block.transpile(ta))).collect::<Vec<_>>().join("");
         let else_trans = format!("else {{\n {} \n}}\n", self.el_block.transpile(ta));
         format!("[&](){{ {}{}{} \n}}()", if_trans, elif_trans, else_trans)
+    }
+}
+
+impl MutCheck for IfExpr {
+    fn mut_check(&self, ta: &TypeAnnotation, vars: &mut VariablesInfo) -> Result<MutResult, String> {
+        self.ifp.cond.mut_check(ta, vars)?;
+        self.ifp.block.mut_check(ta, vars)?;
+        for IfPair { cond, block } in self.elifp.iter() {
+            cond.mut_check(ta, vars)?;
+            block.mut_check(ta, vars)?;
+        }
+        self.el_block.mut_check(ta, vars)?;
+        Ok(MutResult::NotMut)
     }
 }
 

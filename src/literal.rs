@@ -10,6 +10,7 @@ use nom::IResult;
 use crate::unary_expr::UnaryExpr;
 use crate::unify::*;
 use crate::trans::*;
+use crate::mut_checker::*;
 
 #[derive(Debug)]
 pub enum Literal {
@@ -34,6 +35,12 @@ impl Transpile for Literal {
             Literal::I64(ref i) => i.transpile(ta),
             Literal::Boolean(ref b) => b.transpile(ta),
         }
+    }
+}
+
+impl MutCheck for Literal {
+    fn mut_check(&self, ta: &TypeAnnotation, vars: &mut VariablesInfo) -> Result<MutResult, String> {
+        Ok(MutResult::NotMut)
     }
 }
 
