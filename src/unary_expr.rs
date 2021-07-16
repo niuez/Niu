@@ -157,8 +157,7 @@ impl Transpile for Parentheses {
 
 impl MutCheck for Parentheses {
     fn mut_check(&self, ta: &TypeAnnotation, vars: &mut VariablesInfo) -> Result<MutResult, String> {
-        self.expr.mut_check(ta, vars)?;
-        Ok(MutResult::NotMut)
+        self.expr.mut_check(ta, vars)
     }
 }
 

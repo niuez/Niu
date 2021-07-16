@@ -1,7 +1,11 @@
 struct Pair<S, T> {
   s: S,
   t: T,
-} {}
+} {
+  fn change_s(self: &mut Self, s: S) -> void {
+    (*self).s = s;
+  }
+}
 
 fn mut_func(a: &mut i64) -> &mut i64 {
   *a = 4i64;
@@ -15,5 +19,6 @@ fn main() -> void {
 
   let mut p = Pair { s: 2i64, t: 3i64 };
   p.s = 4i64;
+  p.change_s(5i64);
 }
 
