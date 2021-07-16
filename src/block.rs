@@ -10,6 +10,7 @@ use crate::statement::{ Statement, parse_statement };
 use crate::expression::{ Expression, parse_expression };
 use crate::unify::*;
 use crate::trans::*;
+use crate::mut_checker::*;
 
 #[derive(Debug)]
 pub struct Block {
@@ -19,10 +20,13 @@ pub struct Block {
 
 impl GenType for Block {
     fn gen_type(&self, equs: &mut TypeEquations, trs: &TraitsInfo) -> TResult {
+        equs.into_scope();
         for s in self.statements.iter() {
             let _exp = s.gen_type(equs, trs)?;
         }
-        self.return_exp.as_ref().map_or(Ok(Type::from_str("void")), |exp| exp.gen_type(equs, trs))
+        let res = self.return_exp.as_ref().map_or(Ok(Type::from_str("void")), |exp| exp.gen_type(equs, trs));
+        equs.out_scope();
+        res
     }
 }
 
@@ -37,6 +41,19 @@ impl Transpile for Block {
         }
     }
 }
+
+impl MutCheck for Block {
+    fn mut_check(&self, ta: &TypeAnnotation, vars: &mut VariablesInfo) -> Result<MutResult, String> {
+        vars.into_scope();
+        for st in self.statements.iter() {
+            st.mut_check(ta, vars)?;
+        }
+        let res = self.return_exp.as_ref().map_or(Ok(MutResult::NotMut), |exp| exp.mut_check(ta, vars));
+        vars.out_scope();
+        res
+    }
+}
+
 
 pub fn parse_block(s: &str) -> IResult<&str, Block> {
     let (s, (vec, _, return_exp, _)) = tuple((many0(tuple((space0, parse_statement, space0, tag(";")))), space0, opt(parse_expression), space0))(s)?;

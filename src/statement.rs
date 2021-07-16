@@ -4,6 +4,9 @@ use nom::IResult;
 use crate::identifier::Tag;
 use crate::expression::{ Expression, parse_expression };
 use crate::let_declaration::{ LetDeclaration, parse_let_declaration };
+use crate::mut_checker::MutCheck;
+use crate::mut_checker::MutResult;
+use crate::mut_checker::VariablesInfo;
 use crate::substitute::*;
 use crate::unify::*;
 use crate::trans::*;
@@ -40,6 +43,16 @@ impl Transpile for Statement {
             Statement::Expression(ref e, _) => e.transpile(ta),
             Statement::LetDeclaration(ref l) => l.transpile(ta),
             Statement::Substitute(ref s) => s.transpile(ta),
+        }
+    }
+}
+
+impl MutCheck for Statement {
+    fn mut_check(&self, ta: &TypeAnnotation, vars: &mut VariablesInfo) -> Result<MutResult, String> {
+        match *self {
+            Statement::Expression(ref e, _) => e.mut_check(ta, vars),
+            Statement::LetDeclaration(ref l) => l.mut_check(ta, vars),
+            Statement::Substitute(ref s) => s.mut_check(ta, vars),
         }
     }
 }

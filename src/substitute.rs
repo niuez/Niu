@@ -3,14 +3,11 @@ use nom::IResult;
 use nom::character::complete::*;
 use nom::sequence::*;
 use nom::bytes::complete::*;
-use nom::combinator::*;
 
-use crate::identifier::{ Identifier, parse_identifier };
 use crate::expression::{ Expression, parse_expression };
-use crate::unary_expr::Variable;
 use crate::unify::*;
 use crate::trans::*;
-use crate::type_spec::*;
+use crate::mut_checker::*;
 
 #[derive(Debug)]
 pub struct Substitute {
@@ -33,6 +30,19 @@ impl Transpile for Substitute {
                 self.into_expr.transpile(ta),
                 self.value.transpile(ta)
         )
+    }
+}
+
+impl MutCheck for Substitute {
+    fn mut_check(&self, ta: &TypeAnnotation, vars: &mut VariablesInfo) -> Result<MutResult, String> {
+        let into_expr = self.into_expr.mut_check(ta, vars)?;
+        self.value.mut_check(ta, vars)?;
+        if let MutResult::Mut = into_expr {
+            Ok(MutResult::NoType)
+        }
+        else {
+            Err(format!("{:?} is not mutable", into_expr))
+        }
     }
 }
 

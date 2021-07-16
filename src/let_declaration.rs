@@ -10,6 +10,7 @@ use crate::expression::{ Expression, parse_expression };
 use crate::unary_expr::Variable;
 use crate::unify::*;
 use crate::trans::*;
+use crate::mut_checker::*;
 use crate::type_spec::*;
 
 #[derive(Debug)]
@@ -42,6 +43,14 @@ impl Transpile for LetDeclaration {
         )
     }
 }
+
+impl MutCheck for LetDeclaration {
+    fn mut_check(&self, ta: &TypeAnnotation, vars: &mut VariablesInfo) -> Result<MutResult, String> {
+        vars.regist_variable(&self.id, false);
+        Ok(MutResult::NoType)
+    }
+}
+
 
 pub fn parse_let_declaration(s: &str) -> IResult<&str, LetDeclaration> {
     let (s, (_let, _, id, _, tyinfo, _, _e, _, value)) = tuple((tag("let"), space1, parse_identifier, space0, opt(tuple((char(':'), space0, parse_type_spec))), space0, tag("="), space0, parse_expression))(s)?;
