@@ -16,6 +16,7 @@ use crate::type_spec::*;
 #[derive(Debug)]
 pub struct LetDeclaration {
     pub id: Identifier,
+    pub is_mut: bool,
     pub type_info: Option<TypeSpec>,
     pub value: Expression,
 }
@@ -36,8 +37,9 @@ impl GenType for LetDeclaration {
 
 impl Transpile for LetDeclaration {
     fn transpile(&self, ta: &TypeAnnotation) -> String {
-        format!("{} {} = {}",
+        format!("{}{} {} = {}",
                 ta.annotation(self.id.get_tag_number(), "LetType", 0).transpile(ta),
+                if self.is_mut { "" } else { " const" },
                 self.id.into_string(),
                 self.value.transpile(ta)
         )
@@ -46,15 +48,15 @@ impl Transpile for LetDeclaration {
 
 impl MutCheck for LetDeclaration {
     fn mut_check(&self, ta: &TypeAnnotation, vars: &mut VariablesInfo) -> Result<MutResult, String> {
-        vars.regist_variable(&self.id, false);
+        vars.regist_variable(&self.id, self.is_mut);
         Ok(MutResult::NoType)
     }
 }
 
 
 pub fn parse_let_declaration(s: &str) -> IResult<&str, LetDeclaration> {
-    let (s, (_let, _, id, _, tyinfo, _, _e, _, value)) = tuple((tag("let"), space1, parse_identifier, space0, opt(tuple((char(':'), space0, parse_type_spec))), space0, tag("="), space0, parse_expression))(s)?;
-    Ok((s, (LetDeclaration { id, type_info: tyinfo.map(|(_, _, type_info)| type_info ), value })))
+    let (s, (_let, _, is_mut, id, _, tyinfo, _, _e, _, value)) = tuple((tag("let"), space1, opt(tuple((tag("mut"), space1))), parse_identifier, space0, opt(tuple((char(':'), space0, parse_type_spec))), space0, tag("="), space0, parse_expression))(s)?;
+    Ok((s, (LetDeclaration { id, is_mut: is_mut.is_some(), type_info: tyinfo.map(|(_, _, type_info)| type_info ), value })))
 }
 
 #[test]

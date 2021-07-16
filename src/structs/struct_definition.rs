@@ -18,6 +18,7 @@ use crate::func_definition::*;
 use crate::unify::*;
 
 use crate::trans::*;
+use crate::mut_checker::*;
 
 #[derive(Debug, Clone)]
 pub struct MemberInfo {
@@ -50,6 +51,9 @@ impl StructDefinition {
     }
     pub fn unify_require_methods(&self, equs: &mut TypeEquations, trs: &TraitsInfo) -> Result<(), String> {
         self.impl_self.unify_require_methods(equs, trs)
+    }
+    pub fn mut_check(&self, ta: &TypeAnnotation, vars: &mut VariablesInfo) -> Result<(), String> {
+        self.impl_self.mut_check(ta, vars)
     }
 
     pub fn get_impl_self_def(&self) -> &ImplSelfDefinition {

@@ -67,8 +67,13 @@ fn parse_let_declaration_to_statement(s: &str) -> IResult<&str, Statement> {
     Ok((s, Statement::LetDeclaration(decl)))
 }
 
+fn parse_substitute_to_statement(s: &str) -> IResult<&str, Statement> {
+    let (s, subst) = parse_substitute(s)?;
+    Ok((s, Statement::Substitute(subst)))
+}
+
 pub fn parse_statement(s: &str) -> IResult<&str, Statement> {
-    alt((parse_let_declaration_to_statement, parse_expression_to_statement))(s)
+    alt((parse_let_declaration_to_statement, parse_substitute_to_statement, parse_expression_to_statement))(s)
 }
 
 #[test]

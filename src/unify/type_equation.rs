@@ -695,7 +695,8 @@ impl TypeEquations {
             let (ty, inner_change) = self.solve_relations(*ty, trs)?;
             match ty {
                 Type::Ref(ty) => Ok((*ty, SolveChange::Changed)),
-                ty => Ok((ty, inner_change)),
+                Type::MutRef(ty) => Ok((*ty, SolveChange::Changed)),
+                ty => Ok((Type::Deref(Box::new(ty)), inner_change)),
             }
         }
         else {

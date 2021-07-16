@@ -14,6 +14,7 @@ use crate::block::{ Block, parse_block };
 use crate::unify::*;
 use crate::unary_expr::Variable;
 use crate::trans::*;
+use crate::mut_checker::*;
 use crate::type_spec::*;
 use crate::cpp_inline::*;
 
@@ -100,6 +101,7 @@ impl FuncDefinitionInfo {
             "".to_string()
         }
     }
+
 }
 
 impl FuncDefinition {
@@ -157,6 +159,18 @@ impl FuncDefinition {
         else {
             Ok(())
         }
+    }
+
+    pub fn mut_check(&self, ta: &TypeAnnotation, vars: &mut VariablesInfo) -> Result<(), String> {
+        vars.into_scope();
+        for (id, _) in self.args.iter() {
+            vars.regist_variable(id, false);
+        }
+        if let FuncBlock::Block(ref block) = self.block {
+            block.mut_check(ta, vars)?;
+        }
+        vars.out_scope();
+        Ok(())
     }
 }
 

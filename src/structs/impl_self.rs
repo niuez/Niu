@@ -11,6 +11,8 @@ use crate::identifier::*;
 use crate::type_id::*;
 use crate::type_spec::*;
 use crate::unify::*;
+use crate::mut_checker::*;
+use crate::trans::*;
 //use crate::unary_expr::Variable;
 use crate::traits::*;
 use crate::func_definition::*;
@@ -56,6 +58,12 @@ impl ImplSelfDefinition {
             def.unify_definition(equs, &trs)?;
         }
         equs.set_self_type(before_self_type);
+        Ok(())
+    }
+    pub fn mut_check(&self, ta: &TypeAnnotation, vars: &mut VariablesInfo) -> Result<(), String> {
+        for def in self.require_methods.values() {
+            def.mut_check(ta, vars)?;
+        }
         Ok(())
     }
 }

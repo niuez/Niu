@@ -41,18 +41,12 @@ impl MutCheck for Substitute {
             Ok(MutResult::NoType)
         }
         else {
-            Err(format!("{:?} is not mutable", into_expr))
+            Err(format!("{:?} is not mutable", self.into_expr))
         }
     }
 }
 
-pub fn parse_let_declaration(s: &str) -> IResult<&str, Substitute> {
+pub fn parse_substitute(s: &str) -> IResult<&str, Substitute> {
     let (s, (into_expr, _, _e, _, value)) = tuple((parse_expression, space0, tag("="), space0, parse_expression))(s)?;
     Ok((s, Substitute { into_expr, value, }))
-}
-
-#[test]
-fn parse_decl_test() {
-    println!("{:?}", parse_let_declaration("let x = 1 + 2"));
-    println!("{:?}", parse_let_declaration("let x: i64 = 1 + 2"));
 }

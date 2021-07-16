@@ -44,8 +44,9 @@ fn type_check() -> Result<String, String> {
         Err(format!("parse error, remaining -> {}", s))
     }
     else {
-        let mut ta = t.type_check()?;
-        Ok(t.transpile(&mut ta))
+        let ta = t.type_check()?;
+        t.mut_check(&ta)?;
+        Ok(t.transpile(&ta))
     }
 }
 

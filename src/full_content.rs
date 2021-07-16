@@ -9,6 +9,7 @@ use crate::func_definition::{ FuncDefinition, parse_func_definition };
 use crate::traits::*;
 use crate::unify::*;
 use crate::trans::*;
+use crate::mut_checker::*;
 use crate::structs::*;
 
 #[derive(Debug)]
@@ -72,6 +73,22 @@ impl FullContent {
 
         }
         Ok(ta)
+    }
+
+    pub fn mut_check(&self, ta: &TypeAnnotation) -> Result<(), String> {
+        let mut vars = VariablesInfo::new();
+        for st in self.structs.iter() {
+            st.mut_check(ta, &mut vars)?;
+        }
+
+        for im in self.impls.iter() {
+            im.mut_check(ta, &mut vars)?;
+        }
+
+        for f in self.funcs.iter() {
+            f.mut_check(ta, &mut vars)?;
+        }
+        Ok(())
     }
 }
 

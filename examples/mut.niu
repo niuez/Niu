@@ -1,7 +1,19 @@
-fn mut_func(a: &mut i64) -> void {
+struct Pair<S, T> {
+  s: S,
+  t: T,
+} {}
+
+fn mut_func(a: &mut i64) -> &mut i64 {
+  *a = 4i64;
+  a
 }
 
 fn main() -> void {
-  let b = 1i64;
-  mut_func(&mut b);
+  let mut b = 1i64;
+  *mut_func(&mut b) = 2i64;
+  b = 3i64;
+
+  let mut p = Pair { s: 2i64, t: 3i64 };
+  p.s = 4i64;
 }
+

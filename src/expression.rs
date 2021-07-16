@@ -823,8 +823,10 @@ impl MutCheck for ExpUnaryOpe {
                 Ok(MutResult::NotMut)
             }
             Self::MutRef(ref exp) => {
-                exp.mut_check(ta, vars)?;
-                Ok(MutResult::NotMut)
+                match exp.mut_check(ta, vars)? {
+                    MutResult::Mut => Ok(MutResult::NotMut),
+                    _ => Err(format!("expr {:?} is needed mutable", exp)),
+                }
             }
             Self::Deref(ref exp, ref tag) => {
                 exp.mut_check(ta, vars)?;
