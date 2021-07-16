@@ -4,6 +4,7 @@ use nom::IResult;
 use crate::identifier::Tag;
 use crate::expression::{ Expression, parse_expression };
 use crate::let_declaration::{ LetDeclaration, parse_let_declaration };
+use crate::substitute::*;
 use crate::unify::*;
 use crate::trans::*;
 
@@ -11,6 +12,7 @@ use crate::trans::*;
 pub enum Statement {
     Expression(Expression, Tag),
     LetDeclaration(LetDeclaration),
+    Substitute(Substitute),
 }
 
 impl GenType for Statement {
@@ -24,6 +26,9 @@ impl GenType for Statement {
             Statement::LetDeclaration(ref l) => {
                 l.gen_type(equs, trs)?;
             }
+            Statement::Substitute(ref s) => {
+                s.gen_type(equs, trs)?;
+            }
         };
         Ok(Type::End)
     }
@@ -34,6 +39,7 @@ impl Transpile for Statement {
         match *self {
             Statement::Expression(ref e, _) => e.transpile(ta),
             Statement::LetDeclaration(ref l) => l.transpile(ta),
+            Statement::Substitute(ref s) => s.transpile(ta),
         }
     }
 }

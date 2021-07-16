@@ -8,6 +8,7 @@ pub mod subseq;
 pub mod unary_expr;
 
 pub mod statement;
+pub mod substitute;
 pub mod let_declaration;
 
 pub mod block;
