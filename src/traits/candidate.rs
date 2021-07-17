@@ -168,8 +168,12 @@ impl Transpile for ImplDefinition {
         let asso_defs = self.asso_defs.iter().map(|(id, spec)| {
             format!("using {} = {};\n", id.transpile(ta), spec.transpile(ta))
         }).collect::<Vec<_>>().join(" ");
-        let require_methods = self.require_methods.iter().map(|(_, def)| format!("static {}", def.transpile(ta))).collect::<Vec<_>>().join("\n\n");
-        format!("{} {{\nstatic constexpr bool value = true;\nusing Self = {};\n{}\n\n\n{}}};\n", impl_def, self.impl_ty.transpile(ta), asso_defs, require_methods)
+        let require_methods = self.require_methods.iter().map(|(_, def)| {
+            let def_str = def.transpile(ta);
+            if def_str.is_empty() { format!("") }
+            else { format!("static {}", def.transpile(ta)) }
+        }).collect::<Vec<_>>().join("\n\n");
+        format!("{} {{\nstatic constexpr bool value = true;\nusing Self = {};\n{}\n{}}};\n", impl_def, self.impl_ty.transpile(ta), asso_defs, require_methods)
     }
 }
 

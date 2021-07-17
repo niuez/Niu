@@ -790,6 +790,9 @@ impl TypeEquations {
                             println!("--------------------");
                             println!("AUTOREF {:?} : {:?} {:?}", left, ty, tag);
                             println!("oks = {:?}", oks);
+                            if oks.len() == 0 {
+                                Err(UnifyErr::Contradiction(format!("not equal {:?}, auto ref {:?}", left, ty)))?;
+                            }
                             if oks.len() == 1 {
                                 println!("OK");
                                 let (ref_tag, tmp_equs) = oks.pop().unwrap();

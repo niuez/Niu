@@ -1,0 +1,36 @@
+trait Index {
+  type Output;
+  fn index(self: &Self, i: u64) -> &Self#Index::Output;
+}
+
+trait IndexMut where Self: Index {
+  fn index_mut(self: &mut Self, i: u64) -> &mut Self#Index::Output;
+}
+
+struct Vec<T> $${std::vector<$ty(T)>}$$ {
+  fn new() -> Self $${std::vector<$ty(T)>()}$$
+  fn push(self: &Self, t: T) -> bool $${$arg(self)->push_back($arg(t))}$$
+  fn get(self: &Self, i: u64) -> T $${$arg(self)->at($arg(i))}$$
+}
+
+impl<T> Index for Vec<T> {
+  type Output = T;
+  fn index(self: &Self, i: u64) -> &T $${&$arg(self)->at($arg(i))}$$
+}
+
+impl<T> IndexMut for Vec<T> {
+  fn index_mut(self: &mut Self, i: u64) -> &mut T $${&$arg(self)->at($arg(i))}$$
+}
+
+fn index_only<T>(t: &T) -> &T#Index::Output
+where T: IndexMut {
+  t.index(0u64)
+}
+
+fn main() -> Vec<i64> {
+  let vec = Vec::new();
+  (&vec).push(1i64);
+  vec.push(2i64);
+  vec.index(0u64);
+  vec
+}

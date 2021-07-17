@@ -19,6 +19,7 @@ use nom::IResult;
 
 use crate::identifier::{ Identifier, parse_identifier };
 //use crate::unary_expr::Variable;
+use crate::unify::where_section::*;
 use crate::trans::*;
 use crate::func_definition::*;
 
@@ -41,6 +42,7 @@ pub fn parse_trait_id(s: &str) -> IResult<&str, TraitId> {
 #[derive(Debug, Clone)]
 pub struct TraitDefinition {
     pub trait_id: TraitId,
+    pub where_sec: WhereSection,
     pub asso_ids: Vec<AssociatedTypeIdentifier>,
     pub required_methods: HashMap<TraitMethodIdentifier, FuncDefinitionInfo>,
 }
@@ -48,6 +50,7 @@ pub struct TraitDefinition {
 #[derive(Debug, Clone)]
 pub struct TraitDefinitionInfo {
     pub trait_id: TraitId,
+    pub where_sec: WhereSection,
     pub asso_ids: Vec<AssociatedTypeIdentifier>,
     pub required_methods: HashMap<TraitMethodIdentifier, FuncDefinitionInfo>,
 }
@@ -56,6 +59,7 @@ impl TraitDefinition {
     pub fn get_trait_id_pair(&self) -> (TraitId, TraitDefinitionInfo) {
         (self.trait_id.clone(), TraitDefinitionInfo {
             trait_id: self.trait_id.clone(),
+            where_sec: self.where_sec.clone(),
             asso_ids: self.asso_ids.clone(),
             required_methods: self.required_methods.clone(),
         })
@@ -69,15 +73,15 @@ impl Transpile for TraitDefinition {
 }
 
 pub fn parse_trait_definition(s: &str) -> IResult<&str, TraitDefinition> {
-    let (s, (_, _, trait_id, _, _, _, many_types, many_methods, _, _)) = 
+    let (s, (_, _, trait_id, _, where_sec, _, _, _, many_types, many_methods, _, _)) = 
         tuple((tag("trait"), space1, parse_trait_id,
-            space0, char('{'), space0,
+            space0, parse_where_section, space0, char('{'), space0,
             many0(tuple((tag("type"), space1, parse_associated_type_identifier, space0, char(';'), space0))),
             many0(tuple((parse_func_definition_info, space0, char(';'), space0))),
             space0, char('}')))(s)?;
     let asso_ids = many_types.into_iter().map(|(_, _, id, _, _, _)| id).collect();
     let required_methods = many_methods.into_iter().map(|(info, _, _, _)| (TraitMethodIdentifier { id: info.func_id.clone() }, info)).collect();
-    Ok((s, TraitDefinition { trait_id, asso_ids, required_methods }))
+    Ok((s, TraitDefinition { trait_id, where_sec, asso_ids, required_methods }))
 }
 
 

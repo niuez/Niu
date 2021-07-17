@@ -269,6 +269,14 @@ impl<'a> TraitsInfo<'a> {
         match self.get_traitinfo(&trait_id) {
             None => Err(format!("trait {:?} is not defined", trait_id)),
             Some(tr) => {
+                {
+                    tr.where_sec.regist_equations(&GenericsTypeMap::empty(), &mut equs, self)?;
+                    match equs.unify(self) {
+                        Ok(_) => Ok(()),
+                        Err(UnifyErr::Deficiency(s)) => Err(s),
+                        Err(UnifyErr::Contradiction(s)) => Err(s),
+                    }?;
+                }
                 for (id, info) in tr.required_methods.iter() {
                     match ti.require_methods.get(id) {
                         None => Err(format!("method {:?}::{:?} is not defined for {:?}", tr, id, ti.impl_ty))?,
@@ -285,9 +293,13 @@ impl<'a> TraitsInfo<'a> {
         }
     }
     pub fn regist_param_candidate(&mut self, ty: Type, trait_id: &TraitId, mut asso_mp: HashMap<AssociatedTypeIdentifier, Type>) -> Result<(), String> {
-        match self.get_traitinfo(trait_id) {
+        println!("param {:?}, {:?}", ty, trait_id);
+        match self.get_traitinfo(trait_id).cloned() {
             None => Err(format!("trait {:?} is not defined", trait_id)),
             Some(tr_def) => {
+                let mut equs = TypeEquations::new();
+                equs.set_self_type(Some(ty.clone()));
+                tr_def.where_sec.regist_candidate(&equs, self)?;
                 let asso_tys = tr_def.asso_ids.iter().map(|asso_id| {
                     let asso_ty = match asso_mp.remove(asso_id) {
                         Some(asso_ty) => asso_ty,
