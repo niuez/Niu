@@ -1,4 +1,5 @@
 use nom::branch::*;
+use nom::bytes::complete::*;
 use nom::IResult;
 
 use crate::identifier::Tag;
@@ -16,6 +17,8 @@ pub enum Statement {
     Expression(Expression, Tag),
     LetDeclaration(LetDeclaration),
     Substitute(Substitute),
+    Break,
+    Continue,
 }
 
 impl GenType for Statement {
@@ -32,6 +35,8 @@ impl GenType for Statement {
             Statement::Substitute(ref s) => {
                 s.gen_type(equs, trs)?;
             }
+            Statement::Break => {}
+            Statement::Continue => {}
         };
         Ok(Type::End)
     }
@@ -43,6 +48,8 @@ impl Transpile for Statement {
             Statement::Expression(ref e, _) => e.transpile(ta),
             Statement::LetDeclaration(ref l) => l.transpile(ta),
             Statement::Substitute(ref s) => s.transpile(ta),
+            Statement::Break => format!("break"),
+            Statement::Continue => format!("continue"),
         }
     }
 }
@@ -53,6 +60,8 @@ impl MutCheck for Statement {
             Statement::Expression(ref e, _) => e.mut_check(ta, vars),
             Statement::LetDeclaration(ref l) => l.mut_check(ta, vars),
             Statement::Substitute(ref s) => s.mut_check(ta, vars),
+            Statement::Break => Ok(MutResult::NoType),
+            Statement::Continue => Ok(MutResult::NoType),
         }
     }
 }
@@ -72,8 +81,17 @@ pub fn parse_substitute_to_statement(s: &str) -> IResult<&str, Statement> {
     Ok((s, Statement::Substitute(subst)))
 }
 
+pub fn parse_break_to_statement(s: &str) -> IResult<&str, Statement> {
+    let (s, _) = tag("break")(s)?;
+    Ok((s, Statement::Break))
+}
+pub fn parse_continue_to_statement(s: &str) -> IResult<&str, Statement> {
+    let (s, _) = tag("continue")(s)?;
+    Ok((s, Statement::Continue))
+}
+
 pub fn parse_statement(s: &str) -> IResult<&str, Statement> {
-    alt((parse_let_declaration_to_statement, parse_substitute_to_statement, parse_expression_to_statement))(s)
+    alt((parse_break_to_statement, parse_continue_to_statement, parse_let_declaration_to_statement, parse_substitute_to_statement, parse_expression_to_statement))(s)
 }
 
 #[test]

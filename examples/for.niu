@@ -2,10 +2,12 @@ fn println(i: u64) -> void $${std::cout << $arg(i) << std::endl;}$$
 
 fn main() -> void {
   for(let mut i = 0; i < 5; i = i + 1) {
-    if i == 4 {
+    if i == 3 {
+      break;
     }
     else {
       println(i);
+      continue;
     };
   };
 }
