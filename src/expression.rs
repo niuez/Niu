@@ -1,4 +1,5 @@
 pub mod if_expr;
+pub mod for_expr;
 
 //use nom::branch::*;
 use nom::IResult;
@@ -15,10 +16,12 @@ use crate::trans::*;
 use crate::mut_checker::*;
 
 pub use if_expr::*;
+pub use for_expr::*;
 
 #[derive(Debug)]
 pub enum Expression {
     IfExpr(Box<IfExpr>),
+    ForExpr(Box<ForExpr>),
     Expression(ExpOr),
 }
 
@@ -27,6 +30,7 @@ impl GenType for Expression {
         match *self {
             Expression::Expression(ref e) => e.gen_type(equs, trs),
             Expression::IfExpr(ref ifexpr) => ifexpr.as_ref().gen_type(equs, trs),
+            Expression::ForExpr(ref forexpr) => forexpr.as_ref().gen_type(equs, trs),
         }
     }
 }
@@ -36,6 +40,7 @@ impl Transpile for Expression {
         match *self {
             Expression::Expression(ref e) => e.transpile(ta),
             Expression::IfExpr(ref ifexpr) => ifexpr.as_ref().transpile(ta),
+            Expression::ForExpr(ref forexpr) => forexpr.as_ref().transpile(ta),
         }
     }
 }
@@ -45,6 +50,7 @@ impl MutCheck for Expression {
         match *self {
             Expression::Expression(ref e) => e.mut_check(ta, vars),
             Expression::IfExpr(ref ifexpr) => ifexpr.as_ref().mut_check(ta, vars),
+            Expression::ForExpr(ref forexpr) => forexpr.as_ref().mut_check(ta, vars),
         }
     }
 }
@@ -867,7 +873,7 @@ pub fn parse_exp_unary_ope(s: &str) -> IResult<&str, ExpUnaryOpe> {
 
 
 pub fn parse_expression(s: &str) -> IResult<&str, Expression> {
-    let (s, expr) = alt((parse_if_expr, parse_expor))(s)?;
+    let (s, expr) = alt((parse_if_expr, parse_for_expr, parse_expor))(s)?;
     Ok((s, expr))
 }
 

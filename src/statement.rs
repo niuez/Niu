@@ -57,17 +57,17 @@ impl MutCheck for Statement {
     }
 }
 
-fn parse_expression_to_statement(s: &str) -> IResult<&str, Statement> {
+pub fn parse_expression_to_statement(s: &str) -> IResult<&str, Statement> {
     let (s, expr) = parse_expression(s)?;
     Ok((s, Statement::Expression(expr, Tag::new())))
 }
 
-fn parse_let_declaration_to_statement(s: &str) -> IResult<&str, Statement> {
+pub fn parse_let_declaration_to_statement(s: &str) -> IResult<&str, Statement> {
     let (s, decl) = parse_let_declaration(s)?;
     Ok((s, Statement::LetDeclaration(decl)))
 }
 
-fn parse_substitute_to_statement(s: &str) -> IResult<&str, Statement> {
+pub fn parse_substitute_to_statement(s: &str) -> IResult<&str, Statement> {
     let (s, subst) = parse_substitute(s)?;
     Ok((s, Statement::Substitute(subst)))
 }

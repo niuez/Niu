@@ -54,7 +54,9 @@ pub fn subseq_gen_type(uexpr: &UnaryExpr, subseq: &Subseq, equs: &mut TypeEquati
                     let caller = uexpr.gen_type(equs, trs)?;
                     let args = call.args.iter().map(|arg| arg.gen_type(equs, trs)).collect::<Result<Vec<_>, String>>()?;
                     let return_type = call.tag.generate_type_variable("ReturnType", 0, equs);
-                    equs.add_equation(caller, Type::Func(args, Box::new(return_type.clone()), FuncTypeInfo::None));
+                    let func_type = call.tag.generate_type_variable("FuncTypeInfo", 0, equs);
+                    equs.add_equation(caller, func_type.clone());
+                    equs.add_equation(func_type, Type::Func(args, Box::new(return_type.clone()), FuncTypeInfo::None));
                     Ok(return_type)
                 }
             }
@@ -142,9 +144,18 @@ pub fn subseq_transpile(uexpr: &UnaryExpr, subseq: &Subseq, ta: &TypeAnnotation)
                 }
             }
             else {
-                let caller = uexpr.transpile(ta);
-                let args = call.args.iter().map(|arg| arg.transpile(ta)).collect::<Vec<_>>().join(", ");
-                format!("{}({})", caller, args)
+                match ta.annotation(call.tag.get_num(), "FuncTypeInfo", 0) {
+                    Type::Func(_, _, FuncTypeInfo::CppInline(cppinline, ids)) => {
+                        let args = call.args.iter().map(|arg| arg.transpile(ta));
+                        let mp = ids.into_iter().zip(args.into_iter()).collect::<HashMap<_, _>>();
+                        cppinline.transpile(ta, &mp)
+                    }
+                    _ => {
+                        let caller = uexpr.transpile(ta);
+                        let args = call.args.iter().map(|arg| arg.transpile(ta)).collect::<Vec<_>>().join(", ");
+                        format!("{}({})", caller, args)
+                    }
+                }
             }
         }
         Subseq::Member(ref mem) => {
