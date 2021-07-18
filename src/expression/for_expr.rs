@@ -39,7 +39,7 @@ impl Transpile for ForExpr {
         let cond_trans = self.cond.transpile(ta);
         let update_trans = self.update.transpile(ta);
         let block_trans = self.block.transpile(ta);
-        format!("for({}; {}; {}){{\n{}\n}}", init_trans, cond_trans, update_trans, block_trans)
+        format!("for({}; {}; {}){{\n{}}}", init_trans, cond_trans, update_trans, block_trans)
     }
 }
 

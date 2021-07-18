@@ -33,12 +33,12 @@ impl GenType for Block {
 impl Transpile for Block {
     fn transpile(&self, ta: &TypeAnnotation) -> String {
         let statements = self.statements.iter().map(|s| format!("{};\n", s.transpile(ta))).collect::<Vec<_>>().join("");
-        if let Some(ref return_exp) = self.return_exp {
-            format!("{}return {};\n", statements, return_exp.transpile(ta))
-        }
-        else {
-            statements
-        }
+        let return_trans = match self.return_exp {
+            Some(Expression::IfExpr(ref ifexpr)) => format!("{};\n", ifexpr.transpile_for_return(ta)),
+            Some(ref return_exp) => format!("return {};\n", return_exp.transpile(ta)),
+            None => format!(""),
+        };
+        format!("{}{}", statements, return_trans)
     }
 }
 

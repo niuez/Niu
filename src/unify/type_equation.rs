@@ -82,6 +82,8 @@ impl Type {
         match self {
             Type::SolvedAssociatedType(_, _) => true,
             Type::Generics(_, gens) => gens.iter().map(|gen| gen.is_solved_type()).all(|t| t),
+            Type::Ref(ref ty) => ty.as_ref().is_solved_type(),
+            Type::MutRef(ref ty) => ty.as_ref().is_solved_type(),
             _ => false,
         }
     }
@@ -288,7 +290,6 @@ impl CallEquation {
         else {
             SolveChange::Not
         };
-
         let args = self.args.into_iter().map(|arg| equs.solve_relations(arg, trs)).collect::<Result<Vec<_>, UnifyErr>>()?;
         let args_changed = args.iter().map(|(_, c)| *c).fold(SolveChange::Not, |b, a| b & a);
         self.args = args.into_iter().map(|(a, _)| a).collect();
@@ -501,7 +502,8 @@ impl TypeEquations {
         let (ty, b3) = self.solve_member(ty, trs)?;
         let (ty, b4) = self.solve_generics(ty, trs)?;
         let (ty, b5) = self.solve_deref(ty, trs)?;
-        Ok((ty, b0 & b1 & b2 & b3 & b4 & b5))
+        let (ty, b6) = self.solve_autoref(ty, trs)?;
+        Ok((ty, b0 & b1 & b2 & b3 & b4 & b5 & b6))
     }
 
     fn solve_call_equation(&mut self, ty: Type, trs: &TraitsInfo) -> Result<(Type, SolveChange), UnifyErr> {
@@ -647,23 +649,41 @@ impl TypeEquations {
                         StructDefinitionInfo::Primitive => Err(UnifyErr::Contradiction(format!("primitive type has no member: {:?}", id))),
                     }
                 }
+                else if let Type::Ref(ty) = inner_ty {
+                    if let Type::Generics(ref id, ref gens) = ty.as_ref() {
+                        match trs.search_typeid(id).map_err(|st| UnifyErr::Contradiction(st))? {
+                            StructDefinitionInfo::Def(def)  => {
+                                let res = def.get_member_type(self, trs, gens, &mem_id).map_err(|st| UnifyErr::Contradiction(st))?;
+                                self.solve_relations(res, trs).map(|(ty, _)| (ty, SolveChange::Changed))
+                            }
+                            StructDefinitionInfo::Generics  => Err(UnifyErr::Contradiction(format!("generics type has no member: {:?}", id))),
+                            StructDefinitionInfo::Primitive => Err(UnifyErr::Contradiction(format!("primitive type has no member: {:?}", id))),
+                        }
+                    }
+                    else {
+                        Err(UnifyErr::Contradiction(format!("cant solve member ref({:?})", ty)))
+                    }
+                }
+                else if let Type::MutRef(ty) = inner_ty {
+                    if let Type::Generics(ref id, ref gens) = ty.as_ref() {
+                        match trs.search_typeid(id).map_err(|st| UnifyErr::Contradiction(st))? {
+                            StructDefinitionInfo::Def(def)  => {
+                                let res = def.get_member_type(self, trs, gens, &mem_id).map_err(|st| UnifyErr::Contradiction(st))?;
+                                self.solve_relations(res, trs).map(|(ty, _)| (ty, SolveChange::Changed))
+                            }
+                            StructDefinitionInfo::Generics  => Err(UnifyErr::Contradiction(format!("generics type has no member: {:?}", id))),
+                            StructDefinitionInfo::Primitive => Err(UnifyErr::Contradiction(format!("primitive type has no member: {:?}", id))),
+                        }
+                    }
+                    else {
+                        Err(UnifyErr::Contradiction(format!("cant solve member mutref({:?})", ty)))
+                    }
+                }
                 else if let Type::SolvedAssociatedType(_, _) = inner_ty {
                     Err(UnifyErr::Contradiction(format!("SolvedAssociatedType has no member: {:?}", inner_ty)))
                 }
                 else {
                     unreachable!()
-                }
-            }
-            else if let Type::Generics(ref id, ref gens) = inner_ty {
-                match trs.search_typeid(id).map_err(|st| UnifyErr::Contradiction(st))? {
-                    StructDefinitionInfo::Def(def)  => {
-                        match def.get_member_type(self, trs, gens, &mem_id) {
-                            Ok(res) => self.solve_relations(res, trs).map(|(ty, _)| (ty, SolveChange::Changed)),
-                            Err(_) => Ok((Type::Member(Box::new(inner_ty), mem_id), inner_changed)),
-                        }
-                    }
-                    StructDefinitionInfo::Generics  => Err(UnifyErr::Contradiction(format!("generics type has no member: {:?}", id))),
-                    StructDefinitionInfo::Primitive => Err(UnifyErr::Contradiction(format!("primitive type has no member: {:?}", id))),
                 }
             }
             else if let Type::SolvedAssociatedType(_, _) = inner_ty {
@@ -698,6 +718,16 @@ impl TypeEquations {
                 Type::MutRef(ty) => Ok((*ty, SolveChange::Changed)),
                 ty => Ok((Type::Deref(Box::new(ty)), inner_change)),
             }
+        }
+        else {
+            Ok((ty, SolveChange::Not))
+        }
+    }
+
+    fn solve_autoref(&mut self, ty: Type, trs: &TraitsInfo) -> Result<(Type, SolveChange), UnifyErr> {
+        if let Type::AutoRef(ty, tag) = ty {
+            let (ty, change) = self.solve_relations(*ty, trs)?;
+            Ok((Type::AutoRef(Box::new(ty), tag), change))
         }
         else {
             Ok((ty, SolveChange::Not))
@@ -776,7 +806,8 @@ impl TypeEquations {
                             let mut oks = vec![
                                     (AutoRefTag::Nothing, ty.clone()),
                                     (AutoRefTag::Ref, Type::Ref(Box::new(ty.clone()))),
-                                    (AutoRefTag::MutRef, Type::MutRef(Box::new(ty.clone()))),].into_iter()
+                                    (AutoRefTag::MutRef, Type::MutRef(Box::new(ty.clone()))),
+                            ].into_iter()
                                 .map(|(ref_tag, right)| {
                                     let mut tmp_equs = TypeEquations::new();
                                     tmp_equs.add_equation(left.clone(), right);
@@ -795,6 +826,7 @@ impl TypeEquations {
                             }
                             if oks.len() == 1 {
                                 println!("OK");
+                                println!("--------------------");
                                 let (ref_tag, tmp_equs) = oks.pop().unwrap();
                                 self.take_over_equations(tmp_equs);
                                 let var = tag.generate_type_variable("AutoRefType", 0, self);
@@ -802,6 +834,7 @@ impl TypeEquations {
                             }
                             else {
                                 println!("NG");
+                                println!("--------------------");
                                 self.equs.push_back(TypeEquation::Equal(left, Type::AutoRef(Box::new(ty), AutoRefTag::Tag(tag)), changed & ty_changed));
                             }
                         }
@@ -886,7 +919,7 @@ impl TypeEquations {
                 }
             }
             if self.change_cnt == 0 && self.equs.len() > 0 {
-                return Err(UnifyErr::Deficiency(format!("change cnt = 0 {:?}", self.equs)));
+                return Err(UnifyErr::Deficiency(format!("change cnt = 0 \n{}", self.equs.iter().map(|equ| format!("{:?}", equ)).collect::<Vec<_>>().join("\n"))));
             }
         }
 

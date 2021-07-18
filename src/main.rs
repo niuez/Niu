@@ -53,6 +53,6 @@ fn type_check() -> Result<String, String> {
 fn main() {
     match type_check() {
         Ok(prog) => println!("{}", prog),
-        err => println!("{:?}", err),
+        Err(err) => println!("{}", err),
     }
 }

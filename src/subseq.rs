@@ -63,9 +63,11 @@ pub fn subseq_gen_type(uexpr: &UnaryExpr, subseq: &Subseq, equs: &mut TypeEquati
         }
         Subseq::Member(ref mem) => {
             let st = uexpr.gen_type(equs, trs)?;
+            let st_type = mem.mem_id.generate_type_variable("StructType", 0, equs);
+            equs.add_equation(st_type.clone(), st);
             let alpha = mem.mem_id.generate_type_variable("MemberType", 0, equs);
-            equs.add_equation(alpha.clone(), Type::Member(Box::new(st.clone()), mem.mem_id.clone()));
-            Ok(Type::Member(Box::new(st), mem.mem_id.clone()))
+            equs.add_equation(alpha.clone(), Type::Member(Box::new(st_type.clone()), mem.mem_id.clone()));
+            Ok(Type::Member(Box::new(st_type), mem.mem_id.clone()))
         }
     }
 
@@ -160,7 +162,11 @@ pub fn subseq_transpile(uexpr: &UnaryExpr, subseq: &Subseq, ta: &TypeAnnotation)
         }
         Subseq::Member(ref mem) => {
             let caller = uexpr.transpile(ta);
-            format!("{}.{}", caller, mem.mem_id.into_string())
+            match ta.annotation(mem.mem_id.get_tag_number(), "StructType", 0) {
+                Type::Ref(_) => format!("{}->{}", caller, mem.mem_id.into_string()),
+                Type::MutRef(_) => format!("{}->{}", caller, mem.mem_id.into_string()),
+                _ => format!("{}.{}", caller, mem.mem_id.into_string())
+            }
         }
     }
 }
@@ -204,7 +210,11 @@ pub fn subseq_mut_check(uexpr: &UnaryExpr, subseq: &Subseq, ta: &TypeAnnotation,
         }
         Subseq::Member(ref mem) => {
             let uexpr = uexpr.mut_check(ta, vars)?;
-            Ok(uexpr)
+            match (uexpr, ta.annotation(mem.mem_id.get_tag_number(), "StructType", 0)) {
+                (MutResult::Mut, _) => Ok(MutResult::Mut),
+                (_, Type::MutRef(_)) => Ok(MutResult::Mut),
+                _ => Ok(MutResult::NotMut),
+            }
         }
     }
 }

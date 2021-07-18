@@ -172,30 +172,34 @@ impl FuncDefinition {
         vars.out_scope();
         Ok(())
     }
+
+    pub fn transpile_definition(&self, ta: &TypeAnnotation) -> String {
+        let template_str =
+            if self.generics.len() > 0 {
+                let gen = self.generics.iter().map(|g| format!("class {}", g.transpile(ta))).collect::<Vec<_>>().join(", ");
+                format!("template<{}> ", gen)
+            } 
+            else {
+                "".to_string()
+            };
+
+        let return_str = self.return_type.transpile(ta);
+        let func_str = self.func_id.into_string();
+        let arg_str = self.args.iter().map(|(id, ty)| {
+            format!("{} {}", ty.transpile(ta), id.into_string())
+        }).collect::<Vec<_>>().join(", ");
+
+        format!("{}{} {}({})", template_str, return_str, func_str, arg_str)
+    }
 }
 
 
 impl Transpile for FuncDefinition {
     fn transpile(&self, ta: &TypeAnnotation) -> String {
         if let FuncBlock::Block(ref block) = self.block {
-            let template_str =
-                if self.generics.len() > 0 {
-                    let gen = self.generics.iter().map(|g| format!("class {}", g.transpile(ta))).collect::<Vec<_>>().join(", ");
-                    format!("template<{}> ", gen)
-                } 
-                else {
-                    "".to_string()
-                };
-
-            let return_str = self.return_type.transpile(ta);
-            let func_str = self.func_id.into_string();
-            let arg_str = self.args.iter().map(|(id, ty)| {
-                format!("{} {}", ty.transpile(ta), id.into_string())
-            }).collect::<Vec<_>>().join(", ");
-
+            let func_def = self.transpile_definition(ta);
             let block_str = block.transpile(ta);
-
-            format!("{}{} {}({}) {{\n{}\n}}\n", template_str, return_str, func_str, arg_str, block_str)
+            format!("{} {{\n{}}}\n", func_def, block_str)
         }
         else {
             format!("")

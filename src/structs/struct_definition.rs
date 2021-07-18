@@ -165,6 +165,13 @@ impl Transpile for StructDefinition {
                 else {
                     format!("")
                 };
+                let self_type_generics = if self.member_def.generics.len() > 0 {
+                    format!("<{}>", self.member_def.generics.iter().map(|gen| format!("{}", gen.transpile(ta))).collect::<Vec<_>>().join(", "))
+                }
+                else {
+                    format!("")
+                };
+                let self_type = format!("using Self = {}{};", self.member_def.struct_id.transpile(ta), self_type_generics);
                 let members_str = members_order.iter().map(|mem| members.get_key_value(mem).unwrap()).map(|(mem, ty)| format!("{} {};", ty.transpile(ta), mem.into_string())).collect::<Vec<_>>().join("\n");
                 let constructor = format!("{}({}):{} {{ }}",
                     self.member_def.struct_id.transpile(ta),
@@ -175,7 +182,7 @@ impl Transpile for StructDefinition {
                 );
                 let methods = self.impl_self.require_methods.iter().map(|(_, func)| format!("static {}", func.transpile(ta))).collect::<Vec<_>>().join("\n");
 
-                format!("{}struct {} {{\n{}\n{}\n{}\n}} ;\n", template, self.member_def.struct_id.transpile(ta), members_str, constructor, methods)
+                format!("{}struct {} {{\n{}\n{}\n{}\n{}\n}} ;\n", template, self.member_def.struct_id.transpile(ta),self_type, members_str, constructor, methods)
             }
             _ => format!(""),
         }

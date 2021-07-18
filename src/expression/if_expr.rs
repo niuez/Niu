@@ -26,6 +26,15 @@ pub struct IfExpr {
     tag: Tag,
 }
 
+impl IfExpr {
+    pub fn transpile_for_return(&self, ta: &TypeAnnotation) -> String {
+        let if_trans = format!("if({}) {{\n{}}}\n", self.ifp.cond.transpile(ta), self.ifp.block.transpile(ta));
+        let elif_trans = self.elifp.iter().map(|ifp| format!("\nelse if({}) {{\n{}}}\n", ifp.cond.transpile(ta), ifp.block.transpile(ta))).collect::<Vec<_>>().join("");
+        let else_trans = format!("else {{\n{}}}", self.el_block.transpile(ta));
+        format!("{}{}{}", if_trans, elif_trans, else_trans)
+    }
+}
+
 impl GenType for IfExpr {
     fn gen_type(&self, equs: &mut TypeEquations, trs: &TraitsInfo) -> TResult {
         let cond_type = self.ifp.cond.gen_type(equs, trs)?;
@@ -47,9 +56,9 @@ impl GenType for IfExpr {
 
 impl Transpile for IfExpr {
     fn transpile(&self, ta: &TypeAnnotation) -> String {
-        let if_trans = format!("if({}) {{\n {} \n}}\n", self.ifp.cond.transpile(ta), self.ifp.block.transpile(ta));
-        let elif_trans = self.elifp.iter().map(|ifp| format!("\nelse if({}) {{\n {} \n}}\n", ifp.cond.transpile(ta), ifp.block.transpile(ta))).collect::<Vec<_>>().join("");
-        let else_trans = format!("else {{\n {} \n}}\n", self.el_block.transpile(ta));
+        let if_trans = format!("if({}) {{\n {}}}\n", self.ifp.cond.transpile(ta), self.ifp.block.transpile(ta));
+        let elif_trans = self.elifp.iter().map(|ifp| format!("\nelse if({}) {{\n {}}}\n", ifp.cond.transpile(ta), ifp.block.transpile(ta))).collect::<Vec<_>>().join("");
+        let else_trans = format!("else {{\n {}}}", self.el_block.transpile(ta));
         if Type::from_str("void") == ta.annotation(self.tag.get_num(), "ReturnType", 0) {
             format!("{}{}{}", if_trans, elif_trans, else_trans)
         }

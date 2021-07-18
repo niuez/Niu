@@ -1,0 +1,55 @@
+struct Vec<T> $${std::vector<$ty(T)>}$$ {
+  fn new() -> Self $${std::vector<$ty(T)>()}$$
+  fn push(self: &mut Self, t: T) -> void $${$arg(self)->push_back($arg(t))}$$
+  fn len(self: &Self) -> u64 $${$arg(self)->size()}$$
+  fn index(self: &Self, i: u64) -> &T $${(&$arg(self)->at($arg(i)))}$$
+  fn index_mut(self: &mut Self, i: u64) -> &mut T $${(&$arg(self)->at($arg(i)))}$$
+  fn pop(self: &mut Self) -> void $${$arg(self)->pop_back()}$$
+}
+
+struct UnionFind {
+  par: Vec<u64>,
+  sz: Vec<u64>,
+  N: u64,
+} {
+  fn init(N: u64) -> Self {
+    let mut par = Vec::new();
+    let mut sz = Vec::new();
+    for(let mut i = 0; i < N; i = i + 1) {
+      par.push(N);
+      sz.push(1);
+    };
+    UnionFind { par: par, sz: sz, N: N, }
+  }
+  fn root(self: &mut Self, x: u64) -> u64 {
+    if *self.par.index(x) == self.N {
+      x
+    }
+    else {
+      let r = self.root(*self.par.index(x));
+      *self.par.index_mut(x) = r;
+      r
+    }
+  }
+  fn size(self: &mut Self, x: u64) -> u64 {
+    *self.sz.index(self.root(x))
+  }
+  fn unite(self: &mut Self, x: u64, y: u64) -> void {
+    let xr = self.root(x);
+    let yr = self.root(y);
+    if xr != yr {
+      let xs = self.size(xr);
+      let ys = self.size(yr);
+      if xs < ys {
+        *self.sz.index_mut(yr) = ys + xs;
+        *self.par.index_mut(xr) = yr;
+      }
+      else {
+        *self.sz.index_mut(xr) = ys + xs;
+        *self.par.index_mut(yr) = xr;
+      };
+    }
+    else {
+    };
+  }
+}
