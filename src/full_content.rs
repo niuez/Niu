@@ -178,7 +178,7 @@ pub fn parse_full_content(s: &str) -> IResult<&str, (Vec<String>, FullContent)> 
     Ok((s, (imports, FullContent { structs, funcs, traits, impls, })))
 }
 
-pub fn parse_full_content_from_file(filename: &str) -> Result<FullContent, String> {
+pub fn parse_full_content_from_file(filename: &str, import_path: &[PathBuf]) -> Result<FullContent, String> {
     let mut structs = Vec::new();
     let mut funcs = Vec::new();
     let mut traits = Vec::new();
@@ -188,32 +188,51 @@ pub fn parse_full_content_from_file(filename: &str) -> Result<FullContent, Strin
     let mut read = HashSet::new();
     {
         let path = Path::new(filename).canonicalize().map_err(|e| format!("{:?}", e))?.to_path_buf();
-        que.push(path.clone());
-        read.insert(path);
-    }
-    
-    while let Some(path) = que.pop() {
         if path.is_file() {
-            let program = std::fs::read_to_string(path.as_path()).map_err(|_| format!("cant open {}", filename))?;
-            let program = program.chars().map(|c| match c { '\n' => ' ', c => c }).collect::<String>();
-            let (s, (imports, mut full)) = crate::full_content::parse_full_content(&program).map_err(|e| format!("{:?}", e))?;
-            if s != "" {
-                Err(format!("path {:?} parse error, remaining -> {}", path, s))?;
-            }
-            for import in imports.into_iter() {
-                let path = Path::new(&import).canonicalize().map_err(|e| format!("{:?}", e))?.to_path_buf();
-                if read.insert(path.clone()) {
-                    que.push(path);
-                }
-            }
-            structs.append(&mut full.structs);
-            funcs.append(&mut full.funcs);
-            traits.append(&mut full.traits);
-            impls.append(&mut full.impls);
+            que.push(path.clone());
+            read.insert(path);
         }
         else {
             Err(format!("path {:?} is not file", path))?;
         }
+    }
+    
+    while let Some(path) = que.pop() {
+        let program = std::fs::read_to_string(path.as_path()).map_err(|_| format!("cant open {}", filename))?;
+        let program = program.chars().map(|c| match c { '\n' => ' ', c => c }).collect::<String>();
+        let (s, (imports, mut full)) = crate::full_content::parse_full_content(&program).map_err(|e| format!("{:?}", e))?;
+        if s != "" {
+            Err(format!("path {:?} parse error, remaining -> {}", path, s))?;
+        }
+        for import in imports.into_iter() {
+            let mut ok = false;
+            for mut import_dir in import_path.into_iter().cloned().chain(std::iter::once(path.parent().unwrap().to_path_buf())) {
+                import_dir.push(&import);
+                dbg!(&import_dir);
+                if let Ok(path) = import_dir.as_path().canonicalize().map(|p| p.to_path_buf()) {
+                    println!("path {:?}", path);
+                    if read.insert(path.clone()) {
+                        if path.is_file() {
+                            que.push(path);
+                            ok = true;
+                            break;
+                        }
+                    }
+                    else {
+                        println!("already exist");
+                        ok = true;
+                        break;
+                    }
+                }
+            }
+            if !ok {
+                Err(format!("cant find {}", import))?;
+            }
+        }
+        structs.append(&mut full.structs);
+        funcs.append(&mut full.funcs);
+        traits.append(&mut full.traits);
+        impls.append(&mut full.impls);
     }
 
     Ok(FullContent { structs, funcs, traits, impls })

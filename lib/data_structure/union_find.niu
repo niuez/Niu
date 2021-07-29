@@ -1,5 +1,4 @@
-import "./lib/std/vec.niu"
-
+import "std/vec.niu"
 struct UnionFind {
   par: Vec<u64>,
   sz: Vec<u64>,

@@ -31,13 +31,34 @@ pub mod cpp_inline;
 
 pub mod mut_checker;
 
+use std::path::*;
+
 use crate::trans::Transpile;
+
+use nom::IResult;
+use nom::bytes::complete::*;
+use nom::character::complete::*;
+use nom::sequence::*;
+use nom::multi::*;
+
+fn get_import_path() -> Result<Vec<PathBuf>, String> {
+    let paths = std::env::var("NIU_IMPORT_PATH").unwrap_or(format!(""));
+    let parse: IResult<&str, Vec<_>> = many0(tuple((is_not(";"), char(';'))))(paths.as_str());
+    let (s, paths) = parse.map_err(|e| format!("{:?}", e))?;
+    if s != "" {
+        Err(format!("get import path remaining {}", s))
+    }
+    else {
+        Ok(paths.into_iter().map(|(path, _)| Path::new(path).to_path_buf()).collect())
+    }
+}
 
 fn type_check() -> Result<String, String> {
     let args = std::env::args().collect::<Vec<_>>();
     let filename = args.get(1).ok_or("no filepath")?;
-    let mut t = crate::full_content::parse_full_content_from_file(&filename).map_err(|e| format!("{:?}", e))?;
-    println!("{:?}", t);
+    let import_path = get_import_path()?;
+    let mut t = crate::full_content::parse_full_content_from_file(&filename, &import_path).map_err(|e| format!("{:?}", e))?;
+    //println!("{:?}", t);
     let ta = t.type_check()?;
     t.mut_check(&ta)?;
     Ok(t.transpile(&ta))

@@ -1,4 +1,4 @@
-import "./lib/std/vec.niu"
+import "std/vec.niu"
 trait Monoid {
   fn ide() -> Self;
   fn ope(self: &Self, right: &Self) -> Self;
