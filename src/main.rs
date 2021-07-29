@@ -36,18 +36,11 @@ use crate::trans::Transpile;
 fn type_check() -> Result<String, String> {
     let args = std::env::args().collect::<Vec<_>>();
     let filename = args.get(1).ok_or("no filepath")?;
-    let program = std::fs::read_to_string(filename).map_err(|_| format!("cant open {}", filename))?;
-    let program = program.chars().map(|c| match c { '\n' => ' ', c => c }).collect::<String>();
-    let (s, mut t) = crate::full_content::parse_full_content(&program).map_err(|e| format!("{:?}", e))?;
+    let mut t = crate::full_content::parse_full_content_from_file(&filename).map_err(|e| format!("{:?}", e))?;
     println!("{:?}", t);
-    if s != "" {
-        Err(format!("parse error, remaining -> {}", s))
-    }
-    else {
-        let ta = t.type_check()?;
-        t.mut_check(&ta)?;
-        Ok(t.transpile(&ta))
-    }
+    let ta = t.type_check()?;
+    t.mut_check(&ta)?;
+    Ok(t.transpile(&ta))
 }
 
 fn main() {

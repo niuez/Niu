@@ -1,11 +1,4 @@
-struct Vec<T> $${std::vector<$ty(T)>}$$ {
-  fn new() -> Self $${std::vector<$ty(T)>()}$$
-  fn push(self: &mut Self, t: T) -> void $${$arg(self)->push_back($arg(t))}$$
-  fn len(self: &Self) -> u64 $${$arg(self)->size()}$$
-  fn index(self: &Self, i: u64) -> &T $${(&$arg(self)->at($arg(i)))}$$
-  fn index_mut(self: &mut Self, i: u64) -> &mut T $${(&$arg(self)->at($arg(i)))}$$
-  fn pop(self: &mut Self) -> void $${$arg(self)->pop_back()}$$
-}
+import "./lib/std/vec.niu"
 
 struct UnionFind {
   par: Vec<u64>,

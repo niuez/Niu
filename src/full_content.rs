@@ -1,4 +1,8 @@
+use std::collections::HashSet;
+use std::path::*;
+
 use nom::IResult;
+use nom::bytes::complete::*;
 use nom::character::complete::*;
 use nom::sequence::*;
 use nom::multi::*;
@@ -121,6 +125,7 @@ enum ContentElement {
     Func(FuncDefinition),
     Trait(TraitDefinition),
     ImplTrait(ImplDefinition),
+    Import(String),
 }
 
 fn parse_element_struct(s: &str) -> IResult<&str, ContentElement> {
@@ -143,28 +148,73 @@ fn parse_element_impl_trait(s: &str) -> IResult<&str, ContentElement> {
     Ok((s, ContentElement::ImplTrait(it)))
 }
 
-fn parse_content_element(s: &str) -> IResult<&str, ContentElement> {
-    alt((parse_element_struct, parse_element_func, parse_element_trait, parse_element_impl_trait))(s)
+fn parse_element_import(s: &str) -> IResult<&str, ContentElement> {
+    let (s, (_, _, _, _, path, _, _)) = tuple((space0, tag("import"), space0, char('"'), is_not("\""), char('"'), space0))(s)?;
+    Ok((s, ContentElement::Import(path.to_string())))
 }
 
-pub fn parse_full_content(s: &str) -> IResult<&str, FullContent> {
+
+fn parse_content_element(s: &str) -> IResult<&str, ContentElement> {
+    alt((parse_element_import, parse_element_struct, parse_element_func, parse_element_trait, parse_element_impl_trait))(s)
+}
+
+pub fn parse_full_content(s: &str) -> IResult<&str, (Vec<String>, FullContent)> {
     let (s, (_, elems, _)) = tuple((space0, many0(tuple((parse_content_element, space0))), space0))(s)?;
     
     let mut structs = Vec::new();
     let mut funcs = Vec::new();
     let mut traits = Vec::new();
     let mut impls = Vec::new();
+    let mut imports = Vec::new();
     for (e, _) in elems {
         match e {
             ContentElement::Struct(s) => structs.push(s),
             ContentElement::Func(f) => funcs.push(f),
             ContentElement::Trait(t) => traits.push(t),
             ContentElement::ImplTrait(it) => impls.push(it),
+            ContentElement::Import(path) => imports.push(path),
         }
     }
-    Ok((s, FullContent { structs, funcs, traits, impls, }))
+    Ok((s, (imports, FullContent { structs, funcs, traits, impls, })))
 }
 
+pub fn parse_full_content_from_file(filename: &str) -> Result<FullContent, String> {
+    let mut structs = Vec::new();
+    let mut funcs = Vec::new();
+    let mut traits = Vec::new();
+    let mut impls = Vec::new();
+
+    let mut que = Vec::new();
+    let mut read = HashSet::new();
+    que.push(Path::new(filename).to_path_buf());
+    read.insert(Path::new(filename).to_path_buf());
+    
+    while let Some(path) = que.pop() {
+        if path.is_file() {
+            let program = std::fs::read_to_string(path.as_path()).map_err(|_| format!("cant open {}", filename))?;
+            let program = program.chars().map(|c| match c { '\n' => ' ', c => c }).collect::<String>();
+            let (s, (imports, mut full)) = crate::full_content::parse_full_content(&program).map_err(|e| format!("{:?}", e))?;
+            if s != "" {
+                Err(format!("path {:?} parse error, remaining -> {}", path, s))?;
+            }
+            for import in imports.into_iter() {
+                if read.insert(Path::new(&import).to_path_buf()) {
+                    que.push(Path::new(&import).to_path_buf());
+                }
+            }
+            structs.append(&mut full.structs);
+            funcs.append(&mut full.funcs);
+            traits.append(&mut full.traits);
+            impls.append(&mut full.impls);
+        }
+        else {
+            Err(format!("path {:?} is not file", path))?;
+        }
+    }
+
+    Ok(FullContent { structs, funcs, traits, impls })
+}
+/*
 #[test]
 fn parse_full_content_test() {
     println!("{:?}", parse_full_content("fn func(x: i64) -> i64 { let y = x * x; y + x } fn add(x: i64) -> i64 { x + x }"))
@@ -287,3 +337,4 @@ fn unify_test_for_param_candidate() {
 
     println!("```cpp\n{}```\n", t.transpile(&mut ta));
 }
+*/
