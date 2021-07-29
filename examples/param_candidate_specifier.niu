@@ -3,6 +3,13 @@ trait Add {
   fn add(a: Self, b: Self) -> Self#Add::Output;
 }
 
+impl Add for i64 {
+  type Output = i64;
+  fn add(a: i64, b: i64) -> i64 {
+    a + b
+  }
+}
+
 fn add3<S>(a: S, b: S, c: S) -> S#Add::Output
 where S: Add(Output=S)
 {

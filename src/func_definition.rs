@@ -174,11 +174,20 @@ impl FuncDefinition {
     }
 
     pub fn transpile_definition(&self, ta: &TypeAnnotation) -> String {
+        let where_str = self.where_sec.transpile(ta);
         let template_str =
             if self.generics.len() > 0 {
                 let gen = self.generics.iter().map(|g| format!("class {}", g.transpile(ta))).collect::<Vec<_>>().join(", ");
-                format!("template<{}> ", gen)
+                if where_str == "" {
+                    format!("template<{}> ", gen)
+                }
+                else {
+                    format!("template<{}, class = {}> ", gen, where_str)
+                }
             } 
+            else if where_str != "" {
+                format!("template<class = {}> ", where_str)
+            }
             else {
                 "".to_string()
             };

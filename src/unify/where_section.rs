@@ -11,6 +11,7 @@ use crate::type_spec::*;
 use crate::traits::*;
 
 use crate::unify::*;
+use crate::trans::*;
 
 #[derive(Debug, Clone)]
 pub struct WhereSection {
@@ -68,6 +69,23 @@ impl WhereSection {
     pub fn check_equal(&self, right: &Self) -> bool {
                 self.has_traits.clone().into_iter().collect::<HashSet<_>>()
             == right.has_traits.clone().into_iter().collect::<HashSet<_>>()
+    }
+
+    pub fn transpile(&self, ta: &TypeAnnotation) -> String {
+        let mut conds = Vec::new();
+        for (ty, _, tr, assos) in self.has_traits.iter() {
+            let trait_ty = format!("{}<{}>", tr.transpile(ta), ty.transpile(ta));
+            conds.push(trait_ty.clone());
+            for (id, asso_ty) in assos.iter() {
+                conds.push(format!("std::is_same<typename {}::{}, {}>", trait_ty.clone(), id.transpile(ta), asso_ty.transpile(ta)));
+            }
+        }
+        if conds.len() == 0 {
+            format!("")
+        }
+        else {
+            format!("std::conjunction<{}>", conds.join(", "))
+        }
     }
 }
 
