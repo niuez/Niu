@@ -186,8 +186,11 @@ pub fn parse_full_content_from_file(filename: &str) -> Result<FullContent, Strin
 
     let mut que = Vec::new();
     let mut read = HashSet::new();
-    que.push(Path::new(filename).to_path_buf());
-    read.insert(Path::new(filename).to_path_buf());
+    {
+        let path = Path::new(filename).canonicalize().map_err(|e| format!("{:?}", e))?.to_path_buf();
+        que.push(path.clone());
+        read.insert(path);
+    }
     
     while let Some(path) = que.pop() {
         if path.is_file() {
@@ -198,8 +201,9 @@ pub fn parse_full_content_from_file(filename: &str) -> Result<FullContent, Strin
                 Err(format!("path {:?} parse error, remaining -> {}", path, s))?;
             }
             for import in imports.into_iter() {
-                if read.insert(Path::new(&import).to_path_buf()) {
-                    que.push(Path::new(&import).to_path_buf());
+                let path = Path::new(&import).canonicalize().map_err(|e| format!("{:?}", e))?.to_path_buf();
+                if read.insert(path.clone()) {
+                    que.push(path);
                 }
             }
             structs.append(&mut full.structs);
