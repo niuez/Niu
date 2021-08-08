@@ -270,11 +270,11 @@ impl<'a> TraitsInfo<'a> {
             None => Err(format!("trait {:?} is not defined", trait_id)),
             Some(tr) => {
                 {
-                    tr.where_sec.regist_equations(&GenericsTypeMap::empty(), &mut equs, self)?;
-                    match equs.unify(self) {
+                    tr.where_sec.regist_equations(&GenericsTypeMap::empty(), &mut equs, &gen_trs)?;
+                    match equs.unify(&gen_trs) {
                         Ok(_) => Ok(()),
-                        Err(UnifyErr::Deficiency(s)) => Err(s),
-                        Err(UnifyErr::Contradiction(s)) => Err(s),
+                        Err(UnifyErr::Deficiency(s)) => Err(format!("trait {:?} where section error, {:?}", tr.trait_id, s)),
+                        Err(UnifyErr::Contradiction(s)) => Err(format!("trait {:?} where section error, {:?}", tr.trait_id, s)),
                     }?;
                 }
                 for (id, info) in tr.required_methods.iter() {
@@ -339,7 +339,8 @@ impl<'a> TraitsInfo<'a> {
     }
 
     pub fn match_to_impls_for_type(&self, trait_id: &TraitId, ty: &Type) -> Vec<(SubstsMap, &SelectionCandidate)> {
-        self.match_to_impls(trait_id, ty, self)
+        let ans = self.match_to_impls(trait_id, ty, self);
+        ans
     }
 
     fn match_to_self_impls(&self, typeid: &TypeId, ty: &Type, top_trs: &Self) -> Vec<(SubstsMap, &SelectionCandidate)> {

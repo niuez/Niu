@@ -166,20 +166,20 @@ impl Transpile for ImplDefinition {
         let generics = self.generics.iter().map(|id| format!("class {}", id.transpile(ta))).collect::<Vec<_>>().join(", ");
         let where_str = self.where_sec.transpile(ta);
         let impl_def = if where_str == "" {
-            format!("template<{}> struct {}<{}>", generics, self.trait_id.transpile(ta), self.impl_ty.transpile(ta))
+            format!("template<{}> struct {}<{}>: std::true_type", generics, self.trait_id.transpile(ta), self.impl_ty.transpile(ta))
         }
         else {
-            format!("template<{}> struct {}<{}, {}>", generics, self.trait_id.transpile(ta), self.impl_ty.transpile(ta), where_str)
+            format!("template<{}> struct {}<{}>: {}", generics, self.trait_id.transpile(ta), self.impl_ty.transpile(ta), where_str)
         };
         let asso_defs = self.asso_defs.iter().map(|(id, spec)| {
             format!("using {} = {};\n", id.transpile(ta), spec.transpile(ta))
         }).collect::<Vec<_>>().join(" ");
         let require_methods = self.require_methods.iter().map(|(_, def)| {
-            let def_str = def.transpile(ta);
+            let def_str = def.transpile_implement(ta);
             if def_str.is_empty() { format!("") }
             else { format!("static {}", def.transpile(ta)) }
         }).collect::<Vec<_>>().join("\n\n");
-        format!("{} {{\nstatic constexpr bool value = true;\nusing Self = {};\n{}\n{}}};\n", impl_def, self.impl_ty.transpile(ta), asso_defs, require_methods)
+        format!("{} {{\nusing Self = {};\n{}\n{}}};\n", impl_def, self.impl_ty.transpile(ta), asso_defs, require_methods)
     }
 }
 
@@ -259,6 +259,7 @@ impl ImplCandidate {
         let gen_mp = mp.next(gen_mp);
         let impl_ty = self.impl_ty.generics_to_type(&gen_mp, &mut equs, trs).unwrap();
         equs.add_equation(ty.clone(), impl_ty);
+        equs.debug();
         if self.where_sec.regist_equations(&gen_mp, &mut equs, trs).is_ok() {
             equs.unify(trs).ok().map(|_| SubstsMap::new(equs.take_substs()))
         }
@@ -366,6 +367,7 @@ impl ParamCandidate {
         let alpha = self.trait_id.id.generate_type_variable("ImplType", 0, &mut equs);
         equs.add_equation(self.impl_ty.clone(), alpha.clone());
         equs.add_equation(ty.clone(), alpha);
+        equs.debug();
         equs.unify(trs).ok().map(|_| SubstsMap::new(equs.take_substs()))
     }
     pub fn get_associated_from_id(&self, _equs: &mut TypeEquations, _trs: &TraitsInfo, asso_id: &AssociatedTypeIdentifier, _subst: &SubstsMap) -> Type {

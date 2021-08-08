@@ -44,6 +44,21 @@ impl CppInline {
         Ok(CppInlineInfo { elems, tag })
     }
 
+    pub fn transpile_implement(&self, ta: &TypeAnnotation) -> String {
+        self.inlines.iter().map(|inline| match inline {
+            CppInlineElem::Arg(id) => {
+                id.into_string()
+            }
+            CppInlineElem::Type(tyid) => {
+                tyid.transpile(ta)
+            }
+            CppInlineElem::Any(c) => {
+                c.to_string()
+            }
+            _ => unreachable!("cant use inline {:?}", inline),
+        }).collect::<Vec<_>>().join("")
+    }
+
     pub fn transpile(&self, _ta: &TypeAnnotation, gen_mp: &HashMap<TypeId, String>) -> String {
         self.inlines.iter().map(|inline| match inline {
             CppInlineElem::Type(tyid) => {

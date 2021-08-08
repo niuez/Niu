@@ -746,7 +746,7 @@ impl TypeEquations {
                     let (left, left_changed) = self.solve_relations(left, trs)?;
                     if left.is_solved_type() {
                         if !self.solve_has_trait(&left, &tr, trs) {
-                            Err(UnifyErr::Contradiction(format!("type {:?} is not implemented trait", tr)))?;
+                            Err(UnifyErr::Contradiction(format!("type {:?} is not implemented trait {:?}", left, tr)))?;
                         }
                     }
                     else {

@@ -200,6 +200,20 @@ impl FuncDefinition {
 
         format!("{}{} {}({})", template_str, return_str, func_str, arg_str)
     }
+    pub fn transpile_implement(&self, ta: &TypeAnnotation) -> String {
+        match self.block {
+            FuncBlock::Block(ref block) => {
+                let func_def = self.transpile_definition(ta);
+                let block_str = block.transpile(ta);
+                format!("{} {{\n{}}}\n", func_def, block_str)
+            }
+            FuncBlock::CppInline(ref block) => {
+                let func_def = self.transpile_definition(ta);
+                let block_str = block.transpile_implement(ta);
+                format!("{} {{\nreturn {};}}\n", func_def, block_str)
+            }
+        }
+    }
 }
 
 
