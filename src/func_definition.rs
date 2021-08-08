@@ -210,7 +210,7 @@ impl FuncDefinition {
             FuncBlock::CppInline(ref block) => {
                 let func_def = self.transpile_definition(ta);
                 let block_str = block.transpile_implement(ta);
-                format!("{} {{\nreturn {};}}\n", func_def, block_str)
+                format!("{} {{\nreturn {};\n}}\n", func_def, block_str)
             }
         }
     }

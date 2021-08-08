@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{ HashSet, HashMap };
 use std::path::*;
 
 use nom::IResult;
@@ -99,8 +99,23 @@ impl FullContent {
 impl Transpile for FullContent {
     fn transpile(&self, ta: &TypeAnnotation) -> String {
         let mut res = "#include <bits/stdc++.h>\n\n".to_string();
+        let mut operators = HashMap::new();
+        operators.insert("Index".to_string(), HashSet::new());
+        operators.insert("IndexMut".to_string(), HashSet::new());
+        for t in self.impls.iter() {
+            let tr_id = t.get_trait_id().id.into_string();
+            if let Some(set) = operators.get_mut(&tr_id) {
+                if let Some(id) = t.get_impl_ty_id() {
+                    set.insert(id);
+                }
+            }
+        }
         for t in self.structs.iter() {
-            let s = t.transpile(ta);
+            let st_id = t.get_id();
+            let opes = operators.iter()
+                .filter_map(|(k, set)| if set.contains(&st_id) { Some(k.clone()) } else { None })
+                .collect::<Vec<_>>();
+            let s = t.transpile(ta, opes);
             res.push_str(&s);
         }
         for t in self.traits.iter() {

@@ -107,6 +107,12 @@ pub struct ImplDefinition {
 }
 
 impl ImplDefinition {
+    pub fn get_trait_id(&self) -> TraitId {
+        self.trait_id.clone()
+    }
+    pub fn get_impl_ty_id(&self) -> Option<TypeId> {
+        self.impl_ty.get_type_id().ok()
+    }
     pub fn get_impl_trait_pair(&self) -> (TraitId, SelectionCandidate) {
         (self.trait_id.clone(), SelectionCandidate::ImplCandidate(ImplCandidate {
             generics: self.generics.clone(),
@@ -176,8 +182,7 @@ impl Transpile for ImplDefinition {
         }).collect::<Vec<_>>().join(" ");
         let require_methods = self.require_methods.iter().map(|(_, def)| {
             let def_str = def.transpile_implement(ta);
-            if def_str.is_empty() { format!("") }
-            else { format!("static {}", def.transpile(ta)) }
+            format!("static {}", def_str)
         }).collect::<Vec<_>>().join("\n\n");
         format!("{} {{\nusing Self = {};\n{}\n{}}};\n", impl_def, self.impl_ty.transpile(ta), asso_defs, require_methods)
     }

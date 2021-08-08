@@ -548,9 +548,9 @@ impl TypeEquations {
         }
     }
 
-    fn solve_has_trait(&mut self, ty: &Type, tr_id: &TraitId, trs: &TraitsInfo) -> bool {
+    fn solve_has_trait(&mut self, ty: &Type, tr_id: &TraitId, trs: &TraitsInfo) -> usize {
         let substs = trs.match_to_impls_for_type(tr_id, ty);
-        substs.len() == 1
+        substs.len()
     }
 
     fn solve_trait_method(&mut self, ty: Type, trs: &TraitsInfo) -> Result<(Type, SolveChange), UnifyErr> {
@@ -745,8 +745,12 @@ impl TypeEquations {
                     self.change_cnt -= before_changed.cnt();
                     let (left, left_changed) = self.solve_relations(left, trs)?;
                     if left.is_solved_type() {
-                        if !self.solve_has_trait(&left, &tr, trs) {
+                        let solve_cnt = self.solve_has_trait(&left, &tr, trs);
+                        if solve_cnt == 0 {
                             Err(UnifyErr::Contradiction(format!("type {:?} is not implemented trait {:?}", left, tr)))?;
+                        }
+                        else if solve_cnt > 1{
+                            Err(UnifyErr::Contradiction(format!("type {:?} is too many implemented traits {:?}", left, tr)))?;
                         }
                     }
                     else {

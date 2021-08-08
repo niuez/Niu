@@ -46,6 +46,9 @@ pub struct StructDefinition {
 }
 
 impl StructDefinition {
+    pub fn get_id(&self) -> TypeId {
+        self.member_def.get_id()
+    }
     pub fn get_member_def(&self) -> &StructMemberDefinition {
         &self.member_def
     }
@@ -58,6 +61,46 @@ impl StructDefinition {
 
     pub fn get_impl_self_def(&self) -> &ImplSelfDefinition {
         &self.impl_self
+    }
+    pub fn transpile(&self, ta: &TypeAnnotation, opes: Vec<String>) -> String {
+        match self.member_def.member {
+            StructMember::MemberInfo(MemberInfo { ref members_order, ref members }) => {
+                let template = if self.member_def.generics.len() > 0 {
+                    format!("template <{}> ", self.member_def.generics.iter().map(|gen| format!("class {}", gen.transpile(ta))).collect::<Vec<_>>().join(", "))
+                }
+                else {
+                    format!("")
+                };
+                let self_type_generics = if self.member_def.generics.len() > 0 {
+                    format!("<{}>", self.member_def.generics.iter().map(|gen| format!("{}", gen.transpile(ta))).collect::<Vec<_>>().join(", "))
+                }
+                else {
+                    format!("")
+                };
+                let self_type = format!("using Self = {}{};", self.member_def.struct_id.transpile(ta), self_type_generics);
+                let members_str = members_order.iter().map(|mem| members.get_key_value(mem).unwrap()).map(|(mem, ty)| format!("{} {};", ty.transpile(ta), mem.into_string())).collect::<Vec<_>>().join("\n");
+                let constructor = format!("{}({}):{} {{ }}",
+                    self.member_def.struct_id.transpile(ta),
+                    members_order.iter().map(|mem| members.get_key_value(mem).unwrap())
+                        .map(|(mem, ty)| format!("{} {}", ty.transpile(ta), mem.into_string())).collect::<Vec<_>>().join(", "),
+                    members_order.iter().map(|mem| members.get_key_value(mem).unwrap())
+                        .map(|(mem, _)| format!("{}({})", mem.into_string(), mem.into_string())).collect::<Vec<_>>().join(", ")
+                );
+                let methods = self.impl_self.require_methods.iter().map(|(_, func)| format!("static {}", func.transpile(ta))).collect::<Vec<_>>().join("\n");
+                let operators = opes.into_iter().map(|ope| match ope.as_str() {
+                    "Index" => {
+                        format!("auto operator[](typename Index<Self>::Arg k) const {{ return *Index<Self>::index(this, k); }}\n")
+                    }
+                    "IndexMut" => {
+                        format!("auto operator[](typename Index<Self>::Arg k) {{ return *IndexMut<Self>::index_mut(this, k); }}\n")
+                    }
+                    _ => "".to_string(),
+                }).collect::<Vec<_>>().join("");
+
+                format!("{}struct {} {{\n{}\n{}\n{}\n{}\n{}\n}} ;\n", template, self.member_def.struct_id.transpile(ta),self_type, members_str, constructor, methods, operators)
+            }
+            _ => format!(""),
+        }
     }
 }
 
@@ -153,40 +196,6 @@ pub fn parse_struct_definition(s: &str) -> IResult<&str, StructDefinition> {
         member_def,
         impl_self,
     }))
-}
-
-impl Transpile for StructDefinition {
-    fn transpile(&self, ta: &TypeAnnotation) -> String {
-        match self.member_def.member {
-            StructMember::MemberInfo(MemberInfo { ref members_order, ref members }) => {
-                let template = if self.member_def.generics.len() > 0 {
-                    format!("template <{}> ", self.member_def.generics.iter().map(|gen| format!("class {}", gen.transpile(ta))).collect::<Vec<_>>().join(", "))
-                }
-                else {
-                    format!("")
-                };
-                let self_type_generics = if self.member_def.generics.len() > 0 {
-                    format!("<{}>", self.member_def.generics.iter().map(|gen| format!("{}", gen.transpile(ta))).collect::<Vec<_>>().join(", "))
-                }
-                else {
-                    format!("")
-                };
-                let self_type = format!("using Self = {}{};", self.member_def.struct_id.transpile(ta), self_type_generics);
-                let members_str = members_order.iter().map(|mem| members.get_key_value(mem).unwrap()).map(|(mem, ty)| format!("{} {};", ty.transpile(ta), mem.into_string())).collect::<Vec<_>>().join("\n");
-                let constructor = format!("{}({}):{} {{ }}",
-                    self.member_def.struct_id.transpile(ta),
-                    members_order.iter().map(|mem| members.get_key_value(mem).unwrap())
-                        .map(|(mem, ty)| format!("{} {}", ty.transpile(ta), mem.into_string())).collect::<Vec<_>>().join(", "),
-                    members_order.iter().map(|mem| members.get_key_value(mem).unwrap())
-                        .map(|(mem, _)| format!("{}({})", mem.into_string(), mem.into_string())).collect::<Vec<_>>().join(", ")
-                );
-                let methods = self.impl_self.require_methods.iter().map(|(_, func)| format!("static {}", func.transpile(ta))).collect::<Vec<_>>().join("\n");
-
-                format!("{}struct {} {{\n{}\n{}\n{}\n{}\n}} ;\n", template, self.member_def.struct_id.transpile(ta),self_type, members_str, constructor, methods)
-            }
-            _ => format!(""),
-        }
-    }
 }
 
 #[test]
