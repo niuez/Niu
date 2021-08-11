@@ -89,10 +89,10 @@ impl StructDefinition {
                 let methods = self.impl_self.require_methods.iter().map(|(_, func)| format!("static {}", func.transpile(ta))).collect::<Vec<_>>().join("\n");
                 let operators = opes.into_iter().map(|ope| match ope.as_str() {
                     "Index" => {
-                        format!("auto operator[](typename Index<Self>::Arg k) const {{ return *Index<Self>::index(this, k); }}\n")
+                        format!("typename std::enable_if<Index<Self>::value, const typename Index<Self>::Output&>::type operator[](typename Index<Self>::Arg k) const {{ return *Index<Self>::index(this, k); }}\n")
                     }
                     "IndexMut" => {
-                        format!("auto operator[](typename Index<Self>::Arg k) {{ return *IndexMut<Self>::index_mut(this, k); }}\n")
+                        format!("typename std::enable_if<Index<Self>::value, typename Index<Self>::Output&>::type operator[](typename Index<Self>::Arg k) {{ return *IndexMut<Self>::index_mut(this, k); }}\n")
                     }
                     _ => "".to_string(),
                 }).collect::<Vec<_>>().join("");
