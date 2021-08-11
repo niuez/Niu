@@ -39,7 +39,7 @@ where T: Index(Arg=u64) {
 
 impl<T> IndexMut for Hoge<T>
 where T: Index(Arg=u64), T: IndexMut {
-  fn index_mut(self: &Self, i: u64) -> &mut T#Index::Output {
-    self.a.index(i)
+  fn index_mut(self: &mut Self, i: u64) -> &mut T#Index::Output {
+    self.a.index_mut(i)
   }
 }

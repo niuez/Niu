@@ -33,6 +33,9 @@ impl FullContent {
     }
     fn regist_impls(&mut self, trs: &mut TraitsInfo) -> Result<(), String> {
         for im in self.impls.iter() {
+            trs.preregist_impl_candidate(im);
+        }
+        for im in self.impls.iter() {
             trs.regist_impl_candidate(im)?;
         }
         Ok(())

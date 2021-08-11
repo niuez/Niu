@@ -520,27 +520,29 @@ impl TypeEquations {
                 {
                     let AssociatedType { ref trait_id, ref type_id } = asso;
                     let substs = trs.match_to_impls_for_type(trait_id, &inner_ty);
-                    if substs.len() == 1 {
-                        let mut substs = substs;
-                        let (subst, impl_trait) = substs.pop().unwrap();
-                        let before = self.set_self_type(Some(inner_ty));
-                        let res = impl_trait.get_associated_from_id(self, trs, type_id, &subst);
-                        self.set_self_type(before);
-                        self.solve_relations(res, trs).map(|(ty, _)| (ty, SolveChange::Changed))
-                    }
-                    else if inner_ty.is_solved_type() {
-                        if substs.len() == 0 { 
-                            Err(UnifyErr::Contradiction(format!("type {:?} is not implemented trait {:?}", inner_ty, trait_id)))
+                    match substs {
+                        Ok((subst, impl_trait)) => {
+                            let before = self.set_self_type(Some(inner_ty));
+                            let res = impl_trait.get_associated_from_id(self, trs, type_id, &subst);
+                            self.set_self_type(before);
+                            self.solve_relations(res, trs).map(|(ty, _)| (ty, SolveChange::Changed))
                         }
-                        else if substs.len() > 1 {
-                            Err(UnifyErr::Contradiction(format!("type {:?} is implemented too many trait {:?}", inner_ty, substs)))
+                        Err(len) => {
+                            if inner_ty.is_solved_type() {
+                                if len == 0 { 
+                                    Err(UnifyErr::Contradiction(format!("type {:?} is not implemented trait {:?}", inner_ty, trait_id)))
+                                }
+                                else if len > 1 {
+                                    Err(UnifyErr::Contradiction(format!("type {:?} is implemented too many trait {:?}", inner_ty, substs)))
+                                }
+                                else {
+                                    unreachable!();
+                                }
+                            }
+                            else {
+                                Ok((Type::AssociatedType(Box::new(inner_ty), asso), inner_changed))
+                            }
                         }
-                        else {
-                            unreachable!();
-                        }
-                    }
-                    else {
-                        Ok((Type::AssociatedType(Box::new(inner_ty), asso), inner_changed))
                     }
                 }
             }
@@ -550,7 +552,10 @@ impl TypeEquations {
 
     fn solve_has_trait(&mut self, ty: &Type, tr_id: &TraitId, trs: &TraitsInfo) -> usize {
         let substs = trs.match_to_impls_for_type(tr_id, ty);
-        substs.len()
+        match substs {
+            Ok(_) => 1,
+            Err(i) => i,
+        }
     }
 
     fn solve_trait_method(&mut self, ty: Type, trs: &TraitsInfo) -> Result<(Type, SolveChange), UnifyErr> {
@@ -561,26 +566,28 @@ impl TypeEquations {
             {
                 //let TraitMethod { trait_id, method_id } = tr_method;
                 let substs = trs.match_to_impls_for_type(&trait_id, &inner_ty);
-                if substs.len() == 1 {
-                    let mut substs = substs;
-                    let (subst, impl_trait) = substs.pop().unwrap();
-                    let before = self.set_self_type(Some(inner_ty.clone()));
-                    let res = impl_trait.get_trait_method_from_id(self, trs, &TraitMethodIdentifier { id: method_id }, &subst, &inner_ty); self.set_self_type(before);
-                    self.solve_relations(res, trs).map(|(ty, _)| (ty, SolveChange::Changed))
-                }
-                else if inner_ty.is_solved_type() {
-                    if substs.len() == 0 { 
-                        Err(UnifyErr::Contradiction(format!("type {:?} is not implemented trait {:?}", inner_ty, trait_id)))
+                match substs {
+                    Ok((subst, impl_trait)) => {
+                        let before = self.set_self_type(Some(inner_ty.clone()));
+                        let res = impl_trait.get_trait_method_from_id(self, trs, &TraitMethodIdentifier { id: method_id }, &subst, &inner_ty); self.set_self_type(before);
+                        self.solve_relations(res, trs).map(|(ty, _)| (ty, SolveChange::Changed))
                     }
-                    else if substs.len() > 1 {
-                        Err(UnifyErr::Contradiction(format!("type {:?} is implemented too many trait {:?}", inner_ty, substs)))
+                    Err(len) => {
+                        if inner_ty.is_solved_type() {
+                            if len == 0 { 
+                                Err(UnifyErr::Contradiction(format!("type {:?} is not implemented trait {:?}", inner_ty, trait_id)))
+                            }
+                            else if len > 1 {
+                                Err(UnifyErr::Contradiction(format!("type {:?} is implemented too many trait {:?}", inner_ty, substs)))
+                            }
+                            else {
+                                unreachable!();
+                            }
+                        }
+                        else {
+                            Ok((Type::TraitMethod(Box::new(inner_ty), Some(trait_id), method_id), inner_changed))
+                        }
                     }
-                    else {
-                        unreachable!();
-                    }
-                }
-                else {
-                    Ok((Type::TraitMethod(Box::new(inner_ty), Some(trait_id), method_id), inner_changed))
                 }
             }
         }

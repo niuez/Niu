@@ -22,7 +22,18 @@ pub struct TraitsInfo<'a> {
     self_impls: HashMap<TypeId, Vec<SelectionCandidate>>,
     member_to_traits: HashMap<Identifier, HashSet<TraitId>>,
     member_to_self_impls: HashMap<Identifier, HashSet<TypeId>>,
+    depth: usize,
     upper_info: Option<&'a TraitsInfo<'a>>,
+}
+
+
+pub fn select_impls_by_priority<I: Iterator<Item=usize>>(priorities: I, len: usize) -> Option<usize> {
+    let idx = priorities.into_iter().enumerate().max_by_key(|(_, x)| *x);
+    match idx {
+        Some((idx, pri)) if pri == 0 && len > 1 => None,
+        Some((idx, _)) => Some(idx),
+        None => None,
+    }
 }
 
 impl<'a> TraitsInfo<'a> {
@@ -39,6 +50,7 @@ impl<'a> TraitsInfo<'a> {
             self_impls: HashMap::new(),
             member_to_traits: HashMap::new(),
             member_to_self_impls: HashMap::new(),
+            depth: 0,
             upper_info: None,
         }
     }
@@ -50,6 +62,7 @@ impl<'a> TraitsInfo<'a> {
             self_impls: HashMap::new(),
             member_to_traits: HashMap::new(),
             member_to_self_impls: HashMap::new(),
+            depth: self.depth + 1,
             upper_info: Some(self),
         }
     }
@@ -252,11 +265,13 @@ impl<'a> TraitsInfo<'a> {
             None
         }
     }
-    
-
-    pub fn regist_impl_candidate(&mut self, ti: &ImplDefinition) -> Result<(), String> {
+    pub fn preregist_impl_candidate(&mut self, ti: &ImplDefinition) {
         let (trait_id, cand) = ti.get_impl_trait_pair();
         self.regist_selection_candidate(&trait_id, cand);
+    }
+
+    pub fn regist_impl_candidate(&self, ti: &ImplDefinition) -> Result<(), String> {
+        let (trait_id, _) = ti.get_impl_trait_pair();
         let mut gen_trs = self.into_scope();
         for id in ti.generics.iter() {
             gen_trs.regist_generics_type(id)?;
@@ -300,10 +315,17 @@ impl<'a> TraitsInfo<'a> {
                 let mut equs = TypeEquations::new();
                 equs.set_self_type(Some(ty.clone()));
                 tr_def.where_sec.regist_candidate(&equs, self)?;
+                //dbg!(&tr_def.asso_ids);
                 let asso_tys = tr_def.asso_ids.iter().map(|asso_id| {
                     let asso_ty = match asso_mp.remove(asso_id) {
                         Some(asso_ty) => asso_ty,
-                        None => Type::SolvedAssociatedType(Box::new(ty.clone()), AssociatedType { trait_id: trait_id.clone(), type_id: asso_id.clone() }),
+                        None => {
+                            match self.match_to_impls_for_type(trait_id, &ty) {
+                                Err(len) if len == 0 => Type::SolvedAssociatedType(Box::new(ty.clone()), AssociatedType { trait_id: trait_id.clone(), type_id: asso_id.clone() }),
+                                Ok((substs, cand)) => cand.get_associated_from_id(&mut equs, self, asso_id, &substs),
+                                Err(_) => unreachable!("regist_param bug")
+                            }
+                        }
                     };
                     (asso_id.clone(), asso_ty)
                 }).collect::<HashMap<_, _>>();
@@ -319,12 +341,12 @@ impl<'a> TraitsInfo<'a> {
         }
     }
 
-    fn match_to_impls(&self, trait_id: &TraitId, ty: &Type, top_trs: &Self) -> Vec<(SubstsMap, &SelectionCandidate)> {
+    fn match_to_impls(&self, trait_id: &TraitId, ty: &Type, top_trs: &Self) -> Vec<(SubstsMap, &SelectionCandidate, usize)> {
         let mut ans = Vec::new();
         if let Some(impls) = self.impls.get(trait_id) {
-            let mut vs = impls.iter()
-                .map(|impl_trait| {
-                    impl_trait.match_impl_for_ty(&ty, top_trs)
+            let mut vs = impls.iter().enumerate()
+                .map(|(i, impl_trait)| {
+                    impl_trait.match_impl_for_ty(&ty, top_trs).map(|(a, b)| (a, b, i + self.depth * 10000))
                 })
             .filter_map(|x| x)
                 .collect::<Vec<_>>();
@@ -338,10 +360,23 @@ impl<'a> TraitsInfo<'a> {
         ans
     }
 
-    pub fn match_to_impls_for_type(&self, trait_id: &TraitId, ty: &Type) -> Vec<(SubstsMap, &SelectionCandidate)> {
-        let ans = self.match_to_impls(trait_id, ty, self);
-        ans
+    pub fn match_to_impls_for_type(&self, trait_id: &TraitId, ty: &Type) -> Result<(SubstsMap, &SelectionCandidate), usize> {
+        println!("search {:?} {:?}--------------", trait_id, ty);
+        let mut cands = self.match_to_impls(trait_id, ty, self);
+        let idx = select_impls_by_priority(cands.iter().map(|(_, _, i)| *i), cands.len());
+        //println!("cands {:?}", cands);
+        println!("solve  {:?} {:?} ------------> idx {:?} / {}", trait_id, ty, idx, cands.len());
+        match idx {
+            Some(i) => {
+                let (substs, cand, _) = cands.swap_remove(i);
+                Ok((substs, cand))
+            }
+            None => {
+                Err(cands.len())
+            }
+        }
     }
+
 
     fn match_to_self_impls(&self, typeid: &TypeId, ty: &Type, top_trs: &Self) -> Vec<(SubstsMap, &SelectionCandidate)> {
         let mut ans = Vec::new();
@@ -366,12 +401,12 @@ impl<'a> TraitsInfo<'a> {
         self.match_to_self_impls(typeid, ty, self)
     }
 
-    fn generate_call_equations_for_trait(&self, trait_id: &TraitId, call_eq: &CallEquation, top_trs: &Self) -> Vec<(TypeEquations, &SelectionCandidate)> {
+    fn generate_call_equations_for_trait(&self, trait_id: &TraitId, call_eq: &CallEquation, top_trs: &Self) -> Vec<(TypeEquations, &SelectionCandidate, usize)> {
         let mut ans = Vec::new();
         if let Some(impls) = self.impls.get(trait_id) {
-            let mut vs = impls.iter()
-                .map(|impl_trait| {
-                    impl_trait.generate_equations_for_call_equation(call_eq, top_trs).ok().map(|eq| (eq, impl_trait))
+            let mut vs = impls.iter().enumerate()
+                .map(|(i, impl_trait)| {
+                    impl_trait.generate_equations_for_call_equation(call_eq, top_trs).ok().map(|eq| (eq, impl_trait, i + self.depth * 10000))
                 })
                 .filter_map(|x| x)
                 .collect::<Vec<_>>();
@@ -407,32 +442,42 @@ impl<'a> TraitsInfo<'a> {
     pub fn regist_for_call_equtions(&self, equs: &mut TypeEquations, call_eq: &CallEquation) -> Result<Type, Vec<&SelectionCandidate>> {
         let mut st = HashSet::new();
         self.search_traits_for_member(&call_eq.func_id, &mut st);
-        let mut gen_equs = Vec::new();
+        let mut unify_res = Vec::new();
         for t in st.into_iter() {
-            let mut vs = self.generate_call_equations_for_trait(&t, call_eq, self);
-            gen_equs.append(&mut vs);
+            let vs = self.generate_call_equations_for_trait(&t, call_eq, self);
+            let mut vs = vs.into_iter().filter_map(|(mut equs, cand, pri)| {
+                match equs.unify(self) {
+                    Ok(_) => Some((equs, cand, pri)),
+                    Err(UnifyErr::Deficiency(_)) => Some((equs, cand, pri)),
+                    Err(UnifyErr::Contradiction(_)) => None
+                }
+            }).collect::<Vec<_>>();
+            let idx = select_impls_by_priority(vs.iter().map(|(_, _, i)| *i), vs.len());
+            if let Some(idx) = idx {
+                let (equs, cand, _) = vs.swap_remove(idx);
+                unify_res.push((equs, cand));
+            }
+            else {
+                return Err(vs.into_iter().map(|(_, cand, _)| cand).collect())
+            }
         }
 
         let mut st = HashSet::new();
         self.search_typeid_for_member(&call_eq.func_id, &mut st);
         for t in st.into_iter() {
-            let mut vs = self.generate_call_equations_for_self_type(&t, call_eq, self);
-            gen_equs.append(&mut vs);
-        }
-
-        let mut unify_res = gen_equs.into_iter().map(|(mut gen_equ, cand)| {
-            match gen_equ.unify(self) {
-                Ok(_) => {
-                    Ok((gen_equ, cand))
-                }
-                Err(UnifyErr::Deficiency(_)) => {
-                    Ok((gen_equ, cand))
-                }
-                Err(UnifyErr::Contradiction(st)) => {
-                    Err(st)
+            let vs = self.generate_call_equations_for_self_type(&t, call_eq, self);
+            for (mut gen_equ, cand) in vs.into_iter() {
+                match gen_equ.unify(self) {
+                    Ok(_) => {
+                        unify_res.push((gen_equ, cand));
+                    }
+                    Err(UnifyErr::Deficiency(_)) => {
+                        unify_res.push((gen_equ, cand));
+                    }
+                    Err(UnifyErr::Contradiction(st)) => {}
                 }
             }
-        }).filter_map(|x| x.ok()).collect::<Vec<_>>();
+        }
         if unify_res.len() == 1 {
             let (gen_equ, _) = unify_res.pop().unwrap();
             let ret_ty = gen_equ.try_get_substs(TypeVariable::Counter(call_eq.tag.get_num(), "ReturnType", 0));
@@ -470,14 +515,14 @@ impl<'a> TraitsInfo<'a> {
 
 
     pub fn match_to_member_for_type(&self, mem_id: &Identifier, ty: &Type) -> Vec<(SubstsMap, &SelectionCandidate)> {
-        let mut st = HashSet::new();
+        /* let mut st = HashSet::new();
         self.search_traits_for_member(mem_id, &mut st);
-        let mut ans = Vec::new();
         for t in st.into_iter() {
             let mut vs = self.match_to_impls_for_type(&t, ty);
             ans.append(&mut vs);
-        }
+        }*/
 
+        let mut ans = Vec::new();
         let mut st = HashSet::new();
         self.search_typeid_for_member(mem_id, &mut st);
         for t in st.into_iter() {

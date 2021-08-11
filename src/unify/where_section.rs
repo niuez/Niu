@@ -58,8 +58,7 @@ impl WhereSection {
                     let asso_spec_ty = substs.get(&asso_id.id, "AssociatedType", 0)?;
                     Ok((asso_id.clone(), asso_spec_ty))
                 }).collect::<Result<HashMap<_, _>, String>>()?;
-
-
+            
             trs.regist_param_candidate(param_ty, tr_id, asso_mp)?;
             
         }
