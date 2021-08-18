@@ -9,6 +9,7 @@ use nom::IResult;
 
 use crate::expression::{ Expression, parse_expression };
 use crate::unary_expr::UnaryExpr;
+use crate::traits::*;
 use crate::unify::*;
 use crate::type_spec::*;
 use crate::trans::*;
@@ -19,6 +20,7 @@ use crate::identifier::*;
 pub enum Subseq {
     Call(Call),
     Member(Member),
+    Index(IndexCall),
 }
 
 pub fn subseq_gen_type(uexpr: &UnaryExpr, subseq: &Subseq, equs: &mut TypeEquations, trs: &TraitsInfo) -> TResult {
@@ -68,6 +70,22 @@ pub fn subseq_gen_type(uexpr: &UnaryExpr, subseq: &Subseq, equs: &mut TypeEquati
             let alpha = mem.mem_id.generate_type_variable("MemberType", 0, equs);
             equs.add_equation(alpha.clone(), Type::Member(Box::new(st_type.clone()), mem.mem_id.clone()));
             Ok(Type::Member(Box::new(st_type), mem.mem_id.clone()))
+        }
+        Subseq::Index(ref index) => {
+            let caller = uexpr.gen_type(equs, trs)?;
+            let caller_type = index.tag.generate_type_variable("IndexCallerType", 0, equs);
+            equs.add_equation(caller.clone(), caller_type);
+            let arg0 = Type::AutoRef(Box::new(caller.clone()), AutoRefTag::Tag(index.tag.clone()));
+            let arg1 = index.arg.as_ref().gen_type(equs, trs)?;
+            Ok(Type::Deref(Box::new(
+                        Type::CallEquation(CallEquation {
+                            caller_type: Some(Box::new(caller)),
+                            trait_id: Some(TraitId { id: Identifier::from_str("Index") }),
+                            func_id: Identifier::from_str("index"),
+                            args: vec![arg0, arg1],
+                            tag: index.tag.clone(),
+                        }
+            ))))
         }
     }
 
@@ -168,6 +186,15 @@ pub fn subseq_transpile(uexpr: &UnaryExpr, subseq: &Subseq, ta: &TypeAnnotation)
                 _ => format!("{}.{}", caller, mem.mem_id.into_string())
             }
         }
+        Subseq::Index(ref index) => { 
+            let caller = uexpr.transpile(ta);
+            let arg = index.arg.as_ref().transpile(ta);
+            match ta.annotation(index.tag.get_num(), "IndexCallerType", 0) {
+                Type::Ref(_) => format!("(*{})[{}]", caller, arg),
+                Type::MutRef(_) => format!("(*{})[{}]", caller, arg),
+                _ => format!("{}[{}]", caller, arg)
+            }
+        }
     }
 }
 
@@ -216,12 +243,17 @@ pub fn subseq_mut_check(uexpr: &UnaryExpr, subseq: &Subseq, ta: &TypeAnnotation,
                 _ => Ok(MutResult::NotMut),
             }
         }
+        Subseq::Index(ref index) => {
+            let uexpr = uexpr.mut_check(ta, vars)?;
+            let _arg = index.arg.as_ref().mut_check(ta, vars)?;
+            Ok(uexpr)
+        }
     }
 }
 
 
 pub fn parse_subseq(s: &str) -> IResult<&str, Subseq> {
-    let (s, (_, x)) = tuple((space0, alt((parse_call, parse_member))))(s)?;
+    let (s, (_, x)) = tuple((space0, alt((parse_call, parse_member, parse_index_call))))(s)?;
     Ok((s, x))
 }
 
@@ -248,6 +280,19 @@ pub fn parse_call(s: &str) -> IResult<&str, Subseq> {
         None => Vec::new(),
     };
     Ok((s, (Subseq::Call(Call{ args, tag: Tag::new(), }))))
+}
+
+#[derive(Debug)]
+pub struct IndexCall {
+    arg: Box<Expression>,
+    tag: Tag,
+}
+
+pub fn parse_index_call(s: &str) -> IResult<&str, Subseq> {
+    let (s, (_, _, arg, _, _)) = tuple((
+            char('['), space0, parse_expression, space0, char(']')
+            ))(s)?;
+    Ok((s, Subseq::Index(IndexCall { arg: Box::new(arg), tag: Tag::new() })))
 }
 
 #[derive(Debug)]

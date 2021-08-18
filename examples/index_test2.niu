@@ -33,13 +33,13 @@ where T: Index(Arg=u64) {
   type Output = T#Index::Output;
   type Arg = u64;
   fn index(self: &Self, i: u64) -> &T#Index::Output {
-    self.a.index(i)
+    &self.a[i]
   }
 }
 
 impl<T> IndexMut for Hoge<T>
 where T: Index(Arg=u64), T: IndexMut {
   fn index_mut(self: &mut Self, i: u64) -> &mut T#Index::Output {
-    self.a.index_mut(i)
+    &mut self.a[i]
   }
 }
