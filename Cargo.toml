@@ -1,5 +1,5 @@
 [package]
-name = "nom_test"
+name = "niu"
 version = "0.1.0"
 authors = ["niuez <niuez.graph@gmail.com>"]
 edition = "2018"
