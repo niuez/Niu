@@ -28,6 +28,12 @@ pub struct TraitId {
     pub id: Identifier,
 }
 
+impl TraitId {
+    pub fn from_str(s: &str) -> TraitId {
+        TraitId { id: Identifier::from_str(s) }
+    }
+}
+
 impl Transpile for TraitId {
     fn transpile(&self, _: &TypeAnnotation) -> String {
         self.id.into_string()

@@ -1,0 +1,69 @@
+trait BitOr {
+  type Output;
+  type Arg;
+  fn bit_or(a: Self, b: Self#BitOr::Arg) -> Self#BitOr::Output;
+}
+
+trait BitXor {
+  type Output;
+  type Arg;
+  fn bit_xor(a: Self, b: Self#BitXor::Arg) -> Self#BitXor::Output;
+}
+
+trait BitAnd {
+  type Output;
+  type Arg;
+  fn bit_and(a: Self, b: Self#BitAnd::Arg) -> Self#BitAnd::Output;
+}
+
+trait Shl {
+  type Output;
+  type Arg;
+  fn shl(a: Self, b: Self#Shl::Arg) -> Self#Shl::Output;
+}
+
+trait Shr {
+  type Output;
+  type Arg;
+  fn shr(a: Self, b: Self#Shr::Arg) -> Self#Shr::Output;
+}
+
+trait Add {
+  type Output;
+  type Arg;
+  fn add(a: Self, b: Self#Add::Arg) -> Self#Add::Output;
+}
+
+trait Sub {
+  type Output;
+  type Arg;
+  fn sub(a: Self, b: Self#Sub::Arg) -> Self#Sub::Output;
+}
+
+trait Mul {
+  type Output;
+  type Arg;
+  fn mul(a: Self, b: Self#Mul::Arg) -> Self#Mul::Output;
+}
+
+trait Div {
+  type Output;
+  type Arg;
+  fn div(a: Self, b: Self#Div::Arg) -> Self#Div::Output;
+}
+
+trait Rem {
+  type Output;
+  type Arg;
+  fn rem(a: Self, b: Self#Rem::Arg) -> Self#Rem::Output;
+}
+
+trait Index {
+  type Output;
+  type Arg;
+  fn index(self: &Self, i: Self#Index::Arg) -> &Self#Index::Output;
+}
+
+trait IndexMut where Self: Index {
+  fn index_mut(self: &mut Self, i: Self#Index::Arg) -> &mut Self#Index::Output;
+}
