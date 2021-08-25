@@ -86,7 +86,7 @@ impl FuncDefinitionInfo {
             Type::Func(self_args, Box::new(self_return_type), FuncTypeInfo::None),
             Type::Func(right_args, Box::new(right_return_type), FuncTypeInfo::None)
             );
-        println!("function {:?} and {:?} are equal unify", self.func_id, right.func_id);
+        log::debug!("function {:?} and {:?} are equal unify", self.func_id, right.func_id);
         equs.unify(&mut trs).map_err(|err| err.to_string())?;
         Ok(())
     }
@@ -149,7 +149,7 @@ impl FuncDefinition {
             let return_t = self.return_type.generics_to_type(&GenericsTypeMap::empty(), equs, &trs)?;
             equs.add_equation(result_type, return_t);
 
-            println!("function {:?} unify", self.func_id);
+            log::debug!("function {:?} unify", self.func_id);
             //equs.debug();
             let result = equs.unify(&mut trs);
 
@@ -292,17 +292,17 @@ pub fn parse_func_definition(s: &str) -> IResult<&str, FuncDefinition> {
 
 #[test]
 fn parse_func_definition_test() {
-    println!("{:?}", parse_func_definition("fn func(x: i64) -> i64 { let y = x * x; y + x }"));
-    println!("{:?}", parse_func_definition("fn func2<t>(x: t) -> t { x }"));
-    println!("{:?}", parse_func_definition("fn func3<x, y, z>(x: x) -> z { x }"));
+    log::debug!("{:?}", parse_func_definition("fn func(x: i64) -> i64 { let y = x * x; y + x }"));
+    log::debug!("{:?}", parse_func_definition("fn func2<t>(x: t) -> t { x }"));
+    log::debug!("{:?}", parse_func_definition("fn func3<x, y, z>(x: x) -> z { x }"));
 }
 #[test]
 fn parse_func_definition2_test() {
-    println!("{:?}", parse_func_definition("fn func2<t>(x: t) -> t where t: MyTraits{ x }"));
-    println!("{:?}", parse_func_definition_info("fn nest_out<T>(t: T) -> T#MyTrait::Output#MyTrait::Output where T: MyTrait, T#MyTrait::Output: MyTrait"));
+    log::debug!("{:?}", parse_func_definition("fn func2<t>(x: t) -> t where t: MyTraits{ x }"));
+    log::debug!("{:?}", parse_func_definition_info("fn nest_out<T>(t: T) -> T#MyTrait::Output#MyTrait::Output where T: MyTrait, T#MyTrait::Output: MyTrait"));
 }
 
 #[test]
 fn parse_func_cppinline_test() {
-    println!("{:?}", parse_func_definition("fn push_back(self: Self, t: T) -> bool $${ $arg(self).push_back($arg(t)) }$$"));
+    log::debug!("{:?}", parse_func_definition("fn push_back(self: Self, t: T) -> bool $${ $arg(self).push_back($arg(t)) }$$"));
 }

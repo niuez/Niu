@@ -307,6 +307,6 @@ fn parse_member(s: &str) -> IResult<&str, Subseq> {
 
 #[test]
 fn parse_call_test() {
-    println!("{:?}", parse_call("()"));
-    println!("{:?}", parse_call("(1, 2, 3)"));
+    log::debug!("{:?}", parse_call("()"));
+    log::debug!("{:?}", parse_call("(1, 2, 3)"));
 }

@@ -80,6 +80,6 @@ impl MutCheck for StructInstantiation {
 
 #[test]
 fn parse_struct_instantiation_test() {
-    println!("{:?}", parse_struct_instantiation("MyStruct { a: 1i64 + 2i64, b: val, }"));
+    log::debug!("{:?}", parse_struct_instantiation("MyStruct { a: 1i64 + 2i64, b: val, }"));
 }
 
