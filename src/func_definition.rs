@@ -126,6 +126,24 @@ impl FuncDefinition {
     }
     pub fn unify_definition(&self, equs: &mut TypeEquations, trs: &TraitsInfo) -> Result<(), String> {
         if let FuncBlock::Block(ref block) = self.block {
+            if self.func_id == Identifier::from_str("main") {
+                if self.generics.len() > 0 {
+                    Err(format!("main function must not have generics arguments"))
+                }
+                else if !self.where_sec.is_empty() {
+                    Err(format!("main function must not have where sections"))
+                }
+                else if self.return_type != TypeSpec::from_str("void") {
+                    Err(format!("main function must return void"))
+                }
+                else {
+                    Ok(())
+                }
+            }
+            else {
+                Ok(())
+            }?;
+
             equs.into_scope();
 
             let mut trs = trs.into_scope();
@@ -192,7 +210,13 @@ impl FuncDefinition {
                 "".to_string()
             };
 
-        let return_str = self.return_type.transpile(ta);
+        let return_str = if self.func_id == Identifier::from_str("main") {
+            format!("int")
+        }
+        else {
+            self.return_type.transpile(ta)
+        };
+        
         let func_str = self.func_id.into_string();
         let arg_str = self.args.iter().map(|(id, ty)| {
             format!("{} {}", ty.transpile(ta), id.into_string())
