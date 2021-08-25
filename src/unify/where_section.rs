@@ -89,12 +89,12 @@ impl WhereSection {
 }
 
 fn parse_associated_type_specifier_elem(s: &str) -> IResult<&str, (AssociatedTypeIdentifier, TypeSpec)> {
-    let (s, (id, _, _, _, spec)) = tuple((parse_associated_type_identifier, space0, char('='), space0, parse_type_spec))(s)?;
+    let (s, (id, _, _, _, spec)) = tuple((parse_associated_type_identifier, multispace0, char('='), multispace0, parse_type_spec))(s)?;
     Ok((s, (id, spec)))
 }
 
 fn parse_associated_type_specifiers(s: &str) -> IResult<&str, Vec<(AssociatedTypeIdentifier, TypeSpec)>> {
-    let (s, op) = opt(tuple((char('('), space0, separated_list0(tuple((space0, char(','), space0)), parse_associated_type_specifier_elem), space0, char(')'))))(s)?;
+    let (s, op) = opt(tuple((char('('), multispace0, separated_list0(tuple((multispace0, char(','), multispace0)), parse_associated_type_specifier_elem), multispace0, char(')'))))(s)?;
     let res = match op {
         Some((_, _, res, _, _)) => res,
         None => Vec::new(),
@@ -103,7 +103,7 @@ fn parse_associated_type_specifiers(s: &str) -> IResult<&str, Vec<(AssociatedTyp
 }
 
 fn parse_has_trait_element(s: &str) -> IResult<&str, (TypeSpec, usize, TraitId, Vec<(AssociatedTypeIdentifier, TypeSpec)>)> {
-    let (s, (spec, _, _, _, tr_id, _, assos)) = tuple((parse_type_spec, space0, char(':'), space0, parse_trait_id, space0, parse_associated_type_specifiers))(s)?;
+    let (s, (spec, _, _, _, tr_id, _, assos)) = tuple((parse_type_spec, multispace0, char(':'), multispace0, parse_trait_id, multispace0, parse_associated_type_specifiers))(s)?;
     let dep = spec.associated_type_depth();
     Ok((s, (spec, dep, tr_id, assos)))
 }
@@ -112,8 +112,8 @@ pub fn parse_where_section(s: &str) -> IResult<&str, WhereSection> {
     let (s, op) = opt(
         tuple((
                 tag("where"), space1,
-                separated_list0(tuple((space0, char(','), space0)), parse_has_trait_element),
-                opt(tuple((space0, char(','))))
+                separated_list0(tuple((multispace0, char(','), multispace0)), parse_has_trait_element),
+                opt(tuple((multispace0, char(','))))
                 ))
         )(s)?;
     let has_traits = match op {

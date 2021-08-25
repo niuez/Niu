@@ -57,11 +57,11 @@ impl MutCheck for ForExpr {
 
 pub fn parse_for_expr(s: &str) -> IResult<&str, Expression> {
     let (s, (_, _, _, _, init, _, _, _, cond, _, _, _, update, _, _, _, _, _, block, _, _)) =
-        tuple((tag("for"), space0, char('('), space0,
-            parse_statement, space0, char(';'), space0,
-            parse_expression, space0, char(';'), space0,
-            alt((parse_substitute_to_statement, parse_expression_to_statement)), space0, char(')'), space0, char('{'), space0,
-            parse_block, space0, char('}')))(s)?;
+        tuple((tag("for"), multispace0, char('('), multispace0,
+            parse_statement, multispace0, char(';'), multispace0,
+            parse_expression, multispace0, char(';'), multispace0,
+            alt((parse_substitute_to_statement, parse_expression_to_statement)), multispace0, char(')'), multispace0, char('{'), multispace0,
+            parse_block, multispace0, char('}')))(s)?;
     Ok((s, Expression::ForExpr(Box::new(ForExpr { init, cond, update, block }))))
 }
 

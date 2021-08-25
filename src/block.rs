@@ -56,7 +56,7 @@ impl MutCheck for Block {
 
 
 pub fn parse_block(s: &str) -> IResult<&str, Block> {
-    let (s, (vec, _, return_exp, _)) = tuple((many0(tuple((space0, parse_statement, space0, tag(";")))), space0, opt(parse_expression), space0))(s)?;
+    let (s, (vec, _, return_exp, _)) = tuple((many0(tuple((multispace0, parse_statement, multispace0, tag(";")))), multispace0, opt(parse_expression), multispace0))(s)?;
     let mut statements = Vec::new();
     for (_, st, _, _) in vec {
         statements.push(st);

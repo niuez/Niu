@@ -47,6 +47,6 @@ impl MutCheck for Substitute {
 }
 
 pub fn parse_substitute(s: &str) -> IResult<&str, Substitute> {
-    let (s, (into_expr, _, _e, _, value)) = tuple((parse_expression, space0, tag("="), space0, parse_expression))(s)?;
+    let (s, (into_expr, _, _e, _, value)) = tuple((parse_expression, multispace0, tag("="), multispace0, parse_expression))(s)?;
     Ok((s, Substitute { into_expr, value, }))
 }

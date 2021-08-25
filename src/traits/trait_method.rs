@@ -31,6 +31,6 @@ pub struct TraitMethod {
 }
 
 pub fn parse_trait_method(s: &str) -> IResult<&str, TraitMethod> {
-    let (s, (trait_id, _, _, _, method_id)) = tuple((parse_trait_id, space0, tag("."), space0, parse_trait_method_identifier))(s)?;
+    let (s, (trait_id, _, _, _, method_id)) = tuple((parse_trait_id, multispace0, tag("."), multispace0, parse_trait_method_identifier))(s)?;
     Ok((s, TraitMethod { trait_id, method_id }))
 }

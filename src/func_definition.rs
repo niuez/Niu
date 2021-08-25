@@ -231,16 +231,16 @@ impl Transpile for FuncDefinition {
 }
 
 /*fn parse_generics_arg(s: &str) -> IResult<&str, (TypeId, Option<TraitId>)> {
-    let (s, (id, _, opt)) = tuple((parse_type_id, space0, opt(tuple((char(':'), space0, parse_trait_id)))))(s)?;
+    let (s, (id, _, opt)) = tuple((parse_type_id, multispace0, opt(tuple((char(':'), multispace0, parse_trait_id)))))(s)?;
     Ok((s, (id, opt.map(|(_, _, tr)| tr))))
 }*/
 
 pub fn parse_func_definition_info(s: &str) -> IResult<&str, FuncDefinitionInfo> {
     let (s, (_, _, func_id, _, generics_opt, _, _, _, op, _, _, _, _, return_type, _, where_sec)) = 
-        tuple((tag("fn"), space1, parse_identifier, space0, opt(tuple((char('<'), space0, opt(tuple((parse_type_id, space0, many0(tuple((char(','), space0, parse_type_id, space0))), opt(char(',')), space0))), char('>'), space0))), space0,
-               char('('), space0,
-            opt(tuple((parse_identifier, space0, char(':'), space0, parse_type_spec, space0, many0(tuple((char(','), space0, parse_identifier, space0, char(':'), space0, parse_type_spec, space0))), opt(char(',')), space0))),
-            char(')'), space0, tag("->"), space0, parse_type_spec, space0, parse_where_section))(s)?;
+        tuple((tag("fn"), space1, parse_identifier, multispace0, opt(tuple((char('<'), multispace0, opt(tuple((parse_type_id, multispace0, many0(tuple((char(','), multispace0, parse_type_id, multispace0))), opt(char(',')), multispace0))), char('>'), multispace0))), multispace0,
+               char('('), multispace0,
+            opt(tuple((parse_identifier, multispace0, char(':'), multispace0, parse_type_spec, multispace0, many0(tuple((char(','), multispace0, parse_identifier, multispace0, char(':'), multispace0, parse_type_spec, multispace0))), opt(char(',')), multispace0))),
+            char(')'), multispace0, tag("->"), multispace0, parse_type_spec, multispace0, parse_where_section))(s)?;
     let generics = match generics_opt {
         Some((_, _, generics_opt, _, _)) => {
             match generics_opt {
@@ -285,7 +285,7 @@ fn parse_func_block(s: &str) -> IResult<&str, FuncBlock> {
 }
 
 pub fn parse_func_definition(s: &str) -> IResult<&str, FuncDefinition> {
-    let (s, (info, _, block)) = tuple((parse_func_definition_info, space0, parse_func_block))(s)?;
+    let (s, (info, _, block)) = tuple((parse_func_definition_info, multispace0, parse_func_block))(s)?;
     Ok((s, FuncDefinition { func_id: info.func_id, generics: info.generics, where_sec: info.where_sec, args: info.args, return_type: info.return_type, block }))
 }
 

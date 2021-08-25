@@ -162,18 +162,18 @@ impl MutCheck for Parentheses {
 }
 
 pub fn parse_parentheses(s: &str) -> IResult<&str, UnaryExpr> {
-    let(s, (_, _, expr, _, _)) = tuple((char('('), space0, parse_expression, space0, char(')')))(s)?;
+    let(s, (_, _, expr, _, _)) = tuple((char('('), multispace0, parse_expression, multispace0, char(')')))(s)?;
     Ok((s, UnaryExpr::Parentheses(Parentheses { expr })))
 }
 
 pub fn parse_bracket_block(s: &str) -> IResult<&str, UnaryExpr> {
-    let(s, (_, _, block, _, _)) = tuple((char('{'), space0, parse_block, space0, char('}')))(s)?;
+    let(s, (_, _, block, _, _)) = tuple((char('{'), multispace0, parse_block, multispace0, char('}')))(s)?;
     Ok((s, UnaryExpr::Block(block)))
 }
 
 pub fn parse_unary_trait_method(ss: &str) -> IResult<&str, UnaryExpr> {
-    let (s, (typesign, _)) = tuple((parse_type_sign, space0))(ss)?;
-    let (s, elems) = many1(tuple((opt(tuple((char('#'), space0, parse_trait_id))), space0, tag("::"), space0, parse_identifier, space0)))(s)?;
+    let (s, (typesign, _)) = tuple((parse_type_sign, multispace0))(ss)?;
+    let (s, elems) = many1(tuple((opt(tuple((char('#'), multispace0, parse_trait_id))), multispace0, tag("::"), multispace0, parse_identifier, multispace0)))(s)?;
     let mut elems = elems.into_iter().map(|(op, _, _, _, id, _)| (op.map(|(_, _, tr_id)| tr_id), id)).collect::<Vec<_>>();
     let (tail_tr_op, tail_id) = elems.pop().unwrap();
     let mut ty = TypeSpec::TypeSign(typesign);
