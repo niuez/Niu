@@ -75,10 +75,10 @@ impl Transpile for TraitDefinition {
 pub fn parse_trait_definition(s: &str) -> IResult<&str, TraitDefinition> {
     let (s, (_, _, trait_id, _, where_sec, _, _, _, many_types, many_methods, _, _)) = 
         tuple((tag("trait"), space1, parse_trait_id,
-            space0, parse_where_section, space0, char('{'), space0,
-            many0(tuple((tag("type"), space1, parse_associated_type_identifier, space0, char(';'), space0))),
-            many0(tuple((parse_func_definition_info, space0, char(';'), space0))),
-            space0, char('}')))(s)?;
+            multispace0, parse_where_section, multispace0, char('{'), multispace0,
+            many0(tuple((tag("type"), space1, parse_associated_type_identifier, multispace0, char(';'), multispace0))),
+            many0(tuple((parse_func_definition_info, multispace0, char(';'), multispace0))),
+            multispace0, char('}')))(s)?;
     let asso_ids = many_types.into_iter().map(|(_, _, id, _, _, _)| id).collect();
     let required_methods = many_methods.into_iter().map(|(info, _, _, _)| (TraitMethodIdentifier { id: info.func_id.clone() }, info)).collect();
     Ok((s, TraitDefinition { trait_id, where_sec, asso_ids, required_methods }))

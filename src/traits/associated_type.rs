@@ -31,7 +31,7 @@ pub struct AssociatedType {
 }
 
 pub fn parse_associated_type(s: &str) -> IResult<&str, AssociatedType> {
-    let (s, (trait_id, _, _, _, type_id)) = tuple((parse_trait_id, space0, tag("::"), space0, parse_associated_type_identifier))(s)?;
+    let (s, (trait_id, _, _, _, type_id)) = tuple((parse_trait_id, multispace0, tag("::"), multispace0, parse_associated_type_identifier))(s)?;
     Ok((s, AssociatedType { trait_id, type_id }))
 }
 

@@ -130,12 +130,12 @@ impl StructMemberDefinition {
 }
 
 fn parse_member(s: &str) -> IResult<&str, (Identifier, TypeSpec)> {
-    let (s, (id, _, _, _, ty)) = tuple((parse_identifier, space0, char(':'), space0, parse_type_spec))(s)?;
+    let (s, (id, _, _, _, ty)) = tuple((parse_identifier, multispace0, char(':'), multispace0, parse_type_spec))(s)?;
     Ok((s, (id, ty)))
 }
 
 fn parse_generics_annotation(s: &str) -> IResult<&str, Vec<TypeId>> {
-    let (s, op) = opt(tuple((char('<'), space0, parse_type_id, space0, many0(tuple((char(','), space0, parse_type_id, space0))), opt(tuple((space0, char(',')))), space0, char('>'))))(s)?;
+    let (s, op) = opt(tuple((char('<'), multispace0, parse_type_id, multispace0, many0(tuple((char(','), multispace0, parse_type_id, multispace0))), opt(tuple((multispace0, char(',')))), multispace0, char('>'))))(s)?;
     let v = match op {
         None => Vec::new(),
         Some((_, _, ty, _, m0, _, _, _)) => {
@@ -150,8 +150,8 @@ fn parse_generics_annotation(s: &str) -> IResult<&str, Vec<TypeId>> {
 }
 
 fn parse_struct_members(s: &str) -> IResult<&str, StructMember> {
-    let (s, (_, _, opts, _)) = tuple((char('{'), space0,
-                         opt(tuple((parse_member, many0(tuple((space0, char(','), space0, parse_member))), opt(tuple((space0, char(',')))), space0))),
+    let (s, (_, _, opts, _)) = tuple((char('{'), multispace0,
+                         opt(tuple((parse_member, many0(tuple((multispace0, char(','), multispace0, parse_member))), opt(tuple((multispace0, char(',')))), multispace0))),
                          char('}')))(s)?;
     let (members_order, members) = match opts {
         None => (Vec::new(), HashMap::new()),
@@ -174,13 +174,13 @@ fn parse_struct_cpp_inline(s: &str) -> IResult<&str, StructMember> {
 
 pub fn parse_struct_member_definition(s: &str) -> IResult<&str, StructMemberDefinition> {
     let (s, (_, _, struct_id, _, generics, _, member)) =
-        tuple((tag("struct"), space1, parse_type_id, space0, parse_generics_annotation, space0, alt((parse_struct_members, parse_struct_cpp_inline))))(s)?;
+        tuple((tag("struct"), space1, parse_type_id, multispace0, parse_generics_annotation, multispace0, alt((parse_struct_members, parse_struct_cpp_inline))))(s)?;
     Ok((s, StructMemberDefinition { struct_id, generics, member }))
 }
 
 pub fn parse_struct_definition(s: &str) -> IResult<&str, StructDefinition> {
-    let (s, (member_def, _, _, _, funcs, _)) = tuple((parse_struct_member_definition, space0, char('{'), space0,
-            many0(tuple((parse_func_definition, space0))), char('}')))(s)?;
+    let (s, (member_def, _, _, _, funcs, _)) = tuple((parse_struct_member_definition, multispace0, char('{'), multispace0,
+            many0(tuple((parse_func_definition, multispace0))), char('}')))(s)?;
     let require_methods = funcs.into_iter().map(|(func, _)| (func.func_id.clone(), func)).collect();
     let impl_self = ImplSelfDefinition {
         generics: member_def.generics.clone(),

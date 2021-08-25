@@ -148,7 +148,7 @@ impl ImplDefinition {
 }
 
 fn parse_generics_args(s: &str) -> IResult<&str, Vec<TypeId>> {
-    let (s, op) = opt(tuple((space0, char('<'), space0, separated_list0(tuple((space0, char(','), space0)), parse_type_id), space0, char('>'))))(s)?;
+    let (s, op) = opt(tuple((multispace0, char('<'), multispace0, separated_list0(tuple((multispace0, char(','), multispace0)), parse_type_id), multispace0, char('>'))))(s)?;
     Ok((s, op.map(|(_, _, _, res, _, _)| res).unwrap_or(Vec::new())))
 }
 
@@ -157,11 +157,11 @@ pub fn parse_impl_definition(s: &str) -> IResult<&str, ImplDefinition> {
         tuple((tag("impl"), parse_generics_args,
             space1, parse_trait_id,
             space1, tag("for"), space1, parse_type_spec,
-            space0, parse_where_section,
-            space0, char('{'), space0,
-            many0(tuple((tag("type"), space1, parse_associated_type_identifier, space0, char('='), space0, parse_type_spec, space0, char(';'), space0))),
-            many0(tuple((parse_func_definition, space0))),
-            space0, char('}')))(s)?;
+            multispace0, parse_where_section,
+            multispace0, char('{'), multispace0,
+            many0(tuple((tag("type"), space1, parse_associated_type_identifier, multispace0, char('='), multispace0, parse_type_spec, multispace0, char(';'), multispace0))),
+            many0(tuple((parse_func_definition, multispace0))),
+            multispace0, char('}')))(s)?;
     let asso_defs = many_types.into_iter().map(|(_, _, id, _, _, _, ty, _, _, _)| (id, ty)).collect();
     let require_methods = many_methods.into_iter().map(|(func, _)| (TraitMethodIdentifier { id: func.func_id.clone() }, func)).collect();
     Ok((s, ImplDefinition { generics, trait_id, impl_ty, where_sec, asso_defs, require_methods }))

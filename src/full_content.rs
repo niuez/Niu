@@ -167,7 +167,7 @@ fn parse_element_impl_trait(s: &str) -> IResult<&str, ContentElement> {
 }
 
 fn parse_element_import(s: &str) -> IResult<&str, ContentElement> {
-    let (s, (_, _, _, _, path, _, _)) = tuple((space0, tag("import"), space0, char('"'), is_not("\""), char('"'), space0))(s)?;
+    let (s, (_, _, _, _, path, _, _)) = tuple((multispace0, tag("import"), multispace0, char('"'), is_not("\""), char('"'), multispace0))(s)?;
     Ok((s, ContentElement::Import(path.to_string())))
 }
 
@@ -177,7 +177,7 @@ fn parse_content_element(s: &str) -> IResult<&str, ContentElement> {
 }
 
 pub fn parse_full_content(s: &str) -> IResult<&str, (Vec<String>, FullContent)> {
-    let (s, (_, elems, _)) = tuple((space0, many0(tuple((parse_content_element, space0))), space0))(s)?;
+    let (s, (_, elems, _)) = tuple((multispace0, many0(tuple((parse_content_element, multispace0))), multispace0))(s)?;
     
     let mut structs = Vec::new();
     let mut funcs = Vec::new();
@@ -217,7 +217,6 @@ pub fn parse_full_content_from_file(filename: &str, import_path: &[PathBuf]) -> 
     
     while let Some(path) = que.pop() {
         let program = std::fs::read_to_string(path.as_path()).map_err(|_| format!("cant open {}", filename))?;
-        let program = program.chars().map(|c| match c { '\n' => ' ', c => c }).collect::<String>();
         let (s, (imports, mut full)) = crate::full_content::parse_full_content(&program).map_err(|e| format!("{:?}", e))?;
         if s != "" {
             Err(format!("path {:?} parse error, remaining -> {}", path, s))?;
