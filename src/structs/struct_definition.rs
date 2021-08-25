@@ -200,12 +200,12 @@ pub fn parse_struct_definition(s: &str) -> IResult<&str, StructDefinition> {
 
 #[test]
 fn parse_struct_definition_test() {
-    println!("{:?}", parse_struct_definition("struct MyStruct { a: i64, b: u64, }"));
+    log::debug!("{:?}", parse_struct_definition("struct MyStruct { a: i64, b: u64, }"));
 }
 
 #[test]
 fn parse_struct_definition2_test() {
-    println!("{:?}", parse_struct_definition("struct MyStruct<S, T> { a: S, b: T }"));
+    log::debug!("{:?}", parse_struct_definition("struct MyStruct<S, T> { a: S, b: T }"));
 }
 
 /*#[test]
@@ -218,5 +218,5 @@ fn get_member_type_test() {
     };
     let gens = vec![Type::Generics(TypeId::from_str("i64"), Vec::new()), Type::Generics(TypeId::from_str("u64"), Vec::new())];
     // let res = def.get_member_type(&mut TypeEquations::new(), &gens, &Identifier::from_str("s"));
-    // println!("{:?}", res);
+    // log::debug!("{:?}", res);
 }*/

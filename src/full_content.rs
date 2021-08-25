@@ -225,9 +225,8 @@ pub fn parse_full_content_from_file(filename: &str, import_path: &[PathBuf]) -> 
             let mut ok = false;
             for mut import_dir in import_path.into_iter().cloned().chain(std::iter::once(path.parent().unwrap().to_path_buf())) {
                 import_dir.push(&import);
-                dbg!(&import_dir);
                 if let Ok(path) = import_dir.as_path().canonicalize().map(|p| p.to_path_buf()) {
-                    println!("path {:?}", path);
+                    log::debug!("path {:?}", path);
                     if read.insert(path.clone()) {
                         if path.is_file() {
                             que.push(path);
@@ -236,7 +235,7 @@ pub fn parse_full_content_from_file(filename: &str, import_path: &[PathBuf]) -> 
                         }
                     }
                     else {
-                        println!("already exist");
+                        log::debug!("already exist");
                         ok = true;
                         break;
                     }
@@ -257,15 +256,15 @@ pub fn parse_full_content_from_file(filename: &str, import_path: &[PathBuf]) -> 
 /*
 #[test]
 fn parse_full_content_test() {
-    println!("{:?}", parse_full_content("fn func(x: i64) -> i64 { let y = x * x; y + x } fn add(x: i64) -> i64 { x + x }"))
+    log::debug!("{:?}", parse_full_content("fn func(x: i64) -> i64 { let y = x * x; y + x } fn add(x: i64) -> i64 { x + x }"))
 }
 
 #[test]
 fn gentype_full_test() {
     let (_, mut t) = parse_full_content("fn two(z: i64) -> i64 { 2i64 } fn func(x: i64) -> i64 { let y = x; two(x) }").unwrap();
-    println!("{:?}", t);
+    log::debug!("{:?}", t);
     let ta = t.type_check().unwrap();
-    println!("{:#?}", ta);
+    log::debug!("{:#?}", ta);
 }
 
 #[test]
@@ -273,12 +272,12 @@ fn gentype_full_test2() {
     let prog = "fn generics_func<T>(x: T) -> T { x } fn echo(x: i64) -> i64 { let y = generics_func(x); let z = generics_func(false); y }";
 
     let (s, mut t) = parse_full_content(prog).unwrap();
-    println!("{:?}", s);
-    println!("{:?}", t);
+    log::debug!("{:?}", s);
+    log::debug!("{:?}", t);
     let mut ta = t.type_check().unwrap();
-    println!("{:#?}", ta);
+    log::debug!("{:#?}", ta);
 
-    println!("```cpp\n{}```\n", t.transpile(&mut ta));
+    log::debug!("```cpp\n{}```\n", t.transpile(&mut ta));
 }
 
 #[test]
@@ -286,12 +285,12 @@ fn gentype_full_test3() {
     let prog = "fn plus<T>(x: T, y: T) -> T { x + y } fn equ(a: i64, b: i64, c: i64, d: i64) -> bool { plus(a, b) == plus(c, d) }";
 
     let (s, mut t) = parse_full_content(prog).unwrap();
-    println!("{:?}", s);
-    println!("{:?}", t);
+    log::debug!("{:?}", s);
+    log::debug!("{:?}", t);
     let mut ta = t.type_check().unwrap();
-    println!("{:#?}", ta);
+    log::debug!("{:#?}", ta);
 
-    println!("```cpp\n{}```\n", t.transpile(&mut ta));
+    log::debug!("```cpp\n{}```\n", t.transpile(&mut ta));
 }
 
 #[test]
@@ -299,12 +298,12 @@ fn gentype_full_test4() {
     let prog = "fn plus<T>(x: T, y: T) -> T { x + y } fn equ(a: i64, b: i64, c: i64, d: i64) -> bool { plus(a, b) == plus(c, d) }";
 
     let (_, mut t) = parse_full_content(prog).unwrap();
-    //println!("{:?}", s);
-    //println!("{:?}", t);
+    //log::debug!("{:?}", s);
+    //log::debug!("{:?}", t);
     let mut ta = t.type_check().unwrap();
-    println!("{:#?}", ta);
+    log::debug!("{:#?}", ta);
 
-    println!("```cpp\n{}```\n", t.transpile(&mut ta));
+    log::debug!("```cpp\n{}```\n", t.transpile(&mut ta));
 }
 
 #[test]
@@ -312,12 +311,12 @@ fn gentype_full_test5() {
     let prog = "fn equ(a: i64, b: i64, c: i64, d: i64) -> u64 { let result = if a == b { 1u64 } else if c == d { 2u64 } else { 3u64 }; result }";
 
     let (s, mut t) = parse_full_content(prog).unwrap();
-    println!("{:?}", s);
-    println!("{:?}", t);
+    log::debug!("{:?}", s);
+    log::debug!("{:?}", t);
     let mut ta = t.type_check().unwrap();
-    println!("{:#?}", ta);
+    log::debug!("{:#?}", ta);
 
-    println!("```cpp\n{}```\n", t.transpile(&mut ta));
+    log::debug!("```cpp\n{}```\n", t.transpile(&mut ta));
 }
 
 
@@ -326,18 +325,18 @@ fn gentype_full_test6() {
     let prog = "fn equ(a: i64) -> u64 { let res = if true { true } else { 1u64 }; 2u64 }";
 
     let (s, mut t) = parse_full_content(prog).unwrap();
-    println!("{:?}", s);
-    println!("{:?}", t);
+    log::debug!("{:?}", s);
+    log::debug!("{:?}", t);
     let mut ta = t.type_check().unwrap();
-    println!("{:#?}", ta);
+    log::debug!("{:#?}", ta);
 
-    println!("```cpp\n{}```\n", t.transpile(&mut ta));
+    log::debug!("```cpp\n{}```\n", t.transpile(&mut ta));
 }
 
 
 #[test]
 fn parse_content_element_test() {
-    println!("{:?}", parse_full_content("trait MyTrait { type Output; } impl MyTrait for i64 { type Output = u64; } fn equ(a: i64) -> i64 { a }"));
+    log::debug!("{:?}", parse_full_content("trait MyTrait { type Output; } impl MyTrait for i64 { type Output = u64; } fn equ(a: i64) -> i64 { a }"));
 }
 
 
@@ -345,24 +344,24 @@ fn parse_content_element_test() {
 fn unify_test_for_selection_candidate() {
     let prog = "trait MyTrait { type Output; } impl MyTrait for u64 { type Output = u64; } fn equ<T: MyTrait>(t: T) -> T { t } fn apply<A: MyTrait>(a: A) -> A { equ(a) }";
     let (s, mut t) = parse_full_content(prog).unwrap();
-    println!("{:?}", s);
-    println!("{:?}", t);
+    log::debug!("{:?}", s);
+    log::debug!("{:?}", t);
     let mut ta = t.type_check().unwrap();
-    println!("{:#?}", ta);
+    log::debug!("{:#?}", ta);
 
-    println!("```cpp\n{}```\n", t.transpile(&mut ta));
+    log::debug!("```cpp\n{}```\n", t.transpile(&mut ta));
 }
 
 #[test]
 fn unify_test_for_impl() {
     let prog = "trait MyTrait { type Output; fn out(a: Self) -> Self#MyTrait::Output; } impl MyTrait for i64 { type Output = u64; fn out(a: i64) -> u64 { 1u64 }} fn apply() -> u64 { i64#MyTrait.out(1i64) }";
     let (s, mut t) = parse_full_content(prog).unwrap();
-    println!("{:?}", s);
-    println!("{:?}", t);
+    log::debug!("{:?}", s);
+    log::debug!("{:?}", t);
     let mut ta = t.type_check().unwrap();
-    println!("{:#?}", ta);
+    log::debug!("{:#?}", ta);
 
-    println!("```cpp\n{}```\n", t.transpile(&mut ta));
+    log::debug!("```cpp\n{}```\n", t.transpile(&mut ta));
 }
 
 
@@ -370,11 +369,11 @@ fn unify_test_for_impl() {
 fn unify_test_for_param_candidate() {
     let prog = "trait MyTrait { type Output; fn out(a: Self) -> Self#MyTrait::Output; } impl MyTrait for i64 { type Output = u64; fn out(a: i64) -> u64 { 1u64 }} fn apply<T: MyTrait>(t: T) -> T#MyTrait::Output { T#MyTrait.out(t) }";
     let (s, mut t) = parse_full_content(prog).unwrap();
-    println!("{:?}", s);
-    println!("{:?}", t);
+    log::debug!("{:?}", s);
+    log::debug!("{:?}", t);
     let mut ta = t.type_check().unwrap();
-    println!("{:#?}", ta);
+    log::debug!("{:#?}", ta);
 
-    println!("```cpp\n{}```\n", t.transpile(&mut ta));
+    log::debug!("```cpp\n{}```\n", t.transpile(&mut ta));
 }
 */

@@ -302,14 +302,14 @@ impl Transpile for TypeSpec {
 
 #[test]
 fn parse_type_spec_test() {
-    println!("{:?}", parse_type_spec("i64"));
-    println!("{:?}", parse_type_spec("i64#MyTrait::Output"));
-    println!("{:?}", parse_type_spec("Pair<Pair<i64, u64>, bool>"));
-    println!("{:?}", parse_type_spec("T#MyTrait::Output#MyTrait::Output"));
-    println!("{:?}", parse_type_spec("(i64)"));
-    println!("{:?}", parse_type_spec("*i64"));
-    println!("{:?}", parse_type_spec("*(*i64)"));
-    println!("{:?}", parse_type_spec("*(T#MyTrait::Output)"));
-    // println!("{:?}", parse_type_spec("Pair<Pair<i64, u64>, bool>").unwrap().1.gen_type(&mut equs));
+    log::debug!("{:?}", parse_type_spec("i64"));
+    log::debug!("{:?}", parse_type_spec("i64#MyTrait::Output"));
+    log::debug!("{:?}", parse_type_spec("Pair<Pair<i64, u64>, bool>"));
+    log::debug!("{:?}", parse_type_spec("T#MyTrait::Output#MyTrait::Output"));
+    log::debug!("{:?}", parse_type_spec("(i64)"));
+    log::debug!("{:?}", parse_type_spec("*i64"));
+    log::debug!("{:?}", parse_type_spec("*(*i64)"));
+    log::debug!("{:?}", parse_type_spec("*(T#MyTrait::Output)"));
+    // log::debug!("{:?}", parse_type_spec("Pair<Pair<i64, u64>, bool>").unwrap().1.gen_type(&mut equs));
 }
     
