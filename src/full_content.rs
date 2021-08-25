@@ -103,8 +103,10 @@ impl Transpile for FullContent {
     fn transpile(&self, ta: &TypeAnnotation) -> String {
         let mut res = "#include <bits/stdc++.h>\n\n".to_string();
         let mut operators = HashMap::new();
-        operators.insert("Index".to_string(), HashSet::new());
-        operators.insert("IndexMut".to_string(), HashSet::new());
+        let opes_str = ["Index", "IndexMut", "BitOr", "BitXor", "BitAnd", "Shl", "Shr", "Add", "Sub", "Mul", "Div", "Rem"];
+        for ope in opes_str {
+            operators.insert(ope.to_string(), HashSet::new());
+        }
         for t in self.impls.iter() {
             let tr_id = t.get_trait_id().id.into_string();
             if let Some(set) = operators.get_mut(&tr_id) {
@@ -222,6 +224,7 @@ pub fn parse_full_content_from_file(filename: &str, import_path: &[PathBuf]) -> 
         if s != "" {
             Err(format!("path {:?} parse error, remaining -> {}", path, s))?;
         }
+        dbg!(import_path);
         for import in imports.into_iter() {
             let mut ok = false;
             for mut import_dir in import_path.into_iter().cloned().chain(std::iter::once(path.parent().unwrap().to_path_buf())) {

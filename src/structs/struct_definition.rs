@@ -12,6 +12,7 @@ use crate::identifier::{ Identifier, parse_identifier, Tag };
 use crate::type_id::*;
 use crate::type_spec::*;
 use crate::cpp_inline::*;
+use crate::traits::*;
 use crate::structs::*;
 use crate::func_definition::*;
 //use crate::unary_expr::Variable;
@@ -45,6 +46,7 @@ pub struct StructDefinition {
     pub impl_self: ImplSelfDefinition,
 }
 
+
 impl StructDefinition {
     pub fn get_id(&self) -> TypeId {
         self.member_def.get_id()
@@ -63,6 +65,7 @@ impl StructDefinition {
         &self.impl_self
     }
     pub fn transpile(&self, ta: &TypeAnnotation, opes: Vec<String>) -> String {
+        let binary_operators = BINARY_OPERATOR_TRAITS.iter().cloned().collect::<HashMap<_, _>>();
         match self.member_def.member {
             StructMember::MemberInfo(MemberInfo { ref members_order, ref members }) => {
                 let template = if self.member_def.generics.len() > 0 {
@@ -92,7 +95,11 @@ impl StructDefinition {
                         format!("typename std::enable_if<Index<Self>::value, const typename Index<Self>::Output&>::type operator[](typename Index<Self>::Arg k) const {{ return *Index<Self>::index(this, k); }}\n")
                     }
                     "IndexMut" => {
-                        format!("typename std::enable_if<Index<Self>::value, typename Index<Self>::Output&>::type operator[](typename Index<Self>::Arg k) {{ return *IndexMut<Self>::index_mut(this, k); }}\n")
+                        format!("typename std::enable_if<IndexMut<Self>::value, typename Index<Self>::Output&>::type operator[](typename Index<Self>::Arg k) {{ return *IndexMut<Self>::index_mut(this, k); }}\n")
+                    }
+                    bin_ope if binary_operators.contains_key(bin_ope) => {
+                        let method = binary_operators[bin_ope];
+                        format!("typename std::enable_if<{0}<Self>::value, typename {0}<Self>::Output>::type operator{2}(typename {0}<Self>::Arg k) {{ return {0}<Self>::{1}(this, k); }}\n", bin_ope, method.0, method.1)
                     }
                     _ => "".to_string(),
                 }).collect::<Vec<_>>().join("");

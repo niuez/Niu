@@ -23,6 +23,12 @@ use crate::unify::where_section::*;
 use crate::trans::*;
 use crate::func_definition::*;
 
+pub const BINARY_OPERATOR_TRAITS : [(&'static str, (&'static str, &'static str)); 10] = [
+            ("BitOr", ("bit_or", "|")), ("BitXor", ("bit_xor", "^")), ("BitAnd", ("bit_and", "&")),
+            ("Shl", ("shl", "<<")), ("Shr", ("shr", ">>")), ("Add", ("add", "+")),
+            ("Sub", ("sub", "-")), ("Mul", ("mul", "*")), ("Div", ("div", "/")), ("Rem", ("rem", "%"))
+        ];
+
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct TraitId {
     pub id: Identifier,

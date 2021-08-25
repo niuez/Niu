@@ -1,0 +1,17 @@
+import "std/u64.niu"
+
+struct Modint {
+  a: u64,
+} {
+  fn new(a: u64) -> Self {
+    Modint { a: a }
+  }
+}
+
+impl Add for Modint {
+  type Arg = Self;
+  type Output = Self;
+  fn add(self: Self, right: Self) -> Self {
+    Modint { a: self.a + right.a }
+  }
+}
