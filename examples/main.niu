@@ -1,0 +1,9 @@
+fn scan_a() -> u64 $${int a; std::cin >> a;}$$
+fn scan_b() -> u64 $${int b; std::cin >> b;}$$
+fn print_aplusb() -> void $${std::cout << a + b << std::endl;}$$
+
+fn main() -> void {
+  scan_a();
+  scan_b();
+  print_aplusb();
+}
