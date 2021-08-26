@@ -122,10 +122,18 @@ impl<'a> TraitsInfo<'a> {
             match *def_info {
                 StructDefinitionInfo::Def(ref def) => {
                     if def.get_generics_len() == gens.len() {
+                        let gen_mp = GenericsTypeMap::empty();
+                        let mp = def.generics.iter().cloned().zip(gens.iter().cloned()).collect::<HashMap<_, _>>();
+                        let mp = gen_mp.next(mp);
+                        def.where_sec.regist_equations(&mp, equs, self)?;
                         Ok(Type::Generics(id, gens))
                     }
                     else if gens.len() == 0 && def.get_generics_len() > 0 {
-                        let gens = (0..def.get_generics_len()).map(|i| id.id.generate_type_variable("Generics", i, equs)).collect();
+                        let gens: Vec<_> = (0..def.get_generics_len()).map(|i| id.id.generate_type_variable("Generics", i, equs)).collect();
+                        let gen_mp = GenericsTypeMap::empty();
+                        let mp = def.generics.iter().cloned().zip(gens.iter().cloned()).collect::<HashMap<_, _>>();
+                        let mp = gen_mp.next(mp);
+                        def.where_sec.regist_equations(&mp, equs, self)?;
                         Ok(Type::Generics(id, gens))
                     }
                     else {
