@@ -205,6 +205,22 @@ impl<'a> TraitsInfo<'a> {
         }
     }
 
+    pub fn check_trait(&self, tr: &TraitSpec) -> Result<(), String> {
+        match self.traits.get(&tr.trait_id) {
+            None => {
+                Err(format!("trait {:?} not found", tr))
+            }
+            Some(tr_def) => {
+                if tr_def.generics.len() == tr.generics.len() {
+                    Ok(())
+                }
+                else {
+                    Err(format!("Generics of {:?} is not match to trait {:?}", tr, tr.trait_id))
+                }
+            }
+        }
+    }
+
     pub fn regist_trait(&mut self, tr: &TraitDefinition) -> Result<(), String> {
         let (trait_id, trait_def) = tr.get_trait_id_pair();
         for (id, _) in trait_def.required_methods.iter() {
