@@ -9,12 +9,11 @@ impl Monoid for i64 {
   fn ope(self: &i64, right: &i64) -> i64 { *self + *right }
 }
 
-struct SegmentTree<T> {
+struct SegmentTree<T> where T: Monoid {
   node: Vec<T>,
   n: u64,
 } {
-  fn init(arr: &Vec<T>) -> Self
-  where T: Monoid {
+  fn init(arr: &Vec<T>) -> Self {
     let mut n = 1;
     for(n = 1; n < arr.len(); n = n * 2) {};
     let mut node = Vec::init(2 * n, T#Monoid::ide());
@@ -31,16 +30,14 @@ struct SegmentTree<T> {
     self.node.index(i + self.n)
   }
 
-  fn update(self: &mut Self, p: u64, x: T) -> void
-  where T: Monoid {
+  fn update(self: &mut Self, p: u64, x: T) -> void {
     *self.node.index_mut(p + self.n) = x;
     for(let mut i = (p + self.n) / 2; i >= 1; i = i / 2) {
       *self.node.index_mut(i) = self.node.index(i * 2).ope(self.node.index(i * 2 + 1));
     };
   }
 
-  fn sum(self: &mut Self, l: u64, r: u64) -> T
-  where T: Monoid {
+  fn sum(self: &mut Self, l: u64, r: u64) -> T {
     let mut lx = T#Monoid::ide();
     let mut rx = T#Monoid::ide();
     let mut i = l + self.n;

@@ -67,7 +67,10 @@ impl StructDefinition {
         match self.member_def.member {
             StructMember::MemberInfo(MemberInfo { .. }) => {
                 let template = if self.member_def.generics.len() > 0 {
-                    format!("template <{}> ", self.member_def.generics.iter().map(|gen| format!("class {}", gen.transpile(ta))).collect::<Vec<_>>().join(", "))
+                    format!("template <{}> ",
+                            self.member_def.generics.iter().map(|gen| format!("class {}", gen.transpile(ta)))
+                            .chain(std::iter::once(format!("class = void"))).collect::<Vec<_>>().join(", ")
+                            )
                 }
                 else {
                     format!("")
@@ -86,6 +89,9 @@ impl StructDefinition {
                 else {
                     format!("")
                 };
+                let impl_type = format!("{}<{}>", self.member_def.struct_id.transpile(ta),
+                    self.member_def.generics.iter().map(|gen| format!("{}", gen.transpile(ta)))
+                        .chain(std::iter::once(self.member_def.where_sec.transpile(ta))).collect::<Vec<_>>().join(", "));
                 let self_type_generics = if self.member_def.generics.len() > 0 {
                     format!("<{}>", self.member_def.generics.iter().map(|gen| format!("{}", gen.transpile(ta))).collect::<Vec<_>>().join(", "))
                 }
@@ -112,7 +118,7 @@ impl StructDefinition {
                     _ => "".to_string(),
                 }).collect::<Vec<_>>().join("");
 
-                format!("{}struct {} {{\n{}\n{}\n{}\n{}\n{}\n}} ;\n", template, self.member_def.struct_id.transpile(ta),self_type, members_str, constructor, methods, operators)
+                format!("{}struct {} {{\n{}\n{}\n{}\n{}\n{}\n}} ;\n", template, impl_type, self_type, members_str, constructor, methods, operators)
             }
             _ => format!(""),
         }
