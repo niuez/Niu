@@ -75,11 +75,31 @@ impl WhereSection {
 
     pub fn transpile(&self, ta: &TypeAnnotation) -> String {
         let mut conds = Vec::new();
+        let bin_opes = BINARY_OPERATOR_TRAITS.iter().cloned().collect::<HashMap<_, _>>();
         for (ty, _, tr, assos) in self.has_traits.iter() {
-            let trait_ty = format!("{}<{}>", tr.transpile(ta), ty.transpile(ta));
-            conds.push(trait_ty.clone());
-            for (id, asso_ty) in assos.iter() {
-                conds.push(format!("std::is_same<typename {}::{}, {}>", trait_ty.clone(), id.transpile(ta), asso_ty.transpile(ta)));
+            match bin_opes.get(tr.id.into_string().as_str()) {
+                Some((_, ope)) => {
+                    let assos = assos.iter().map(|(id, asso_ty)| (id.id.into_string(), asso_ty.clone())).collect::<HashMap<_, _>>();
+                    let arg_ty = assos.get("Arg").cloned().unwrap_or(ty.clone());
+                    let output_ty = assos.get("Output").cloned();
+                    match output_ty {
+                        Some(output_ty) => {
+                            conds.push(format!("std::is_same<decltype(std::declval<{}>() {} std::declval<{}>()), {}>",
+                                ty.transpile(ta), ope, arg_ty.transpile(ta), output_ty.transpile(ta)));
+                        }
+                        None => {
+                            conds.push(format!("decltype(std::declval<{}>() {} std::declval<{}>(), std::true_type())",
+                                ty.transpile(ta), ope, arg_ty.transpile(ta)));
+                        }
+                    }
+                }
+                None => {
+                    let trait_ty = format!("{}<{}>", tr.transpile(ta), ty.transpile(ta));
+                    conds.push(trait_ty.clone());
+                    for (id, asso_ty) in assos.iter() {
+                        conds.push(format!("std::is_same<typename {}::{}, {}>", trait_ty.clone(), id.transpile(ta), asso_ty.transpile(ta)));
+                    }
+                }
             }
         }
         if conds.len() == 0 {
