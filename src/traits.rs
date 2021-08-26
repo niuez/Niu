@@ -68,7 +68,7 @@ impl TraitDefinition {
 
 impl Transpile for TraitDefinition {
     fn transpile(&self, ta: &TypeAnnotation) -> String {
-        format!("template<class Self> struct {}: std::false_type {{ }};\n", self.trait_id.transpile(ta))
+        format!("template<class Self, class = void> struct {}: std::false_type {{ }};\n", self.trait_id.transpile(ta))
     }
 }
 

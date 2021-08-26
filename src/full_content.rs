@@ -113,6 +113,28 @@ impl Transpile for FullContent {
                 }
             }
         }
+        // structs definition
+        for t in self.structs.iter() {
+            let s = t.transpile_definition(ta);
+            res.push_str(&s);
+        }
+        // traits definition
+        for t in self.traits.iter() {
+            let s = t.transpile(ta);
+            res.push_str(&s);
+        }
+        // impls definition
+        for i in self.impls.iter() {
+            let s = i.transpile(ta);
+            res.push_str(&s);
+        }
+        // functions definition
+        for f in self.funcs.iter() {
+            let s = f.transpile_definition_only(ta, "", false);
+            res.push_str(&s);
+            res.push_str(";\n");
+        }
+        // structs implementation
         for t in self.structs.iter() {
             let st_id = t.get_id();
             let opes = operators.iter()
@@ -121,16 +143,13 @@ impl Transpile for FullContent {
             let s = t.transpile(ta, opes);
             res.push_str(&s);
         }
-        for t in self.traits.iter() {
-            let s = t.transpile(ta);
-            res.push_str(&s);
-        }
+        // functions of impls implementation
         for i in self.impls.iter() {
-            let s = i.transpile(ta);
+            let s = i.transpile_functions(ta);
             res.push_str(&s);
         }
         for f in self.funcs.iter() {
-            let s = f.transpile(ta);
+            let s = f.transpile(ta, false);
             res.push_str(&s);
         }
         res

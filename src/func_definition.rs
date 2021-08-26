@@ -190,8 +190,41 @@ impl FuncDefinition {
         vars.out_scope();
         Ok(())
     }
+    pub fn transpile_definition_only(&self, ta: &TypeAnnotation, class_str: &str, is_static: bool) -> String {
+        let where_empty = self.where_sec.is_empty();
+        let template_str =
+            if self.generics.len() > 0 {
+                let gen = self.generics.iter().map(|g| format!("class {}", g.transpile(ta))).collect::<Vec<_>>().join(", ");
+                if !where_empty  {
+                    format!("template<{}> ", gen)
+                }
+                else {
+                    format!("template<{}, class> ", gen)
+                }
+            } 
+            else if !where_empty {
+                format!("template<class> ")
+            }
+            else {
+                "".to_string()
+            };
 
-    pub fn transpile_definition(&self, ta: &TypeAnnotation) -> String {
+        let return_str = if self.func_id == Identifier::from_str("main") {
+            format!("int")
+        }
+        else {
+            self.return_type.transpile(ta)
+        };
+        let static_str = if is_static { "static " } else { "" };
+        let func_str = self.func_id.into_string();
+        let arg_str = self.args.iter().map(|(id, ty)| {
+            format!("{} {}", ty.transpile(ta), id.into_string())
+        }).collect::<Vec<_>>().join(", ");
+
+        format!("{}{}{} {}{}({})", template_str, static_str, return_str, class_str, func_str, arg_str)
+    }
+
+    fn transpile_definition(&self, ta: &TypeAnnotation, class_str: &str, is_static: bool) -> String {
         let where_str = self.where_sec.transpile(ta);
         let template_str =
             if self.generics.len() > 0 {
@@ -216,35 +249,31 @@ impl FuncDefinition {
         else {
             self.return_type.transpile(ta)
         };
-        
+        let static_str = if is_static { "static " } else { "" };
         let func_str = self.func_id.into_string();
         let arg_str = self.args.iter().map(|(id, ty)| {
             format!("{} {}", ty.transpile(ta), id.into_string())
         }).collect::<Vec<_>>().join(", ");
 
-        format!("{}{} {}({})", template_str, return_str, func_str, arg_str)
+        format!("{}{}{} {}{}({})", template_str, static_str, return_str, class_str, func_str, arg_str)
     }
-    pub fn transpile_implement(&self, ta: &TypeAnnotation) -> String {
+    pub fn transpile_for_impl(&self, ta: &TypeAnnotation, class_str: &str, is_static: bool) -> String {
         match self.block {
             FuncBlock::Block(ref block) => {
-                let func_def = self.transpile_definition(ta);
+                let func_def = self.transpile_definition(ta, class_str, is_static);
                 let block_str = block.transpile(ta);
                 format!("{} {{\n{}}}\n", func_def, block_str)
             }
             FuncBlock::CppInline(ref block) => {
-                let func_def = self.transpile_definition(ta);
+                let func_def = self.transpile_definition(ta, class_str, is_static);
                 let block_str = block.transpile_implement(ta);
                 format!("{} {{\nreturn {};\n}}\n", func_def, block_str)
             }
         }
     }
-}
-
-
-impl Transpile for FuncDefinition {
-    fn transpile(&self, ta: &TypeAnnotation) -> String {
+    pub fn transpile(&self, ta: &TypeAnnotation, is_static: bool) -> String {
         if let FuncBlock::Block(ref block) = self.block {
-            let func_def = self.transpile_definition(ta);
+            let func_def = self.transpile_definition(ta, "", is_static);
             let block_str = block.transpile(ta);
             format!("{} {{\n{}}}\n", func_def, block_str)
         }
@@ -253,6 +282,7 @@ impl Transpile for FuncDefinition {
         }
     }
 }
+
 
 /*fn parse_generics_arg(s: &str) -> IResult<&str, (TypeId, Option<TraitId>)> {
     let (s, (id, _, opt)) = tuple((parse_type_id, multispace0, opt(tuple((char(':'), multispace0, parse_trait_id)))))(s)?;
