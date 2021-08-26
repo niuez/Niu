@@ -84,7 +84,7 @@ where
     P::Operator: ParseOperator,
 {
     let (s, (head, _, tails)) = 
-        tuple((P::Child::parse_expression, space0, many0(tuple((P::Operator::parse_operator, space0, P::Child::parse_expression, space0)))))(s)?;
+        tuple((P::Child::parse_expression, multispace0, many0(tuple((P::Operator::parse_operator, multispace0, P::Child::parse_expression, multispace0)))))(s)?;
     let mut terms = vec![head];
     let mut opes = Vec::new();
 
@@ -769,7 +769,7 @@ impl ParseExpression for ExpMulDivRem {
     }
     fn parse_expression(s: &str) -> IResult<&str, Self> {
         let (s, (head, _, tails)) = 
-            tuple((parse_exp_unary_ope, space0, many0(tuple((Self::Operator::parse_operator, space0, parse_exp_unary_ope, space0)))))(s)?;
+            tuple((parse_exp_unary_ope, multispace0, many0(tuple((Self::Operator::parse_operator, multispace0, parse_exp_unary_ope, multispace0)))))(s)?;
         let mut unary_exprs = vec![head];
         let mut opes = Vec::new();
 
@@ -870,16 +870,16 @@ impl MutCheck for ExpUnaryOpe {
 }
 
 pub fn parse_exp_unary_ope_ref(s: &str) -> IResult<&str, ExpUnaryOpe> {
-    let (s, (_, _, exp)) = tuple((char('&'), space0, parse_exp_unary_ope))(s)?;
+    let (s, (_, _, exp)) = tuple((char('&'), multispace0, parse_exp_unary_ope))(s)?;
     Ok((s, ExpUnaryOpe::Ref(Box::new(exp))))
 }
 pub fn parse_exp_unary_ope_mutref(s: &str) -> IResult<&str, ExpUnaryOpe> {
-    let (s, (_, _, exp)) = tuple((tag("&mut"), space0, parse_exp_unary_ope))(s)?;
+    let (s, (_, _, exp)) = tuple((tag("&mut"), multispace0, parse_exp_unary_ope))(s)?;
     Ok((s, ExpUnaryOpe::MutRef(Box::new(exp))))
 }
 
 pub fn parse_exp_unary_ope_deref(s: &str) -> IResult<&str, ExpUnaryOpe> {
-    let (s, (_, _, exp)) = tuple((char('*'), space0, parse_exp_unary_ope))(s)?;
+    let (s, (_, _, exp)) = tuple((char('*'), multispace0, parse_exp_unary_ope))(s)?;
     Ok((s, ExpUnaryOpe::Deref(Box::new(exp), Tag::new())))
 }
 

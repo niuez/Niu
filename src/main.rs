@@ -1,4 +1,5 @@
 extern crate nom;
+extern crate log;
 
 pub mod literal;
 pub mod expression;
@@ -58,15 +59,16 @@ fn type_check() -> Result<String, String> {
     let filename = args.get(1).ok_or("no filepath")?;
     let import_path = get_import_path()?;
     let mut t = crate::full_content::parse_full_content_from_file(&filename, &import_path).map_err(|e| format!("{:?}", e))?;
-    //println!("{:?}", t);
+    //log::debug!("{:?}", t);
     let ta = t.type_check()?;
     t.mut_check(&ta)?;
     Ok(t.transpile(&ta))
 }
 
 fn main() {
+    env_logger::init();
     match type_check() {
         Ok(prog) => println!("{}", prog),
-        Err(err) => println!("{}", err),
+        Err(err) => log::error!("{}", err),
     }
 }

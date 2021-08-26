@@ -122,18 +122,18 @@ pub fn literal_boolean(s: &str) -> IResult<&str, Literal> {
 
 #[test]
 fn parse_literal_u64_test() {
-    println!("{:?}", parse_literal("659"));
-    println!("{:?}", parse_literal("6_5_9"));
+    log::debug!("{:?}", parse_literal("659"));
+    log::debug!("{:?}", parse_literal("6_5_9"));
 }
 
 #[test]
 fn parse_literal_i64_test() {
-    println!("{:?}", parse_literal("659i64"));
-    println!("{:?}", parse_literal("6_5_9i64"));
+    log::debug!("{:?}", parse_literal("659i64"));
+    log::debug!("{:?}", parse_literal("6_5_9i64"));
 }
 
 #[test]
 fn parse_literal_boolean_test() {
-    println!("{:?}", parse_literal("true"));
-    println!("{:?}", parse_literal("false"));
+    log::debug!("{:?}", parse_literal("true"));
+    log::debug!("{:?}", parse_literal("false"));
 }

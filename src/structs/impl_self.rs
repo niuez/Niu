@@ -160,7 +160,7 @@ impl ImplSelfCandidate {
 }
 
 fn parse_generics_args(s: &str) -> IResult<&str, Vec<TypeId>> {
-    let (s, op) = opt(tuple((space0, char('<'), space0, separated_list0(tuple((space0, char(','), space0)), parse_type_id), space0, char('>'))))(s)?;
+    let (s, op) = opt(tuple((multispace0, char('<'), multispace0, separated_list0(tuple((multispace0, char(','), multispace0)), parse_type_id), multispace0, char('>'))))(s)?;
     Ok((s, op.map(|(_, _, _, res, _, _)| res).unwrap_or(Vec::new())))
 }
 
@@ -168,10 +168,10 @@ pub fn parse_impl_self_definition(s: &str) -> IResult<&str, ImplSelfDefinition> 
     let (s, (_, generics, _, impl_ty, _, where_sec, _, _, _, many_methods, _, _)) = 
         tuple((tag("impl"), parse_generics_args,
             space1, parse_type_spec,
-            space0, parse_where_section,
-            space0, char('{'), space0,
-            many0(tuple((parse_func_definition, space0))),
-            space0, char('}')))(s)?;
+            multispace0, parse_where_section,
+            multispace0, char('{'), multispace0,
+            many0(tuple((parse_func_definition, multispace0))),
+            multispace0, char('}')))(s)?;
     let require_methods = many_methods.into_iter().map(|(func, _)| (func.func_id.clone(), func)).collect();
     Ok((s, ImplSelfDefinition { generics, impl_ty, where_sec, require_methods, tag: Tag::new() }))
 }

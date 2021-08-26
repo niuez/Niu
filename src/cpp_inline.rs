@@ -73,12 +73,12 @@ impl CppInline {
 }
 
 fn parse_inline_elem_type(s: &str) -> IResult<&str, CppInlineElem> {
-    let (s, (_, _, id, _, _)) = tuple((tag("$ty("), space0, parse_type_id, space0, tag(")")))(s)?;
+    let (s, (_, _, id, _, _)) = tuple((tag("$ty("), multispace0, parse_type_id, multispace0, tag(")")))(s)?;
     Ok((s, CppInlineElem::Type(id)))
 }
 
 fn parse_inline_elem_arg(s: &str) -> IResult<&str, CppInlineElem> {
-    let (s, (_, _, id, _, _)) = tuple((tag("$arg("), space0, parse_identifier, space0, tag(")")))(s)?;
+    let (s, (_, _, id, _, _)) = tuple((tag("$arg("), multispace0, parse_identifier, multispace0, tag(")")))(s)?;
     Ok((s, CppInlineElem::Arg(id)))
 }
 

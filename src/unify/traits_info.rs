@@ -116,8 +116,8 @@ impl<'a> TraitsInfo<'a> {
     }
     
     pub fn check_typeid_with_generics(&self, equs: &mut TypeEquations, id: TypeId, gens: Vec<Type>, top_trs: &Self) -> TResult {
-        //println!("id = {:?}", id);
-        //println!("typeids = {:?}", self.typeids);
+        //log::debug!("id = {:?}", id);
+        //log::debug!("typeids = {:?}", self.typeids);
         if let Some(def_info) = self.typeids.get(&id) {
             match *def_info {
                 StructDefinitionInfo::Def(ref def) => {
@@ -159,8 +159,8 @@ impl<'a> TraitsInfo<'a> {
     }
 
     pub fn check_typeid_no_auto_generics(&self, id: TypeId, gens: Vec<Type>, top_trs: &Self) -> TResult {
-        //println!("id = {:?}", id);
-        //println!("typeids = {:?}", self.typeids);
+        //log::debug!("id = {:?}", id);
+        //log::debug!("typeids = {:?}", self.typeids);
         if let Some(def_info) = self.typeids.get(&id) {
             match *def_info {
                 StructDefinitionInfo::Def(ref def) => {
@@ -308,7 +308,7 @@ impl<'a> TraitsInfo<'a> {
         }
     }
     pub fn regist_param_candidate(&mut self, ty: Type, trait_id: &TraitId, mut asso_mp: HashMap<AssociatedTypeIdentifier, Type>) -> Result<(), String> {
-        println!("param {:?}, {:?}", ty, trait_id);
+        log::debug!("param {:?}, {:?}", ty, trait_id);
         match self.get_traitinfo(trait_id).cloned() {
             None => Err(format!("trait {:?} is not defined", trait_id)),
             Some(tr_def) => {
@@ -361,11 +361,11 @@ impl<'a> TraitsInfo<'a> {
     }
 
     pub fn match_to_impls_for_type(&self, trait_id: &TraitId, ty: &Type) -> Result<(SubstsMap, &SelectionCandidate), usize> {
-        println!("search {:?} {:?}--------------", trait_id, ty);
+        log::debug!("search {:?} {:?}--------------", trait_id, ty);
         let mut cands = self.match_to_impls(trait_id, ty, self);
         let idx = select_impls_by_priority(cands.iter().map(|(_, _, i)| *i), cands.len());
-        //println!("cands {:?}", cands);
-        println!("solve  {:?} {:?} ------------> idx {:?} / {}", trait_id, ty, idx, cands.len());
+        //log::debug!("cands {:?}", cands);
+        log::debug!("solve  {:?} {:?} ------------> idx {:?} / {}", trait_id, ty, idx, cands.len());
         match idx {
             Some(i) => {
                 let (substs, cand, _) = cands.swap_remove(i);
@@ -482,10 +482,10 @@ impl<'a> TraitsInfo<'a> {
             let (gen_equ, _) = unify_res.pop().unwrap();
             let ret_ty = gen_equ.try_get_substs(TypeVariable::Counter(call_eq.tag.get_num(), "ReturnType", 0));
 
-            //println!("take over by call >> ");
-            //println!("{:?}", call_eq);
-            //println!("ret = {:?}", ret_ty);
-            //println!(">> ");
+            //log::debug!("take over by call >> ");
+            //log::debug!("{:?}", call_eq);
+            //log::debug!("ret = {:?}", ret_ty);
+            //log::debug!(">> ");
             equs.take_over_equations(gen_equ);
             Ok(ret_ty)
         }

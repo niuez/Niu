@@ -86,7 +86,7 @@ impl FuncDefinitionInfo {
             Type::Func(self_args, Box::new(self_return_type), FuncTypeInfo::None),
             Type::Func(right_args, Box::new(right_return_type), FuncTypeInfo::None)
             );
-        println!("function {:?} and {:?} are equal unify", self.func_id, right.func_id);
+        log::debug!("function {:?} and {:?} are equal unify", self.func_id, right.func_id);
         equs.unify(&mut trs).map_err(|err| err.to_string())?;
         Ok(())
     }
@@ -126,6 +126,24 @@ impl FuncDefinition {
     }
     pub fn unify_definition(&self, equs: &mut TypeEquations, trs: &TraitsInfo) -> Result<(), String> {
         if let FuncBlock::Block(ref block) = self.block {
+            if self.func_id == Identifier::from_str("main") {
+                if self.generics.len() > 0 {
+                    Err(format!("main function must not have generics arguments"))
+                }
+                else if !self.where_sec.is_empty() {
+                    Err(format!("main function must not have where sections"))
+                }
+                else if self.return_type != TypeSpec::from_str("void") {
+                    Err(format!("main function must return void"))
+                }
+                else {
+                    Ok(())
+                }
+            }
+            else {
+                Ok(())
+            }?;
+
             equs.into_scope();
 
             let mut trs = trs.into_scope();
@@ -149,7 +167,7 @@ impl FuncDefinition {
             let return_t = self.return_type.generics_to_type(&GenericsTypeMap::empty(), equs, &trs)?;
             equs.add_equation(result_type, return_t);
 
-            println!("function {:?} unify", self.func_id);
+            log::debug!("function {:?} unify", self.func_id);
             //equs.debug();
             let result = equs.unify(&mut trs);
 
@@ -172,8 +190,41 @@ impl FuncDefinition {
         vars.out_scope();
         Ok(())
     }
+    pub fn transpile_definition_only(&self, ta: &TypeAnnotation, class_str: &str, is_static: bool) -> String {
+        let where_empty = self.where_sec.is_empty();
+        let template_str =
+            if self.generics.len() > 0 {
+                let gen = self.generics.iter().map(|g| format!("class {}", g.transpile(ta))).collect::<Vec<_>>().join(", ");
+                if !where_empty  {
+                    format!("template<{}> ", gen)
+                }
+                else {
+                    format!("template<{}, class> ", gen)
+                }
+            } 
+            else if !where_empty {
+                format!("template<class> ")
+            }
+            else {
+                "".to_string()
+            };
 
-    pub fn transpile_definition(&self, ta: &TypeAnnotation) -> String {
+        let return_str = if self.func_id == Identifier::from_str("main") {
+            format!("int")
+        }
+        else {
+            self.return_type.transpile(ta)
+        };
+        let static_str = if is_static { "static " } else { "" };
+        let func_str = self.func_id.into_string();
+        let arg_str = self.args.iter().map(|(id, ty)| {
+            format!("{} {}", ty.transpile(ta), id.into_string())
+        }).collect::<Vec<_>>().join(", ");
+
+        format!("{}{}{} {}{}({})", template_str, static_str, return_str, class_str, func_str, arg_str)
+    }
+
+    fn transpile_definition(&self, ta: &TypeAnnotation, class_str: &str, is_static: bool) -> String {
         let where_str = self.where_sec.transpile(ta);
         let template_str =
             if self.generics.len() > 0 {
@@ -192,35 +243,37 @@ impl FuncDefinition {
                 "".to_string()
             };
 
-        let return_str = self.return_type.transpile(ta);
+        let return_str = if self.func_id == Identifier::from_str("main") {
+            format!("int")
+        }
+        else {
+            self.return_type.transpile(ta)
+        };
+        let static_str = if is_static { "static " } else { "" };
         let func_str = self.func_id.into_string();
         let arg_str = self.args.iter().map(|(id, ty)| {
             format!("{} {}", ty.transpile(ta), id.into_string())
         }).collect::<Vec<_>>().join(", ");
 
-        format!("{}{} {}({})", template_str, return_str, func_str, arg_str)
+        format!("{}{}{} {}{}({})", template_str, static_str, return_str, class_str, func_str, arg_str)
     }
-    pub fn transpile_implement(&self, ta: &TypeAnnotation) -> String {
+    pub fn transpile_for_impl(&self, ta: &TypeAnnotation, class_str: &str, is_static: bool) -> String {
         match self.block {
             FuncBlock::Block(ref block) => {
-                let func_def = self.transpile_definition(ta);
+                let func_def = self.transpile_definition(ta, class_str, is_static);
                 let block_str = block.transpile(ta);
                 format!("{} {{\n{}}}\n", func_def, block_str)
             }
             FuncBlock::CppInline(ref block) => {
-                let func_def = self.transpile_definition(ta);
+                let func_def = self.transpile_definition(ta, class_str, is_static);
                 let block_str = block.transpile_implement(ta);
                 format!("{} {{\nreturn {};\n}}\n", func_def, block_str)
             }
         }
     }
-}
-
-
-impl Transpile for FuncDefinition {
-    fn transpile(&self, ta: &TypeAnnotation) -> String {
+    pub fn transpile(&self, ta: &TypeAnnotation, is_static: bool) -> String {
         if let FuncBlock::Block(ref block) = self.block {
-            let func_def = self.transpile_definition(ta);
+            let func_def = self.transpile_definition(ta, "", is_static);
             let block_str = block.transpile(ta);
             format!("{} {{\n{}}}\n", func_def, block_str)
         }
@@ -230,17 +283,18 @@ impl Transpile for FuncDefinition {
     }
 }
 
+
 /*fn parse_generics_arg(s: &str) -> IResult<&str, (TypeId, Option<TraitId>)> {
-    let (s, (id, _, opt)) = tuple((parse_type_id, space0, opt(tuple((char(':'), space0, parse_trait_id)))))(s)?;
+    let (s, (id, _, opt)) = tuple((parse_type_id, multispace0, opt(tuple((char(':'), multispace0, parse_trait_id)))))(s)?;
     Ok((s, (id, opt.map(|(_, _, tr)| tr))))
 }*/
 
 pub fn parse_func_definition_info(s: &str) -> IResult<&str, FuncDefinitionInfo> {
     let (s, (_, _, func_id, _, generics_opt, _, _, _, op, _, _, _, _, return_type, _, where_sec)) = 
-        tuple((tag("fn"), space1, parse_identifier, space0, opt(tuple((char('<'), space0, opt(tuple((parse_type_id, space0, many0(tuple((char(','), space0, parse_type_id, space0))), opt(char(',')), space0))), char('>'), space0))), space0,
-               char('('), space0,
-            opt(tuple((parse_identifier, space0, char(':'), space0, parse_type_spec, space0, many0(tuple((char(','), space0, parse_identifier, space0, char(':'), space0, parse_type_spec, space0))), opt(char(',')), space0))),
-            char(')'), space0, tag("->"), space0, parse_type_spec, space0, parse_where_section))(s)?;
+        tuple((tag("fn"), space1, parse_identifier, multispace0, opt(tuple((char('<'), multispace0, opt(tuple((parse_type_id, multispace0, many0(tuple((char(','), multispace0, parse_type_id, multispace0))), opt(char(',')), multispace0))), char('>'), multispace0))), multispace0,
+               char('('), multispace0,
+            opt(tuple((parse_identifier, multispace0, char(':'), multispace0, parse_type_spec, multispace0, many0(tuple((char(','), multispace0, parse_identifier, multispace0, char(':'), multispace0, parse_type_spec, multispace0))), opt(char(',')), multispace0))),
+            char(')'), multispace0, tag("->"), multispace0, parse_type_spec, multispace0, parse_where_section))(s)?;
     let generics = match generics_opt {
         Some((_, _, generics_opt, _, _)) => {
             match generics_opt {
@@ -285,24 +339,24 @@ fn parse_func_block(s: &str) -> IResult<&str, FuncBlock> {
 }
 
 pub fn parse_func_definition(s: &str) -> IResult<&str, FuncDefinition> {
-    let (s, (info, _, block)) = tuple((parse_func_definition_info, space0, parse_func_block))(s)?;
+    let (s, (info, _, block)) = tuple((parse_func_definition_info, multispace0, parse_func_block))(s)?;
     Ok((s, FuncDefinition { func_id: info.func_id, generics: info.generics, where_sec: info.where_sec, args: info.args, return_type: info.return_type, block }))
 }
 
 
 #[test]
 fn parse_func_definition_test() {
-    println!("{:?}", parse_func_definition("fn func(x: i64) -> i64 { let y = x * x; y + x }"));
-    println!("{:?}", parse_func_definition("fn func2<t>(x: t) -> t { x }"));
-    println!("{:?}", parse_func_definition("fn func3<x, y, z>(x: x) -> z { x }"));
+    log::debug!("{:?}", parse_func_definition("fn func(x: i64) -> i64 { let y = x * x; y + x }"));
+    log::debug!("{:?}", parse_func_definition("fn func2<t>(x: t) -> t { x }"));
+    log::debug!("{:?}", parse_func_definition("fn func3<x, y, z>(x: x) -> z { x }"));
 }
 #[test]
 fn parse_func_definition2_test() {
-    println!("{:?}", parse_func_definition("fn func2<t>(x: t) -> t where t: MyTraits{ x }"));
-    println!("{:?}", parse_func_definition_info("fn nest_out<T>(t: T) -> T#MyTrait::Output#MyTrait::Output where T: MyTrait, T#MyTrait::Output: MyTrait"));
+    log::debug!("{:?}", parse_func_definition("fn func2<t>(x: t) -> t where t: MyTraits{ x }"));
+    log::debug!("{:?}", parse_func_definition_info("fn nest_out<T>(t: T) -> T#MyTrait::Output#MyTrait::Output where T: MyTrait, T#MyTrait::Output: MyTrait"));
 }
 
 #[test]
 fn parse_func_cppinline_test() {
-    println!("{:?}", parse_func_definition("fn push_back(self: Self, t: T) -> bool $${ $arg(self).push_back($arg(t)) }$$"));
+    log::debug!("{:?}", parse_func_definition("fn push_back(self: Self, t: T) -> bool $${ $arg(self).push_back($arg(t)) }$$"));
 }

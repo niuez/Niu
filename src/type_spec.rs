@@ -98,7 +98,7 @@ impl TypeSign {
 }
 
 fn parse_generics_annotation(s: &str) -> IResult<&str, Vec<TypeSpec>> {
-    let (s, op) = opt(tuple((char('<'), space0, parse_type_spec, space0, many0(tuple((char(','), space0, parse_type_spec, space0))), opt(tuple((space0, char(',')))), space0, char('>'))))(s)?;
+    let (s, op) = opt(tuple((char('<'), multispace0, parse_type_spec, multispace0, many0(tuple((char(','), multispace0, parse_type_spec, multispace0))), opt(tuple((multispace0, char(',')))), multispace0, char('>'))))(s)?;
     let v = match op {
         None => Vec::new(),
         Some((_, _, ty, _, m0, _, _, _)) => {
@@ -114,7 +114,7 @@ fn parse_generics_annotation(s: &str) -> IResult<&str, Vec<TypeSpec>> {
 
 
 pub fn parse_type_sign(s: &str) -> IResult<&str, TypeSign> {
-    let (s, (id, _, gens)) = tuple((parse_type_id, space0, parse_generics_annotation))(s)?;
+    let (s, (id, _, gens)) = tuple((parse_type_id, multispace0, parse_generics_annotation))(s)?;
     Ok((s, TypeSign { id, gens }))
 }
 
@@ -236,7 +236,7 @@ impl TypeSpec {
 }
 
 fn parse_type_spec_subseq(s: &str, prev: TypeSpec) -> IResult<&str, TypeSpec> {
-    if let Ok((ss, (_, _, _, asso_ty))) = tuple((space0, char('#'), space0, parse_associated_type))(s) {
+    if let Ok((ss, (_, _, _, asso_ty))) = tuple((multispace0, char('#'), multispace0, parse_associated_type))(s) {
         parse_type_spec_subseq(ss, TypeSpec::Associated(Box::new(prev), asso_ty))
     }
     else {
@@ -245,17 +245,17 @@ fn parse_type_spec_subseq(s: &str, prev: TypeSpec) -> IResult<&str, TypeSpec> {
 }
 
 fn parse_type_spec_pointer(s: &str) -> IResult<&str, TypeSpec> {
-    let (s, (_, _, spec)) = tuple((tag("&"), space0, parse_type_spec))(s)?;
+    let (s, (_, _, spec)) = tuple((tag("&"), multispace0, parse_type_spec))(s)?;
     Ok((s, TypeSpec::Pointer(Box::new(spec))))
 }
 
 fn parse_type_spec_mutpointer(s: &str) -> IResult<&str, TypeSpec> {
-    let (s, (_, _, spec)) = tuple((tag("&mut"), space0, parse_type_spec))(s)?;
+    let (s, (_, _, spec)) = tuple((tag("&mut"), multispace0, parse_type_spec))(s)?;
     Ok((s, TypeSpec::MutPointer(Box::new(spec))))
 }
 
 fn parse_type_spec_paren(s: &str) -> IResult<&str, TypeSpec> {
-    let (s, (_, _, spec, _)) = tuple((tag("("), space0, parse_type_spec, tag(")")))(s)?;
+    let (s, (_, _, spec, _)) = tuple((tag("("), multispace0, parse_type_spec, tag(")")))(s)?;
     Ok((s, spec))
 }
 
@@ -302,14 +302,14 @@ impl Transpile for TypeSpec {
 
 #[test]
 fn parse_type_spec_test() {
-    println!("{:?}", parse_type_spec("i64"));
-    println!("{:?}", parse_type_spec("i64#MyTrait::Output"));
-    println!("{:?}", parse_type_spec("Pair<Pair<i64, u64>, bool>"));
-    println!("{:?}", parse_type_spec("T#MyTrait::Output#MyTrait::Output"));
-    println!("{:?}", parse_type_spec("(i64)"));
-    println!("{:?}", parse_type_spec("*i64"));
-    println!("{:?}", parse_type_spec("*(*i64)"));
-    println!("{:?}", parse_type_spec("*(T#MyTrait::Output)"));
-    // println!("{:?}", parse_type_spec("Pair<Pair<i64, u64>, bool>").unwrap().1.gen_type(&mut equs));
+    log::debug!("{:?}", parse_type_spec("i64"));
+    log::debug!("{:?}", parse_type_spec("i64#MyTrait::Output"));
+    log::debug!("{:?}", parse_type_spec("Pair<Pair<i64, u64>, bool>"));
+    log::debug!("{:?}", parse_type_spec("T#MyTrait::Output#MyTrait::Output"));
+    log::debug!("{:?}", parse_type_spec("(i64)"));
+    log::debug!("{:?}", parse_type_spec("*i64"));
+    log::debug!("{:?}", parse_type_spec("*(*i64)"));
+    log::debug!("{:?}", parse_type_spec("*(T#MyTrait::Output)"));
+    // log::debug!("{:?}", parse_type_spec("Pair<Pair<i64, u64>, bool>").unwrap().1.gen_type(&mut equs));
 }
     

@@ -95,8 +95,8 @@ pub fn parse_identifier(s: &str) -> IResult<&str, Identifier> {
 
 #[test]
 fn parse_identifier_test() {
-    println!("{:?}", parse_identifier("func"));
-    println!("{:?}", parse_identifier("if"));
-    println!("{:?}", parse_identifier("x"));
-    println!("{:?}", parse_identifier("f_u_n_c91"));
+    log::debug!("{:?}", parse_identifier("func"));
+    log::debug!("{:?}", parse_identifier("if"));
+    log::debug!("{:?}", parse_identifier("x"));
+    log::debug!("{:?}", parse_identifier("f_u_n_c91"));
 }

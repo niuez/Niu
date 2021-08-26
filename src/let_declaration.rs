@@ -55,12 +55,12 @@ impl MutCheck for LetDeclaration {
 
 
 pub fn parse_let_declaration(s: &str) -> IResult<&str, LetDeclaration> {
-    let (s, (_let, _, is_mut, id, _, tyinfo, _, _e, _, value)) = tuple((tag("let"), space1, opt(tuple((tag("mut"), space1))), parse_identifier, space0, opt(tuple((char(':'), space0, parse_type_spec))), space0, tag("="), space0, parse_expression))(s)?;
+    let (s, (_let, _, is_mut, id, _, tyinfo, _, _e, _, value)) = tuple((tag("let"), space1, opt(tuple((tag("mut"), space1))), parse_identifier, multispace0, opt(tuple((char(':'), multispace0, parse_type_spec))), multispace0, tag("="), multispace0, parse_expression))(s)?;
     Ok((s, (LetDeclaration { id, is_mut: is_mut.is_some(), type_info: tyinfo.map(|(_, _, type_info)| type_info ), value })))
 }
 
 #[test]
 fn parse_decl_test() {
-    println!("{:?}", parse_let_declaration("let x = 1 + 2"));
-    println!("{:?}", parse_let_declaration("let x: i64 = 1 + 2"));
+    log::debug!("{:?}", parse_let_declaration("let x = 1 + 2"));
+    log::debug!("{:?}", parse_let_declaration("let x: i64 = 1 + 2"));
 }

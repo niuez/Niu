@@ -162,18 +162,18 @@ impl MutCheck for Parentheses {
 }
 
 pub fn parse_parentheses(s: &str) -> IResult<&str, UnaryExpr> {
-    let(s, (_, _, expr, _, _)) = tuple((char('('), space0, parse_expression, space0, char(')')))(s)?;
+    let(s, (_, _, expr, _, _)) = tuple((char('('), multispace0, parse_expression, multispace0, char(')')))(s)?;
     Ok((s, UnaryExpr::Parentheses(Parentheses { expr })))
 }
 
 pub fn parse_bracket_block(s: &str) -> IResult<&str, UnaryExpr> {
-    let(s, (_, _, block, _, _)) = tuple((char('{'), space0, parse_block, space0, char('}')))(s)?;
+    let(s, (_, _, block, _, _)) = tuple((char('{'), multispace0, parse_block, multispace0, char('}')))(s)?;
     Ok((s, UnaryExpr::Block(block)))
 }
 
 pub fn parse_unary_trait_method(ss: &str) -> IResult<&str, UnaryExpr> {
-    let (s, (typesign, _)) = tuple((parse_type_sign, space0))(ss)?;
-    let (s, elems) = many1(tuple((opt(tuple((char('#'), space0, parse_trait_id))), space0, tag("::"), space0, parse_identifier, space0)))(s)?;
+    let (s, (typesign, _)) = tuple((parse_type_sign, multispace0))(ss)?;
+    let (s, elems) = many1(tuple((opt(tuple((char('#'), multispace0, parse_trait_id))), multispace0, tag("::"), multispace0, parse_identifier, multispace0)))(s)?;
     let mut elems = elems.into_iter().map(|(op, _, _, _, id, _)| (op.map(|(_, _, tr_id)| tr_id), id)).collect::<Vec<_>>();
     let (tail_tr_op, tail_id) = elems.pop().unwrap();
     let mut ty = TypeSpec::TypeSign(typesign);
@@ -189,17 +189,17 @@ pub fn parse_unary_trait_method(ss: &str) -> IResult<&str, UnaryExpr> {
 
 #[test]
 fn parse_unary_expr_test() {
-    println!("{:?}", parse_unary_expr("func(1, 2, 3)"));
-    println!("{:?}", parse_unary_expr("add(1, add(2, 3), 4)"));
-    println!("{:?}", parse_unary_expr("generate_func(91)(1333)"));
-    println!("{:?}", parse_unary_expr("MyStruct { a: 1i64 + 2i64, b: val, }"));
-    println!("{:?}", parse_unary_expr("generate_func(31 * 91, 210)(1333 / 5 * 3)"));
+    log::debug!("{:?}", parse_unary_expr("func(1, 2, 3)"));
+    log::debug!("{:?}", parse_unary_expr("add(1, add(2, 3), 4)"));
+    log::debug!("{:?}", parse_unary_expr("generate_func(91)(1333)"));
+    log::debug!("{:?}", parse_unary_expr("MyStruct { a: 1i64 + 2i64, b: val, }"));
+    log::debug!("{:?}", parse_unary_expr("generate_func(31 * 91, 210)(1333 / 5 * 3)"));
 }
 #[test]
 fn parse_parentheses_expr_test() {
-    println!("{:?}", parse_unary_expr("(1 + 2 + 3)"));
+    log::debug!("{:?}", parse_unary_expr("(1 + 2 + 3)"));
 }
 #[test]
 fn parse_trait_method_test() {
-    println!("{:?}", parse_unary_expr("i64#MyTrait.out"));
+    log::debug!("{:?}", parse_unary_expr("i64#MyTrait.out"));
 }

@@ -145,10 +145,19 @@ impl ImplDefinition {
         }
         Ok(())
     }
+    pub fn transpile_functions(&self, ta: &TypeAnnotation) -> String {
+        let generics = self.generics.iter().map(|id| format!("class {}", id.transpile(ta))).collect::<Vec<_>>().join(", ");
+        let templates = if generics == "" { format!("") } else { format!("template<{}> ", generics) };
+        let class_str = format!("{}<{}>::", self.trait_id.transpile(ta), self.impl_ty.transpile(ta));
+        let require_methods = self.require_methods.iter().map(|(_, def)| {
+            format!("{}{}", templates, def.transpile_for_impl(ta, &class_str, false))
+        }).collect::<Vec<_>>().join("\n");
+        require_methods
+    }
 }
 
 fn parse_generics_args(s: &str) -> IResult<&str, Vec<TypeId>> {
-    let (s, op) = opt(tuple((space0, char('<'), space0, separated_list0(tuple((space0, char(','), space0)), parse_type_id), space0, char('>'))))(s)?;
+    let (s, op) = opt(tuple((multispace0, char('<'), multispace0, separated_list0(tuple((multispace0, char(','), multispace0)), parse_type_id), multispace0, char('>'))))(s)?;
     Ok((s, op.map(|(_, _, _, res, _, _)| res).unwrap_or(Vec::new())))
 }
 
@@ -157,11 +166,11 @@ pub fn parse_impl_definition(s: &str) -> IResult<&str, ImplDefinition> {
         tuple((tag("impl"), parse_generics_args,
             space1, parse_trait_id,
             space1, tag("for"), space1, parse_type_spec,
-            space0, parse_where_section,
-            space0, char('{'), space0,
-            many0(tuple((tag("type"), space1, parse_associated_type_identifier, space0, char('='), space0, parse_type_spec, space0, char(';'), space0))),
-            many0(tuple((parse_func_definition, space0))),
-            space0, char('}')))(s)?;
+            multispace0, parse_where_section,
+            multispace0, char('{'), multispace0,
+            many0(tuple((tag("type"), space1, parse_associated_type_identifier, multispace0, char('='), multispace0, parse_type_spec, multispace0, char(';'), multispace0))),
+            many0(tuple((parse_func_definition, multispace0))),
+            multispace0, char('}')))(s)?;
     let asso_defs = many_types.into_iter().map(|(_, _, id, _, _, _, ty, _, _, _)| (id, ty)).collect();
     let require_methods = many_methods.into_iter().map(|(func, _)| (TraitMethodIdentifier { id: func.func_id.clone() }, func)).collect();
     Ok((s, ImplDefinition { generics, trait_id, impl_ty, where_sec, asso_defs, require_methods }))
@@ -171,20 +180,21 @@ impl Transpile for ImplDefinition {
     fn transpile(&self, ta: &TypeAnnotation) -> String {
         let generics = self.generics.iter().map(|id| format!("class {}", id.transpile(ta))).collect::<Vec<_>>().join(", ");
         let where_str = self.where_sec.transpile(ta);
+        let templates = format!("template<{}> ", generics);
         let impl_def = if where_str == "" {
-            format!("template<{}> struct {}<{}>: std::true_type", generics, self.trait_id.transpile(ta), self.impl_ty.transpile(ta))
+            format!("{}struct {}<{}, void>: std::true_type", templates, self.trait_id.transpile(ta), self.impl_ty.transpile(ta))
         }
         else {
-            format!("template<{}> struct {}<{}>: {}", generics, self.trait_id.transpile(ta), self.impl_ty.transpile(ta), where_str)
+            format!("{}struct {}<{}, {}>: std::true_type", templates, self.trait_id.transpile(ta), self.impl_ty.transpile(ta), where_str)
         };
         let asso_defs = self.asso_defs.iter().map(|(id, spec)| {
             format!("using {} = {};\n", id.transpile(ta), spec.transpile(ta))
         }).collect::<Vec<_>>().join(" ");
         let require_methods = self.require_methods.iter().map(|(_, def)| {
-            let def_str = def.transpile_implement(ta);
-            format!("static {}", def_str)
-        }).collect::<Vec<_>>().join("\n\n");
-        format!("{} {{\nusing Self = {};\n{}\n{}}};\n", impl_def, self.impl_ty.transpile(ta), asso_defs, require_methods)
+            let def_str = def.transpile_definition_only(ta, "", true);
+            format!("{};", def_str)
+        }).collect::<Vec<_>>().join("\n");
+        format!("{} {{\nusing Self = {};\n{}\n{}\n}};\n", impl_def, self.impl_ty.transpile(ta), asso_defs, require_methods)
     }
 }
 

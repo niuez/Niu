@@ -388,15 +388,15 @@ impl TypeEquations {
         }
     }
     pub fn debug(&self){
-        println!("TypeEquations {{");
+        log::debug!("TypeEquations {{");
         for equ in self.equs.iter() {
-            println!("    {:?}", equ);
+            log::debug!("    {:?}", equ);
         }
         for subst in self.substs.iter() {
-            println!("     {:?}", subst);
+            log::debug!("     {:?}", subst);
         }
-        println!("    {:?}", self.want_solve);
-        println!("}}");
+        log::debug!("    {:?}", self.want_solve);
+        log::debug!("}}");
     }
     pub fn try_get_substs(&self, tv: TypeVariable) -> Type {
         self.substs.iter().find(|TypeSubst { tv: tsv, t: _t }| *tsv == tv)
@@ -742,9 +742,9 @@ impl TypeEquations {
     }
 
     pub fn unify(&mut self, trs: &TraitsInfo) -> Result<(), UnifyErr> {
-        /* println!("unify");
+        /* log::debug!("unify");
         for (i, equ) in self.equs.iter().enumerate() {
-            println!("{}. {:?}", i, equ);
+            log::debug!("{}. {:?}", i, equ);
         } */
         while let Some(equation) = self.equs.pop_front() {
             match equation {
@@ -829,23 +829,23 @@ impl TypeEquations {
                                     _ => Some((ref_tag, tmp_equs)),
                                 }
                             ).collect::<Vec<_>>();
-                            println!("--------------------");
-                            println!("AUTOREF {:?} : {:?} {:?}", left, ty, tag);
-                            println!("oks = {:?}", oks);
+                            log::debug!("--------------------");
+                            log::debug!("AUTOREF {:?} : {:?} {:?}", left, ty, tag);
+                            log::debug!("oks = {:?}", oks);
                             if oks.len() == 0 {
                                 Err(UnifyErr::Contradiction(format!("not equal {:?}, auto ref {:?}", left, ty)))?;
                             }
                             if oks.len() == 1 {
-                                println!("OK");
-                                println!("--------------------");
+                                log::debug!("OK");
+                                log::debug!("--------------------");
                                 let (ref_tag, tmp_equs) = oks.pop().unwrap();
                                 self.take_over_equations(tmp_equs);
                                 let var = tag.generate_type_variable("AutoRefType", 0, self);
                                 self.add_equation(var, Type::AutoRef(Box::new(ty), ref_tag));
                             }
                             else {
-                                println!("NG");
-                                println!("--------------------");
+                                log::debug!("NG");
+                                log::debug!("--------------------");
                                 self.equs.push_back(TypeEquation::Equal(left, Type::AutoRef(Box::new(ty), AutoRefTag::Tag(tag)), changed & ty_changed));
                             }
                         }
@@ -964,10 +964,10 @@ fn unify_test1() {
         members_order: vec![Identifier::from_str("x")],
         members: vec![(Identifier::from_str("x"), TypeSpec::from_id(&TypeId::from_str("T")))].into_iter().collect(),
     }).unwrap();
-    println!("trs: {:?}", trs);
+    log::debug!("trs: {:?}", trs);
     equs.add_equation(t.clone(), Type::Generics(TypeId::from_str("Hoge"), vec![Type::from_str("i64")]));
     equs.add_equation(a, Type::Member(Box::new(t), Identifier::from_str("x")));
-    println!("{:?}", equs.unify(&trs));
+    log::debug!("{:?}", equs.unify(&trs));
 }
 
 #[test]
@@ -981,8 +981,8 @@ fn unify_test2() {
         members_order: vec![Identifier::from_str("x")],
         members: vec![(Identifier::from_str("x"), TypeSpec::from_id(&TypeId::from_str("T")))].into_iter().collect(),
     }).unwrap();
-    println!("trs: {:?}", trs);
+    log::debug!("trs: {:?}", trs);
     equs.add_equation(t.clone(), Type::from_str("Hoge"));
     //equs.add_equation(Type::Type(TypeSpec::from_id(&TypeId::from_str("i64"))), Type::Member(Box::new(t), Identifier::from_str("x")));
-    println!("{:?}", equs.unify(&trs));
+    log::debug!("{:?}", equs.unify(&trs));
 }*/

@@ -115,6 +115,28 @@ impl Transpile for FullContent {
                 }
             }
         }
+        // structs definition
+        for t in self.structs.iter() {
+            let s = t.transpile_definition(ta);
+            res.push_str(&s);
+        }
+        // traits definition
+        for t in self.traits.iter() {
+            let s = t.transpile(ta);
+            res.push_str(&s);
+        }
+        // impls definition
+        for i in self.impls.iter() {
+            let s = i.transpile(ta);
+            res.push_str(&s);
+        }
+        // functions definition
+        for f in self.funcs.iter() {
+            let s = f.transpile_definition_only(ta, "", false);
+            res.push_str(&s);
+            res.push_str(";\n");
+        }
+        // structs implementation
         for t in self.structs.iter() {
             let st_id = t.get_id();
             let opes = operators.iter()
@@ -123,16 +145,13 @@ impl Transpile for FullContent {
             let s = t.transpile(ta, opes);
             res.push_str(&s);
         }
-        for t in self.traits.iter() {
-            let s = t.transpile(ta);
-            res.push_str(&s);
-        }
+        // functions of impls implementation
         for i in self.impls.iter() {
-            let s = i.transpile(ta);
+            let s = i.transpile_functions(ta);
             res.push_str(&s);
         }
         for f in self.funcs.iter() {
-            let s = f.transpile(ta);
+            let s = f.transpile(ta, false);
             res.push_str(&s);
         }
         res
@@ -169,7 +188,7 @@ fn parse_element_impl_trait(s: &str) -> IResult<&str, ContentElement> {
 }
 
 fn parse_element_import(s: &str) -> IResult<&str, ContentElement> {
-    let (s, (_, _, _, _, path, _, _)) = tuple((space0, tag("import"), space0, char('"'), is_not("\""), char('"'), space0))(s)?;
+    let (s, (_, _, _, _, path, _, _)) = tuple((multispace0, tag("import"), multispace0, char('"'), is_not("\""), char('"'), multispace0))(s)?;
     Ok((s, ContentElement::Import(path.to_string())))
 }
 
@@ -179,7 +198,7 @@ fn parse_content_element(s: &str) -> IResult<&str, ContentElement> {
 }
 
 pub fn parse_full_content(s: &str) -> IResult<&str, (Vec<String>, FullContent)> {
-    let (s, (_, elems, _)) = tuple((space0, many0(tuple((parse_content_element, space0))), space0))(s)?;
+    let (s, (_, elems, _)) = tuple((multispace0, many0(tuple((parse_content_element, multispace0))), multispace0))(s)?;
     
     let mut structs = Vec::new();
     let mut funcs = Vec::new();
@@ -219,7 +238,6 @@ pub fn parse_full_content_from_file(filename: &str, import_path: &[PathBuf]) -> 
     
     while let Some(path) = que.pop() {
         let program = std::fs::read_to_string(path.as_path()).map_err(|_| format!("cant open {}", filename))?;
-        let program = program.chars().map(|c| match c { '\n' => ' ', c => c }).collect::<String>();
         let (s, (imports, mut full)) = crate::full_content::parse_full_content(&program).map_err(|e| format!("{:?}", e))?;
         if s != "" {
             Err(format!("path {:?} parse error, remaining -> {}", path, s))?;
@@ -229,9 +247,8 @@ pub fn parse_full_content_from_file(filename: &str, import_path: &[PathBuf]) -> 
             let mut ok = false;
             for mut import_dir in import_path.into_iter().cloned().chain(std::iter::once(path.parent().unwrap().to_path_buf())) {
                 import_dir.push(&import);
-                dbg!(&import_dir);
                 if let Ok(path) = import_dir.as_path().canonicalize().map(|p| p.to_path_buf()) {
-                    println!("path {:?}", path);
+                    log::debug!("path {:?}", path);
                     if read.insert(path.clone()) {
                         if path.is_file() {
                             que.push(path);
@@ -240,7 +257,7 @@ pub fn parse_full_content_from_file(filename: &str, import_path: &[PathBuf]) -> 
                         }
                     }
                     else {
-                        println!("already exist");
+                        log::debug!("already exist");
                         ok = true;
                         break;
                     }
@@ -261,15 +278,15 @@ pub fn parse_full_content_from_file(filename: &str, import_path: &[PathBuf]) -> 
 /*
 #[test]
 fn parse_full_content_test() {
-    println!("{:?}", parse_full_content("fn func(x: i64) -> i64 { let y = x * x; y + x } fn add(x: i64) -> i64 { x + x }"))
+    log::debug!("{:?}", parse_full_content("fn func(x: i64) -> i64 { let y = x * x; y + x } fn add(x: i64) -> i64 { x + x }"))
 }
 
 #[test]
 fn gentype_full_test() {
     let (_, mut t) = parse_full_content("fn two(z: i64) -> i64 { 2i64 } fn func(x: i64) -> i64 { let y = x; two(x) }").unwrap();
-    println!("{:?}", t);
+    log::debug!("{:?}", t);
     let ta = t.type_check().unwrap();
-    println!("{:#?}", ta);
+    log::debug!("{:#?}", ta);
 }
 
 #[test]
@@ -277,12 +294,12 @@ fn gentype_full_test2() {
     let prog = "fn generics_func<T>(x: T) -> T { x } fn echo(x: i64) -> i64 { let y = generics_func(x); let z = generics_func(false); y }";
 
     let (s, mut t) = parse_full_content(prog).unwrap();
-    println!("{:?}", s);
-    println!("{:?}", t);
+    log::debug!("{:?}", s);
+    log::debug!("{:?}", t);
     let mut ta = t.type_check().unwrap();
-    println!("{:#?}", ta);
+    log::debug!("{:#?}", ta);
 
-    println!("```cpp\n{}```\n", t.transpile(&mut ta));
+    log::debug!("```cpp\n{}```\n", t.transpile(&mut ta));
 }
 
 #[test]
@@ -290,12 +307,12 @@ fn gentype_full_test3() {
     let prog = "fn plus<T>(x: T, y: T) -> T { x + y } fn equ(a: i64, b: i64, c: i64, d: i64) -> bool { plus(a, b) == plus(c, d) }";
 
     let (s, mut t) = parse_full_content(prog).unwrap();
-    println!("{:?}", s);
-    println!("{:?}", t);
+    log::debug!("{:?}", s);
+    log::debug!("{:?}", t);
     let mut ta = t.type_check().unwrap();
-    println!("{:#?}", ta);
+    log::debug!("{:#?}", ta);
 
-    println!("```cpp\n{}```\n", t.transpile(&mut ta));
+    log::debug!("```cpp\n{}```\n", t.transpile(&mut ta));
 }
 
 #[test]
@@ -303,12 +320,12 @@ fn gentype_full_test4() {
     let prog = "fn plus<T>(x: T, y: T) -> T { x + y } fn equ(a: i64, b: i64, c: i64, d: i64) -> bool { plus(a, b) == plus(c, d) }";
 
     let (_, mut t) = parse_full_content(prog).unwrap();
-    //println!("{:?}", s);
-    //println!("{:?}", t);
+    //log::debug!("{:?}", s);
+    //log::debug!("{:?}", t);
     let mut ta = t.type_check().unwrap();
-    println!("{:#?}", ta);
+    log::debug!("{:#?}", ta);
 
-    println!("```cpp\n{}```\n", t.transpile(&mut ta));
+    log::debug!("```cpp\n{}```\n", t.transpile(&mut ta));
 }
 
 #[test]
@@ -316,12 +333,12 @@ fn gentype_full_test5() {
     let prog = "fn equ(a: i64, b: i64, c: i64, d: i64) -> u64 { let result = if a == b { 1u64 } else if c == d { 2u64 } else { 3u64 }; result }";
 
     let (s, mut t) = parse_full_content(prog).unwrap();
-    println!("{:?}", s);
-    println!("{:?}", t);
+    log::debug!("{:?}", s);
+    log::debug!("{:?}", t);
     let mut ta = t.type_check().unwrap();
-    println!("{:#?}", ta);
+    log::debug!("{:#?}", ta);
 
-    println!("```cpp\n{}```\n", t.transpile(&mut ta));
+    log::debug!("```cpp\n{}```\n", t.transpile(&mut ta));
 }
 
 
@@ -330,18 +347,18 @@ fn gentype_full_test6() {
     let prog = "fn equ(a: i64) -> u64 { let res = if true { true } else { 1u64 }; 2u64 }";
 
     let (s, mut t) = parse_full_content(prog).unwrap();
-    println!("{:?}", s);
-    println!("{:?}", t);
+    log::debug!("{:?}", s);
+    log::debug!("{:?}", t);
     let mut ta = t.type_check().unwrap();
-    println!("{:#?}", ta);
+    log::debug!("{:#?}", ta);
 
-    println!("```cpp\n{}```\n", t.transpile(&mut ta));
+    log::debug!("```cpp\n{}```\n", t.transpile(&mut ta));
 }
 
 
 #[test]
 fn parse_content_element_test() {
-    println!("{:?}", parse_full_content("trait MyTrait { type Output; } impl MyTrait for i64 { type Output = u64; } fn equ(a: i64) -> i64 { a }"));
+    log::debug!("{:?}", parse_full_content("trait MyTrait { type Output; } impl MyTrait for i64 { type Output = u64; } fn equ(a: i64) -> i64 { a }"));
 }
 
 
@@ -349,24 +366,24 @@ fn parse_content_element_test() {
 fn unify_test_for_selection_candidate() {
     let prog = "trait MyTrait { type Output; } impl MyTrait for u64 { type Output = u64; } fn equ<T: MyTrait>(t: T) -> T { t } fn apply<A: MyTrait>(a: A) -> A { equ(a) }";
     let (s, mut t) = parse_full_content(prog).unwrap();
-    println!("{:?}", s);
-    println!("{:?}", t);
+    log::debug!("{:?}", s);
+    log::debug!("{:?}", t);
     let mut ta = t.type_check().unwrap();
-    println!("{:#?}", ta);
+    log::debug!("{:#?}", ta);
 
-    println!("```cpp\n{}```\n", t.transpile(&mut ta));
+    log::debug!("```cpp\n{}```\n", t.transpile(&mut ta));
 }
 
 #[test]
 fn unify_test_for_impl() {
     let prog = "trait MyTrait { type Output; fn out(a: Self) -> Self#MyTrait::Output; } impl MyTrait for i64 { type Output = u64; fn out(a: i64) -> u64 { 1u64 }} fn apply() -> u64 { i64#MyTrait.out(1i64) }";
     let (s, mut t) = parse_full_content(prog).unwrap();
-    println!("{:?}", s);
-    println!("{:?}", t);
+    log::debug!("{:?}", s);
+    log::debug!("{:?}", t);
     let mut ta = t.type_check().unwrap();
-    println!("{:#?}", ta);
+    log::debug!("{:#?}", ta);
 
-    println!("```cpp\n{}```\n", t.transpile(&mut ta));
+    log::debug!("```cpp\n{}```\n", t.transpile(&mut ta));
 }
 
 
@@ -374,11 +391,11 @@ fn unify_test_for_impl() {
 fn unify_test_for_param_candidate() {
     let prog = "trait MyTrait { type Output; fn out(a: Self) -> Self#MyTrait::Output; } impl MyTrait for i64 { type Output = u64; fn out(a: i64) -> u64 { 1u64 }} fn apply<T: MyTrait>(t: T) -> T#MyTrait::Output { T#MyTrait.out(t) }";
     let (s, mut t) = parse_full_content(prog).unwrap();
-    println!("{:?}", s);
-    println!("{:?}", t);
+    log::debug!("{:?}", s);
+    log::debug!("{:?}", t);
     let mut ta = t.type_check().unwrap();
-    println!("{:#?}", ta);
+    log::debug!("{:#?}", ta);
 
-    println!("```cpp\n{}```\n", t.transpile(&mut ta));
+    log::debug!("```cpp\n{}```\n", t.transpile(&mut ta));
 }
 */

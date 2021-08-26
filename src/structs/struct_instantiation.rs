@@ -38,13 +38,13 @@ impl GenType for StructInstantiation {
 }
 
 fn parse_member(s: &str) -> IResult<&str, (Identifier, Expression)> {
-    let (s, (id, _, _, _, ty)) = tuple((parse_identifier, space0, char(':'), space0, parse_expression))(s)?;
+    let (s, (id, _, _, _, ty)) = tuple((parse_identifier, multispace0, char(':'), multispace0, parse_expression))(s)?;
     Ok((s, (id, ty)))
 }
 
 pub fn parse_struct_instantiation(s: &str) -> IResult<&str, UnaryExpr> {
-    let (s, (struct_id, _, _, _, opts, _)) = tuple((parse_type_id, space0, char('{'), space0,
-                         opt(tuple((parse_member, many0(tuple((space0, char(','), space0, parse_member))), opt(tuple((space0, char(',')))), space0))),
+    let (s, (struct_id, _, _, _, opts, _)) = tuple((parse_type_id, multispace0, char('{'), multispace0,
+                         opt(tuple((parse_member, many0(tuple((multispace0, char(','), multispace0, parse_member))), opt(tuple((multispace0, char(',')))), multispace0))),
                          char('}')))(s)?;
     let members = match opts {
         None => HashMap::new(),
@@ -80,6 +80,6 @@ impl MutCheck for StructInstantiation {
 
 #[test]
 fn parse_struct_instantiation_test() {
-    println!("{:?}", parse_struct_instantiation("MyStruct { a: 1i64 + 2i64, b: val, }"));
+    log::debug!("{:?}", parse_struct_instantiation("MyStruct { a: 1i64 + 2i64, b: val, }"));
 }
 

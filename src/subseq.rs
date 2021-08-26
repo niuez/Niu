@@ -253,7 +253,7 @@ pub fn subseq_mut_check(uexpr: &UnaryExpr, subseq: &Subseq, ta: &TypeAnnotation,
 
 
 pub fn parse_subseq(s: &str) -> IResult<&str, Subseq> {
-    let (s, (_, x)) = tuple((space0, alt((parse_call, parse_member, parse_index_call))))(s)?;
+    let (s, (_, x)) = tuple((multispace0, alt((parse_call, parse_member, parse_index_call))))(s)?;
     Ok((s, x))
 }
 
@@ -265,9 +265,9 @@ pub struct Call {
 
 pub fn parse_call(s: &str) -> IResult<&str, Subseq> {
     let (s, (_, _, op, _)) = tuple((
-        char('('), space0, opt(tuple((
-                    parse_expression, space0,
-                    many0(tuple((char(','), space0, parse_expression, space0))), opt(char(',')), space0))),
+        char('('), multispace0, opt(tuple((
+                    parse_expression, multispace0,
+                    many0(tuple((char(','), multispace0, parse_expression, multispace0))), opt(char(',')), multispace0))),
                     char(')')))(s)?;
     let args = match op {
         Some((arg0, _, many, _, _)) => {
@@ -290,7 +290,7 @@ pub struct IndexCall {
 
 pub fn parse_index_call(s: &str) -> IResult<&str, Subseq> {
     let (s, (_, _, arg, _, _)) = tuple((
-            char('['), space0, parse_expression, space0, char(']')
+            char('['), multispace0, parse_expression, multispace0, char(']')
             ))(s)?;
     Ok((s, Subseq::Index(IndexCall { arg: Box::new(arg), tag: Tag::new() })))
 }
@@ -301,12 +301,12 @@ pub struct Member {
 }
 
 fn parse_member(s: &str) -> IResult<&str, Subseq> {
-    let (s, (_, _, mem_id)) = tuple((char('.'), space0, parse_identifier))(s)?;
+    let (s, (_, _, mem_id)) = tuple((char('.'), multispace0, parse_identifier))(s)?;
     Ok((s, Subseq::Member(Member { mem_id })))
 }
 
 #[test]
 fn parse_call_test() {
-    println!("{:?}", parse_call("()"));
-    println!("{:?}", parse_call("(1, 2, 3)"));
+    log::debug!("{:?}", parse_call("()"));
+    log::debug!("{:?}", parse_call("(1, 2, 3)"));
 }
