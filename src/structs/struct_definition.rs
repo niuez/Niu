@@ -37,6 +37,7 @@ pub struct StructMemberDefinition {
     pub struct_id: TypeId,
     pub generics: Vec<TypeId>,
     pub member: StructMember,
+    pub where_sec: WhereSection,
 }
 
 #[derive(Debug)]
@@ -187,9 +188,9 @@ fn parse_struct_cpp_inline(s: &str) -> IResult<&str, StructMember> {
 }
 
 pub fn parse_struct_member_definition(s: &str) -> IResult<&str, StructMemberDefinition> {
-    let (s, (_, _, struct_id, _, generics, _, member)) =
-        tuple((tag("struct"), space1, parse_type_id, multispace0, parse_generics_annotation, multispace0, alt((parse_struct_members, parse_struct_cpp_inline))))(s)?;
-    Ok((s, StructMemberDefinition { struct_id, generics, member }))
+    let (s, (_, _, struct_id, _, generics, _, where_sec, _, member)) =
+        tuple((tag("struct"), space1, parse_type_id, multispace0, parse_generics_annotation, multispace0, parse_where_section, multispace0, alt((parse_struct_members, parse_struct_cpp_inline))))(s)?;
+    Ok((s, StructMemberDefinition { struct_id, generics, member, where_sec }))
 }
 
 pub fn parse_struct_definition(s: &str) -> IResult<&str, StructDefinition> {
@@ -202,7 +203,7 @@ pub fn parse_struct_definition(s: &str) -> IResult<&str, StructDefinition> {
             id: member_def.struct_id.clone(),
             gens: member_def.generics.iter().map(|id| TypeSpec::from_id(id)).collect(),
         }),
-        where_sec: WhereSection::empty(),
+        where_sec: member_def.where_sec.clone(),
         require_methods,
         tag: Tag::new(),
     };
