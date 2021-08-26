@@ -1,0 +1,10 @@
+trait Monoid {}
+struct SegTree<T> where T: Monoid {
+  a: T,
+} {}
+
+impl Monoid for u64 {}
+
+fn main() -> void {
+  let seg = SegTree { a: 5u64 };
+}

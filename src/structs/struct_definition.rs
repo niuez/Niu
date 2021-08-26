@@ -38,6 +38,7 @@ pub struct StructMemberDefinition {
     pub struct_id: TypeId,
     pub generics: Vec<TypeId>,
     pub member: StructMember,
+    pub where_sec: WhereSection,
 }
 
 #[derive(Debug)]
@@ -68,7 +69,10 @@ impl StructDefinition {
         match self.member_def.member {
             StructMember::MemberInfo(MemberInfo { .. }) => {
                 let template = if self.member_def.generics.len() > 0 {
-                    format!("template <{}> ", self.member_def.generics.iter().map(|gen| format!("class {}", gen.transpile(ta))).collect::<Vec<_>>().join(", "))
+                    format!("template <{}> ",
+                            self.member_def.generics.iter().map(|gen| format!("class {}", gen.transpile(ta)))
+                            .chain(std::iter::once(format!("class = void"))).collect::<Vec<_>>().join(", ")
+                            )
                 }
                 else {
                     format!("")
@@ -88,6 +92,9 @@ impl StructDefinition {
                 else {
                     format!("")
                 };
+                let impl_type = format!("{}<{}>", self.member_def.struct_id.transpile(ta),
+                    self.member_def.generics.iter().map(|gen| format!("{}", gen.transpile(ta)))
+                        .chain(std::iter::once(self.member_def.where_sec.transpile(ta))).collect::<Vec<_>>().join(", "));
                 let self_type_generics = if self.member_def.generics.len() > 0 {
                     format!("<{}>", self.member_def.generics.iter().map(|gen| format!("{}", gen.transpile(ta))).collect::<Vec<_>>().join(", "))
                 }
@@ -118,7 +125,7 @@ impl StructDefinition {
                     _ => "".to_string(),
                 }).collect::<Vec<_>>().join("");
 
-                format!("{}struct {} {{\n{}\n{}\n{}\n{}\n{}\n}} ;\n", template, self.member_def.struct_id.transpile(ta),self_type, members_str, constructor, methods, operators)
+                format!("{}struct {} {{\n{}\n{}\n{}\n{}\n{}\n}} ;\n", template, impl_type, self_type, members_str, constructor, methods, operators)
             }
             _ => format!(""),
         }
@@ -194,9 +201,9 @@ fn parse_struct_cpp_inline(s: &str) -> IResult<&str, StructMember> {
 }
 
 pub fn parse_struct_member_definition(s: &str) -> IResult<&str, StructMemberDefinition> {
-    let (s, (_, _, struct_id, _, generics, _, member)) =
-        tuple((tag("struct"), space1, parse_type_id, multispace0, parse_generics_annotation, multispace0, alt((parse_struct_members, parse_struct_cpp_inline))))(s)?;
-    Ok((s, StructMemberDefinition { struct_id, generics, member }))
+    let (s, (_, _, struct_id, _, generics, _, where_sec, _, member)) =
+        tuple((tag("struct"), space1, parse_type_id, multispace0, parse_generics_annotation, multispace0, parse_where_section, multispace0, alt((parse_struct_members, parse_struct_cpp_inline))))(s)?;
+    Ok((s, StructMemberDefinition { struct_id, generics, member, where_sec }))
 }
 
 pub fn parse_struct_definition(s: &str) -> IResult<&str, StructDefinition> {
@@ -209,7 +216,7 @@ pub fn parse_struct_definition(s: &str) -> IResult<&str, StructDefinition> {
             id: member_def.struct_id.clone(),
             gens: member_def.generics.iter().map(|id| TypeSpec::from_id(id)).collect(),
         }),
-        where_sec: WhereSection::empty(),
+        where_sec: member_def.where_sec.clone(),
         require_methods,
         tag: Tag::new(),
     };
