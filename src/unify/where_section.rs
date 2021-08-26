@@ -86,7 +86,7 @@ impl WhereSection {
             format!("")
         }
         else {
-            format!("std::conjunction<{}>", conds.join(", "))
+            format!("std::enable_if_t<std::conjunction_v<{}>>", conds.join(", "))
         }
     }
 }

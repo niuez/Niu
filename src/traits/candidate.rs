@@ -145,6 +145,15 @@ impl ImplDefinition {
         }
         Ok(())
     }
+    pub fn transpile_functions(&self, ta: &TypeAnnotation) -> String {
+        let generics = self.generics.iter().map(|id| format!("class {}", id.transpile(ta))).collect::<Vec<_>>().join(", ");
+        let templates = if generics == "" { format!("") } else { format!("template<{}> ", generics) };
+        let class_str = format!("{}<{}>::", self.trait_id.transpile(ta), self.impl_ty.transpile(ta));
+        let require_methods = self.require_methods.iter().map(|(_, def)| {
+            format!("{}{}", templates, def.transpile_for_impl(ta, &class_str, false))
+        }).collect::<Vec<_>>().join("\n");
+        require_methods
+    }
 }
 
 fn parse_generics_args(s: &str) -> IResult<&str, Vec<TypeId>> {
@@ -171,20 +180,21 @@ impl Transpile for ImplDefinition {
     fn transpile(&self, ta: &TypeAnnotation) -> String {
         let generics = self.generics.iter().map(|id| format!("class {}", id.transpile(ta))).collect::<Vec<_>>().join(", ");
         let where_str = self.where_sec.transpile(ta);
+        let templates = format!("template<{}> ", generics);
         let impl_def = if where_str == "" {
-            format!("template<{}> struct {}<{}>: std::true_type", generics, self.trait_id.transpile(ta), self.impl_ty.transpile(ta))
+            format!("{}struct {}<{}, void>: std::true_type", templates, self.trait_id.transpile(ta), self.impl_ty.transpile(ta))
         }
         else {
-            format!("template<{}> struct {}<{}>: {}", generics, self.trait_id.transpile(ta), self.impl_ty.transpile(ta), where_str)
+            format!("{}struct {}<{}, {}>: std::true_type", templates, self.trait_id.transpile(ta), self.impl_ty.transpile(ta), where_str)
         };
         let asso_defs = self.asso_defs.iter().map(|(id, spec)| {
             format!("using {} = {};\n", id.transpile(ta), spec.transpile(ta))
         }).collect::<Vec<_>>().join(" ");
         let require_methods = self.require_methods.iter().map(|(_, def)| {
-            let def_str = def.transpile_implement(ta);
-            format!("static {}", def_str)
-        }).collect::<Vec<_>>().join("\n\n");
-        format!("{} {{\nusing Self = {};\n{}\n{}}};\n", impl_def, self.impl_ty.transpile(ta), asso_defs, require_methods)
+            let def_str = def.transpile_definition_only(ta, "", true);
+            format!("{};", def_str)
+        }).collect::<Vec<_>>().join("\n");
+        format!("{} {{\nusing Self = {};\n{}\n{}\n}};\n", impl_def, self.impl_ty.transpile(ta), asso_defs, require_methods)
     }
 }
 

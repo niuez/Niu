@@ -62,6 +62,20 @@ impl StructDefinition {
     pub fn get_impl_self_def(&self) -> &ImplSelfDefinition {
         &self.impl_self
     }
+    pub fn transpile_definition(&self, ta: &TypeAnnotation) -> String {
+        match self.member_def.member {
+            StructMember::MemberInfo(MemberInfo { .. }) => {
+                let template = if self.member_def.generics.len() > 0 {
+                    format!("template <{}> ", self.member_def.generics.iter().map(|gen| format!("class {}", gen.transpile(ta))).collect::<Vec<_>>().join(", "))
+                }
+                else {
+                    format!("")
+                };
+                format!("{}struct {};\n", template, self.member_def.struct_id.transpile(ta))
+            }
+            _ => format!(""),
+        }
+    }
     pub fn transpile(&self, ta: &TypeAnnotation, opes: Vec<String>) -> String {
         match self.member_def.member {
             StructMember::MemberInfo(MemberInfo { ref members_order, ref members }) => {
@@ -86,7 +100,7 @@ impl StructDefinition {
                     members_order.iter().map(|mem| members.get_key_value(mem).unwrap())
                         .map(|(mem, _)| format!("{}({})", mem.into_string(), mem.into_string())).collect::<Vec<_>>().join(", ")
                 );
-                let methods = self.impl_self.require_methods.iter().map(|(_, func)| format!("static {}", func.transpile(ta))).collect::<Vec<_>>().join("\n");
+                let methods = self.impl_self.require_methods.iter().map(|(_, func)| format!("{}", func.transpile(ta, true))).collect::<Vec<_>>().join("\n");
                 let operators = opes.into_iter().map(|ope| match ope.as_str() {
                     "Index" => {
                         format!("typename std::enable_if<Index<Self>::value, const typename Index<Self>::Output&>::type operator[](typename Index<Self>::Arg k) const {{ return *Index<Self>::index(this, k); }}\n")
