@@ -57,13 +57,31 @@ pub enum AutoRefTag {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TraitGenerics {
+    pub trait_id: TraitId,
+    pub generics: Vec<Type>,
+}
+
+impl TraitGenerics {
+    pub fn get_tag(&self) -> Tag {
+        self.trait_id.id.tag.clone()
+    }
+    fn occurs(&self, t: &TypeVariable) -> bool {
+        self.generics.iter().map(|g| g.occurs(t)).any(|b| b)
+    }
+    fn subst(&mut self, theta: &TypeSubst) -> SolveChange {
+        self.generics.iter_mut().map(|g| g.subst(theta)).fold(SolveChange::Not, |a, b| a & b)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Type {
-    SolvedAssociatedType(Box<Type>, AssociatedType),
+    SolvedAssociatedType(Box<Type>, TraitGenerics, AssociatedTypeIdentifier),
     Func(Vec<Type>, Box<Type>, FuncTypeInfo),
     TypeVariable(TypeVariable),
     Generics(TypeId, Vec<Type>),
-    AssociatedType(Box<Type>, AssociatedType),
-    TraitMethod(Box<Type>, Option<TraitId>, Identifier),
+    AssociatedType(Box<Type>, TraitGenerics, AssociatedTypeIdentifier),
+    TraitMethod(Box<Type>, Option<TraitGenerics>, Identifier),
     Member(Box<Type>, Identifier),
     CallEquation(CallEquation),
     Ref(Box<Type>),
@@ -80,7 +98,7 @@ impl Type {
 
     fn is_solved_type(&self) -> bool {
         match self {
-            Type::SolvedAssociatedType(_, _) => true,
+            Type::SolvedAssociatedType(_, _, _) => true,
             Type::Generics(_, gens) => gens.iter().map(|gen| gen.is_solved_type()).all(|t| t),
             Type::Ref(ref ty) => ty.as_ref().is_solved_type(),
             Type::MutRef(ref ty) => ty.as_ref().is_solved_type(),
@@ -103,11 +121,11 @@ impl Type {
                 }
                 false
             }
-            Type::AssociatedType(ref ty, _) => {
-                ty.as_ref().occurs(t)
+            Type::AssociatedType(ref ty, tr, _) => {
+                ty.as_ref().occurs(t) || tr.occurs(t)
             }
-            Type::SolvedAssociatedType(ref ty, _) => {
-                ty.as_ref().occurs(t)
+            Type::SolvedAssociatedType(ref ty, tr, _) => {
+                ty.as_ref().occurs(t) || tr.occurs(t)
             }
             Type::TraitMethod(ref ty, _, _) => {
                 ty.as_ref().occurs(t)
@@ -147,9 +165,9 @@ impl Type {
             Type::Generics(ref _ty, ref mut gens) => {
                 gens.iter_mut().map(|gen| gen.subst(theta)).fold(SolveChange::Not, |a, b| a & b)
             }
-            Type::SolvedAssociatedType(_, _) => { SolveChange::Not },
-            Type::AssociatedType(ref mut ty, _) => {
-                ty.as_mut().subst(theta)
+            Type::SolvedAssociatedType(_, _, _) => { SolveChange::Not },
+            Type::AssociatedType(ref mut ty, ref mut tr, _) => {
+                ty.as_mut().subst(theta) & tr.subst(theta)
             }
             Type::TraitMethod(ref mut ty, _, _) => {
                 ty.as_mut().subst(theta)
@@ -191,8 +209,8 @@ impl Type {
 impl Transpile for Type {
     fn transpile(&self, ta: &TypeAnnotation) -> String {
         match *self {
-            Type::SolvedAssociatedType(ref ty, ref asso) => {
-                format!("typename {}<{}>::{}", asso.trait_id.transpile(ta), ty.as_ref().transpile(ta), asso.type_id.transpile(ta))
+            Type::SolvedAssociatedType(ref ty, ref tr, ref asso_id) => {
+                format!("typename {}<{}>::{}", tr.trait_id.transpile(ta), ty.as_ref().transpile(ta), asso_id.transpile(ta))
             }
             Type::Ref(ref ty) => {
                 format!("{}*", ty.as_ref().transpile(ta))
@@ -256,14 +274,14 @@ impl std::ops::BitAndAssign for SolveChange {
 
 #[derive(Debug)]
 pub enum TypeEquation {
-    HasTrait(Type, TraitId, SolveChange),
+    HasTrait(Type, TraitGenerics, SolveChange),
     Equal(Type, Type, SolveChange),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CallEquation {
     pub caller_type: Option<Box<Type>>,
-    pub trait_id: Option<TraitId>,
+    pub trait_gen: Option<TraitGenerics>,
     pub func_id: Identifier,
     pub args: Vec<Type>,
     pub tag: Tag,
@@ -437,7 +455,7 @@ impl TypeEquations {
             None => Err(format!("cant use Self")),
         }
     }
-    pub fn add_has_trait(&mut self, ty: Type, tr: TraitId) {
+    pub fn add_has_trait(&mut self, ty: Type, tr: TraitGenerics) {
         self.equs.push_back(TypeEquation::HasTrait(ty, tr, SolveChange::Changed));
         self.change_cnt += 1;
     }
@@ -514,12 +532,11 @@ impl TypeEquations {
     }
     fn solve_associated_type(&mut self, ty: Type, trs: &TraitsInfo) -> Result<(Type, SolveChange), UnifyErr> {
         match ty {
-            Type::AssociatedType(inner_ty, asso) => {
+            Type::AssociatedType(inner_ty, tr, asso_id) => {
                 let (inner_ty, inner_changed) = self.solve_relations(*inner_ty, trs)?;
                 //if inner_ty.is_solved_type() {
                 {
-                    let AssociatedType { ref trait_id, ref type_id } = asso;
-                    let substs = trs.match_to_impls_for_type(trait_id, &inner_ty);
+                    let substs = trs.match_to_impls_for_type(&tr, &inner_ty);
                     match substs {
                         Ok((subst, impl_trait)) => {
                             let before = self.set_self_type(Some(inner_ty));

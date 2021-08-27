@@ -67,7 +67,7 @@ impl FuncDefinitionInfo {
         Ok(Type::Func(args, Box::new(return_type), type_info))
     }
 
-    pub fn check_equal(&self, right: &Self, equs: &mut TypeEquations, trs: &TraitsInfo) -> Result<(), String> {
+    pub fn check_equal(&self, right: &Self, equs: &mut TypeEquations, trs: &TraitsInfo, self_gen_map: &GenericsTypeMap, right_gen_map: &GenericsTypeMap) -> Result<(), String> {
         if self.generics != right.generics {
             Err(format!("generics of method {:?} is not matched", self.func_id))?;
         }
@@ -78,10 +78,10 @@ impl FuncDefinitionInfo {
         for g_id in self.generics.iter() {
             trs.regist_generics_type(g_id)?;
         }
-        let self_args  =  self.args.iter().map(|(_, t)| t.generics_to_type(&GenericsTypeMap::empty(), equs, &trs)).collect::<Result<Vec<Type>, String>>()?;
-        let right_args = right.args.iter().map(|(_, t)| t.generics_to_type(&GenericsTypeMap::empty(), equs, &trs)).collect::<Result<Vec<Type>, String>>()?;
-        let self_return_type = self.return_type.generics_to_type(&GenericsTypeMap::empty(), equs, &trs)?;
-        let right_return_type = right.return_type.generics_to_type(&GenericsTypeMap::empty(), equs, &trs)?;
+        let self_args  =  self.args.iter().map(|(_, t)| t.generics_to_type(self_gen_map, equs, &trs)).collect::<Result<Vec<Type>, String>>()?;
+        let right_args = right.args.iter().map(|(_, t)| t.generics_to_type(right_gen_map, equs, &trs)).collect::<Result<Vec<Type>, String>>()?;
+        let self_return_type = self.return_type.generics_to_type(self_gen_map, equs, &trs)?;
+        let right_return_type = right.return_type.generics_to_type(right_gen_map, equs, &trs)?;
         equs.add_equation(
             Type::Func(self_args, Box::new(self_return_type), FuncTypeInfo::None),
             Type::Func(right_args, Box::new(right_return_type), FuncTypeInfo::None)

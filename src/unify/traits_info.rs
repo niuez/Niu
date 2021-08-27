@@ -304,10 +304,16 @@ impl<'a> TraitsInfo<'a> {
         let impl_ty = ti.impl_ty.generics_to_type(&GenericsTypeMap::empty(), &mut equs, &gen_trs)?;
         equs.set_self_type(Some(impl_ty));
         ti.where_sec.regist_candidate(&mut equs, &mut gen_trs)?;
+        self.check_trait(&ti.trait_spec)?;
 
         match self.get_traitinfo(&trait_id) {
             None => Err(format!("trait {:?} is not defined", trait_id)),
             Some(tr) => {
+                let empty_gen_map = GenericsTypeMap::empty();
+                let tr_gen_map = tr.generics.iter().zip(ti.trait_spec.generics.iter())
+                    .map(|(id, param)| Ok((id.clone(), param.generate_type_no_auto_generics(&equs, &gen_trs)?)))
+                    .collect::<Result<HashMap<_, _>, String>>()?;
+                let tr_gen_map = empty_gen_map.next(tr_gen_map);
                 {
                     tr.where_sec.regist_equations(&GenericsTypeMap::empty(), &mut equs, &gen_trs)?;
                     match equs.unify(&gen_trs) {
@@ -322,7 +328,7 @@ impl<'a> TraitsInfo<'a> {
                         Some(impl_method) => {
                             {
                                 equs.clear_equations();
-                                info.check_equal(&impl_method.get_func_info().1, &mut equs, &gen_trs)?;
+                                info.check_equal(&impl_method.get_func_info().1, &mut equs, &gen_trs, &empty_gen_map, &tr_gen_map)?;
                             }
                         }
                     }
@@ -331,10 +337,10 @@ impl<'a> TraitsInfo<'a> {
             }
         }
     }
-    pub fn regist_param_candidate(&mut self, ty: Type, trait_id: &TraitId, mut asso_mp: HashMap<AssociatedTypeIdentifier, Type>) -> Result<(), String> {
-        log::debug!("param {:?}, {:?}", ty, trait_id);
-        match self.get_traitinfo(trait_id).cloned() {
-            None => Err(format!("trait {:?} is not defined", trait_id)),
+    pub fn regist_param_candidate(&mut self, ty: Type, trait_gen: &TraitGenerics, mut asso_mp: HashMap<AssociatedTypeIdentifier, Type>) -> Result<(), String> {
+        log::debug!("param {:?}, {:?}", ty, trait_gen);
+        match self.get_traitinfo(&trait_gen.trait_id).cloned() {
+            None => Err(format!("trait {:?} is not defined", trait_gen)),
             Some(tr_def) => {
                 let mut equs = TypeEquations::new();
                 equs.set_self_type(Some(ty.clone()));
@@ -344,8 +350,8 @@ impl<'a> TraitsInfo<'a> {
                     let asso_ty = match asso_mp.remove(asso_id) {
                         Some(asso_ty) => asso_ty,
                         None => {
-                            match self.match_to_impls_for_type(trait_id, &ty) {
-                                Err(len) if len == 0 => Type::SolvedAssociatedType(Box::new(ty.clone()), AssociatedType { trait_id: trait_id.clone(), type_id: asso_id.clone() }),
+                            match self.match_to_impls_for_type(trait_gen, &ty) {
+                                Err(len) if len == 0 => Type::SolvedAssociatedType(Box::new(ty.clone()), trait_gen.clone(), asso_id.clone()),
                                 Ok((substs, cand)) => cand.get_associated_from_id(&mut equs, self, asso_id, &substs),
                                 Err(_) => unreachable!("regist_param bug")
                             }
@@ -357,20 +363,20 @@ impl<'a> TraitsInfo<'a> {
                     Err(format!("undefined associated type speficier: {:?}", asso_mp))
                 }
                 else {
-                    let cand = ParamCandidate::new(trait_id.clone(), ty.clone(), asso_tys, tr_def.required_methods.clone());
-                    self.regist_selection_candidate(trait_id, cand);
+                    let cand = ParamCandidate::new(trait_gen.clone(), ty.clone(), asso_tys, tr_def.required_methods.clone());
+                    self.regist_selection_candidate(&trait_gen.trait_id, cand);
                     Ok(())
                 }
             }
         }
     }
 
-    fn match_to_impls(&self, trait_id: &TraitId, ty: &Type, top_trs: &Self) -> Vec<(SubstsMap, &SelectionCandidate, usize)> {
+    fn match_to_impls(&self, trait_gen: &TraitGenerics, ty: &Type, top_trs: &Self) -> Vec<(SubstsMap, &SelectionCandidate, usize)> {
         let mut ans = Vec::new();
-        if let Some(impls) = self.impls.get(trait_id) {
+        if let Some(impls) = self.impls.get(&trait_gen.trait_id) {
             let mut vs = impls.iter().enumerate()
                 .map(|(i, impl_trait)| {
-                    impl_trait.match_impl_for_ty(&ty, top_trs).map(|(a, b)| (a, b, i + self.depth * 10000))
+                    impl_trait.match_impl_for_ty(trait_gen, &ty, top_trs).map(|(a, b)| (a, b, i + self.depth * 10000))
                 })
             .filter_map(|x| x)
                 .collect::<Vec<_>>();
@@ -378,18 +384,18 @@ impl<'a> TraitsInfo<'a> {
         }
 
         if let Some(trs) = self.upper_info {
-            let mut vs = trs.match_to_impls(trait_id, ty, top_trs);
+            let mut vs = trs.match_to_impls(trait_gen, ty, top_trs);
             ans.append(&mut vs);
         }
         ans
     }
 
-    pub fn match_to_impls_for_type(&self, trait_id: &TraitId, ty: &Type) -> Result<(SubstsMap, &SelectionCandidate), usize> {
-        log::debug!("search {:?} {:?}--------------", trait_id, ty);
-        let mut cands = self.match_to_impls(trait_id, ty, self);
+    pub fn match_to_impls_for_type(&self, trait_gen: &TraitGenerics, ty: &Type) -> Result<(SubstsMap, &SelectionCandidate), usize> {
+        log::debug!("search {:?} {:?}--------------", trait_gen, ty);
+        let mut cands = self.match_to_impls(trait_gen, ty, self);
         let idx = select_impls_by_priority(cands.iter().map(|(_, _, i)| *i), cands.len());
         //log::debug!("cands {:?}", cands);
-        log::debug!("solve  {:?} {:?} ------------> idx {:?} / {}", trait_id, ty, idx, cands.len());
+        log::debug!("solve  {:?} {:?} ------------> idx {:?} / {}", trait_gen, ty, idx, cands.len());
         match idx {
             Some(i) => {
                 let (substs, cand, _) = cands.swap_remove(i);
@@ -407,7 +413,7 @@ impl<'a> TraitsInfo<'a> {
         if let Some(impls) = self.self_impls.get(typeid) {
             let mut vs = impls.iter()
                 .map(|impl_trait| {
-                    impl_trait.match_impl_for_ty(&ty, top_trs)
+                    impl_trait.match_self_impl_for_ty(&ty, top_trs)
                 })
             .filter_map(|x| x)
                 .collect::<Vec<_>>();

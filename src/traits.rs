@@ -18,7 +18,7 @@ use nom::multi::*;
 use nom::sequence::*;
 use nom::IResult;
 
-use crate::identifier::{ Identifier, parse_identifier };
+use crate::identifier::{ Identifier, parse_identifier, Tag };
 //use crate::unary_expr::Variable;
 use crate::unify::where_section::*;
 use crate::unify::*;
@@ -47,6 +47,17 @@ pub fn parse_trait_id(s: &str) -> IResult<&str, TraitId> {
 pub struct TraitSpec {
     pub trait_id: TraitId,
     pub generics: Vec<TypeSpec>,
+}
+
+impl TraitSpec {
+    pub fn get_tag(&self) -> Tag {
+        self.trait_id.id.tag.clone()
+    }
+    pub fn generate_trait_generics(&self, equs: &mut TypeEquations, trs: &TraitsInfo, gen_mp: &GenericsTypeMap) -> Result<TraitGenerics, String> {
+        trs.check_trait(self)?;
+        let generics = self.generics.iter().map(|g| g.generics_to_type(gen_mp, equs, trs)).collect::<Result<Vec<_>, String>>()?;
+        Ok(TraitGenerics { trait_id: self.trait_id.clone(), generics })
+    }
 }
 
 fn parse_generics_args(s: &str) -> IResult<&str, Vec<TypeId>> {
