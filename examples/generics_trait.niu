@@ -1,0 +1,20 @@
+trait Add<Arg> {
+  type Output;
+  fn add(self: Self, arg: Arg) -> Self#Add<Arg>::Output;
+}
+
+impl Add<u64> for u64 {
+  type Output = u64;
+  fn add(self: u64, arg: u64) -> Self#Add<u64>::Output {
+    self + arg
+  }
+}
+
+fn try_add<S, T>(s: S, t: T) -> S#Add<T>::Output where S: Add<T> {
+  s.add(t)
+}
+
+fn main() -> void {
+  5.add(6);
+  try_add(9, 1);
+}

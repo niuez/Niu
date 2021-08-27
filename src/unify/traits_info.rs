@@ -208,7 +208,12 @@ impl<'a> TraitsInfo<'a> {
     pub fn check_trait(&self, tr: &TraitSpec) -> Result<(), String> {
         match self.traits.get(&tr.trait_id) {
             None => {
-                Err(format!("trait {:?} not found", tr))
+                if let Some(trs) = self.upper_info {
+                    trs.check_trait(tr)
+                }
+                else {
+                    Err(format!("trait {:?} not found", tr))
+                }
             }
             Some(tr_def) => {
                 if tr_def.generics.len() == tr.generics.len() {
@@ -314,6 +319,7 @@ impl<'a> TraitsInfo<'a> {
                     .map(|(id, param)| Ok((id.clone(), param.generate_type_no_auto_generics(&equs, &gen_trs)?)))
                     .collect::<Result<HashMap<_, _>, String>>()?;
                 let tr_gen_map = empty_gen_map.next(tr_gen_map);
+                log::debug!("{:?}", tr_gen_map);
                 {
                     tr.where_sec.regist_equations(&GenericsTypeMap::empty(), &mut equs, &gen_trs)?;
                     match equs.unify(&gen_trs) {
@@ -328,7 +334,7 @@ impl<'a> TraitsInfo<'a> {
                         Some(impl_method) => {
                             {
                                 equs.clear_equations();
-                                info.check_equal(&impl_method.get_func_info().1, &mut equs, &gen_trs, &empty_gen_map, &tr_gen_map)?;
+                                info.check_equal(&impl_method.get_func_info().1, &mut equs, &gen_trs, &tr_gen_map, &empty_gen_map)?;
                             }
                         }
                     }
@@ -363,7 +369,7 @@ impl<'a> TraitsInfo<'a> {
                     Err(format!("undefined associated type speficier: {:?}", asso_mp))
                 }
                 else {
-                    let cand = ParamCandidate::new(trait_gen.clone(), ty.clone(), asso_tys, tr_def.required_methods.clone());
+                    let cand = ParamCandidate::new(trait_gen.clone(), tr_def.generics.clone(), ty.clone(), asso_tys, tr_def.required_methods.clone());
                     self.regist_selection_candidate(&trait_gen.trait_id, cand);
                     Ok(())
                 }
@@ -436,7 +442,10 @@ impl<'a> TraitsInfo<'a> {
         if let Some(impls) = self.impls.get(trait_id) {
             let mut vs = impls.iter().enumerate()
                 .map(|(i, impl_trait)| {
-                    impl_trait.generate_equations_for_call_equation(call_eq, top_trs).ok().map(|eq| (eq, impl_trait, i + self.depth * 10000))
+                    log::debug!("{:?}", impl_trait);
+                    let res = impl_trait.generate_equations_for_call_equation(call_eq, top_trs);
+                    log::debug!("{:?}", res.as_ref().err());
+                    res.ok().map(|eq| (eq, impl_trait, i + self.depth * 10000))
                 })
                 .filter_map(|x| x)
                 .collect::<Vec<_>>();
@@ -476,7 +485,8 @@ impl<'a> TraitsInfo<'a> {
         for t in st.into_iter() {
             let vs = self.generate_call_equations_for_trait(&t, call_eq, self);
             let mut vs = vs.into_iter().filter_map(|(mut equs, cand, pri)| {
-                match equs.unify(self) {
+                //log::debug!("{:?}", equs);
+                match dbg!(equs.unify(self)) {
                     Ok(_) => Some((equs, cand, pri)),
                     Err(UnifyErr::Deficiency(_)) => Some((equs, cand, pri)),
                     Err(UnifyErr::Contradiction(_)) => None

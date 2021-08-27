@@ -849,23 +849,23 @@ impl TypeEquations {
                                     _ => Some((ref_tag, tmp_equs)),
                                 }
                             ).collect::<Vec<_>>();
-                            log::debug!("--------------------");
-                            log::debug!("AUTOREF {:?} : {:?} {:?}", left, ty, tag);
-                            log::debug!("oks = {:?}", oks);
+                            //log::debug!("--------------------");
+                            //log::debug!("AUTOREF {:?} : {:?} {:?}", left, ty, tag);
+                            //log::debug!("oks = {:?}", oks);
                             if oks.len() == 0 {
                                 Err(UnifyErr::Contradiction(format!("not equal {:?}, auto ref {:?}", left, ty)))?;
                             }
                             if oks.len() == 1 {
-                                log::debug!("OK");
-                                log::debug!("--------------------");
+                                //log::debug!("OK");
+                                //log::debug!("--------------------");
                                 let (ref_tag, tmp_equs) = oks.pop().unwrap();
                                 self.take_over_equations(tmp_equs);
                                 let var = tag.generate_type_variable("AutoRefType", 0, self);
                                 self.add_equation(var, Type::AutoRef(Box::new(ty), ref_tag));
                             }
                             else {
-                                log::debug!("NG");
-                                log::debug!("--------------------");
+                                //log::debug!("NG");
+                                //log::debug!("--------------------");
                                 self.equs.push_back(TypeEquation::Equal(left, Type::AutoRef(Box::new(ty), AutoRefTag::Tag(tag)), changed & ty_changed));
                             }
                         }

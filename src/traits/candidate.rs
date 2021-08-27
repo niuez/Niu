@@ -302,7 +302,7 @@ impl ImplCandidate {
         let impl_ty = self.impl_ty.generics_to_type(&gen_mp, &mut equs, trs).unwrap();
         equs.add_equation(ty.clone(), impl_ty);
         if self.where_sec.regist_equations(&gen_mp, &mut equs, trs).is_ok() {
-            equs.debug();
+            //equs.debug();
             dbg!(equs.unify(trs)).ok().map(|_| SubstsMap::new(equs.take_substs()))
         }
         else {
@@ -347,15 +347,16 @@ impl ImplCandidate {
 #[derive(Debug, Clone)]
 pub struct ParamCandidate {
     pub trait_gen: TraitGenerics,
+    pub generics_arg: Vec<TypeId>,
     pub impl_ty: Type,
     pub asso_defs: HashMap<AssociatedTypeIdentifier, Type>,
     pub require_methods: HashMap<TraitMethodIdentifier, FuncDefinitionInfo>,
 }
 
 impl ParamCandidate {
-    pub fn new(trait_gen: TraitGenerics, impl_ty: Type, asso_defs: HashMap<AssociatedTypeIdentifier, Type>, require_methods: HashMap<TraitMethodIdentifier, FuncDefinitionInfo>) -> SelectionCandidate {
+    pub fn new(trait_gen: TraitGenerics, generics_arg: Vec<TypeId>, impl_ty: Type, asso_defs: HashMap<AssociatedTypeIdentifier, Type>, require_methods: HashMap<TraitMethodIdentifier, FuncDefinitionInfo>) -> SelectionCandidate {
         SelectionCandidate::ParamCandidate(ParamCandidate {
-            trait_gen, impl_ty, asso_defs, require_methods,
+            trait_gen, generics_arg, impl_ty, asso_defs, require_methods,
         })
     }
     pub fn generate_equations_for_call_equation(&self, call_eq: &CallEquation, trs: &TraitsInfo) -> Result<TypeEquations, String> {
@@ -364,6 +365,9 @@ impl ParamCandidate {
                 return Err(format!("trait_id is not matched"))
             }
         }
+        let empty_gen_mp = GenericsTypeMap::empty();
+        let gen_mp = self.generics_arg.iter().cloned().zip(self.trait_gen.generics.iter().cloned()).collect::<HashMap<_, _>>();
+        let gen_mp = empty_gen_mp.next(gen_mp);
         let mut equs = TypeEquations::new();
         let self_type = call_eq.tag.generate_type_variable("SelfType", 0, &mut equs);
         equs.set_self_type(Some(self_type.clone()));
@@ -382,7 +386,7 @@ impl ParamCandidate {
         let func_ty = self.require_methods
             .get(&TraitMethodIdentifier { id: call_eq.func_id.clone() })
             .ok_or(format!("require methods doesnt have {:?}", call_eq.func_id))?
-            .generate_type(&GenericsTypeMap::empty(), &mut equs, trs, &call_eq.func_id)?;
+            .generate_type(&gen_mp, &mut equs, trs, &call_eq.func_id)?;
         match func_ty {
             Type::Func(args, ret, info) => {
                 let alpha = call_eq.tag.generate_type_variable("FuncTypeInfo", 0, &mut equs);
@@ -418,7 +422,7 @@ impl ParamCandidate {
         }
         equs.add_equation(self.impl_ty.clone(), alpha.clone());
         equs.add_equation(ty.clone(), alpha);
-        equs.debug();
+        //equs.debug();
         dbg!(equs.unify(trs)).ok().map(|_| SubstsMap::new(equs.take_substs()))
     }
     pub fn get_associated_from_id(&self, _equs: &mut TypeEquations, _trs: &TraitsInfo, asso_id: &AssociatedTypeIdentifier, _subst: &SubstsMap) -> Type {
