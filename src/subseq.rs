@@ -35,7 +35,7 @@ pub fn subseq_gen_type(uexpr: &UnaryExpr, subseq: &Subseq, equs: &mut TypeEquati
                             .chain(call.args.iter().map(|arg| arg.gen_type(equs, trs))).collect::<Result<Vec<_>, String>>()?;
                     Ok(Type::CallEquation(CallEquation {
                         caller_type: None,
-                        trait_id: None,
+                        trait_gen: None,
                         func_id: mem.mem_id.clone(),
                         args,
                         tag: call.tag.clone(),
@@ -46,7 +46,7 @@ pub fn subseq_gen_type(uexpr: &UnaryExpr, subseq: &Subseq, equs: &mut TypeEquati
                     let args = call.args.iter().map(|arg| arg.gen_type(equs, trs)).collect::<Result<Vec<_>, String>>()?;
                     Ok(Type::CallEquation(CallEquation {
                         caller_type: Some(Box::new(caller)),
-                        trait_id: trait_op.clone(),
+                        trait_gen: trait_op.clone(),
                         func_id: func_id.clone(),
                         args,
                         tag: call.tag.clone(),
@@ -80,7 +80,7 @@ pub fn subseq_gen_type(uexpr: &UnaryExpr, subseq: &Subseq, equs: &mut TypeEquati
             Ok(Type::Deref(Box::new(
                         Type::CallEquation(CallEquation {
                             caller_type: Some(Box::new(caller)),
-                            trait_id: Some(TraitId { id: Identifier::from_str("Index") }),
+                            trait_gen: Some(TraitId { id: Identifier::from_str("Index") }),
                             func_id: Identifier::from_str("index"),
                             args: vec![arg0, arg1],
                             tag: index.tag.clone(),

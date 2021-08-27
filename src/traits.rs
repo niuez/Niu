@@ -43,7 +43,7 @@ pub fn parse_trait_id(s: &str) -> IResult<&str, TraitId> {
     Ok((s, TraitId { id }))
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct TraitSpec {
     pub trait_id: TraitId,
     pub generics: Vec<TypeSpec>,
@@ -56,6 +56,11 @@ impl TraitSpec {
     pub fn generate_trait_generics(&self, equs: &mut TypeEquations, trs: &TraitsInfo, gen_mp: &GenericsTypeMap) -> Result<TraitGenerics, String> {
         trs.check_trait(self)?;
         let generics = self.generics.iter().map(|g| g.generics_to_type(gen_mp, equs, trs)).collect::<Result<Vec<_>, String>>()?;
+        Ok(TraitGenerics { trait_id: self.trait_id.clone(), generics })
+    }
+    pub fn generate_trait_generics_with_no_map(&self, equs: &TypeEquations, trs: &TraitsInfo) -> Result<TraitGenerics, String> {
+        trs.check_trait(self)?;
+        let generics = self.generics.iter().map(|g| g.generate_type_no_auto_generics(equs, trs)).collect::<Result<Vec<_>, String>>()?;
         Ok(TraitGenerics { trait_id: self.trait_id.clone(), generics })
     }
 }
