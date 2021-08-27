@@ -46,7 +46,10 @@ pub fn subseq_gen_type(uexpr: &UnaryExpr, subseq: &Subseq, equs: &mut TypeEquati
                     let args = call.args.iter().map(|arg| arg.gen_type(equs, trs)).collect::<Result<Vec<_>, String>>()?;
                     Ok(Type::CallEquation(CallEquation {
                         caller_type: Some(Box::new(caller)),
-                        trait_gen: trait_op.clone(),
+                        trait_gen: match trait_op {
+                            Some(trait_spec) => Some(trait_spec.generate_trait_generics_with_no_map(equs, trs)?),
+                            None => None,
+                        },
                         func_id: func_id.clone(),
                         args,
                         tag: call.tag.clone(),
@@ -80,7 +83,7 @@ pub fn subseq_gen_type(uexpr: &UnaryExpr, subseq: &Subseq, equs: &mut TypeEquati
             Ok(Type::Deref(Box::new(
                         Type::CallEquation(CallEquation {
                             caller_type: Some(Box::new(caller)),
-                            trait_gen: Some(TraitId { id: Identifier::from_str("Index") }),
+                            trait_gen: Some(TraitGenerics { trait_id: TraitId { id: Identifier::from_str("Index") }, generics: Vec::new() }),
                             func_id: Identifier::from_str("index"),
                             args: vec![arg0, arg1],
                             tag: index.tag.clone(),

@@ -179,7 +179,8 @@ impl TypeSpec {
                 Ok(Type::MutRef(Box::new(spec.as_ref().generics_to_type(mp, equs, trs)?)))
             }
             TypeSpec::Associated(ref spec, ref asso) => {
-                Ok(Type::AssociatedType(Box::new(spec.as_ref().generics_to_type(mp, equs, trs)?), asso.clone()))
+                let trait_gen = asso.trait_spec.generate_trait_generics(equs, trs, mp)?;
+                Ok(Type::AssociatedType(Box::new(spec.as_ref().generics_to_type(mp, equs, trs)?), trait_gen, asso.type_id.clone()))
             }
         }
     }
@@ -196,7 +197,8 @@ impl TypeSpec {
                 Ok(Type::Ref(Box::new(spec.as_ref().generate_type_no_auto_generics(equs, trs)?)))
             }
             TypeSpec::Associated(ref spec, ref asso) => {
-                Ok(Type::AssociatedType(Box::new(spec.as_ref().generate_type_no_auto_generics(equs, trs)?), asso.clone()))
+                let trait_gen = asso.trait_spec.generate_trait_generics_with_no_map(equs, trs)?;
+                Ok(Type::AssociatedType(Box::new(spec.as_ref().generate_type_no_auto_generics(equs, trs)?), trait_gen, asso.type_id.clone()))
             }
         }
     }
@@ -292,8 +294,8 @@ impl Transpile for TypeSpec {
             TypeSpec::MutPointer(ref spec) => {
                 format!("{}*", spec.transpile(ta))
             }
-            TypeSpec::Associated(ref spec, AssociatedType { ref trait_id, ref type_id } ) => {
-                format!("typename {}<{}>::{}", trait_id.transpile(ta), spec.transpile(ta), type_id.transpile(ta))
+            TypeSpec::Associated(ref spec, AssociatedType { ref trait_spec, ref type_id } ) => {
+                format!("typename {}<{}>::{}", trait_spec.trait_id.transpile(ta), spec.transpile(ta), type_id.transpile(ta))
             }
         }
                 

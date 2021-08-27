@@ -26,13 +26,13 @@ pub fn parse_associated_type_identifier(s: &str) -> IResult<&str, AssociatedType
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct AssociatedType {
-    pub trait_id: TraitId,
+    pub trait_spec: TraitSpec,
     pub type_id: AssociatedTypeIdentifier,
 }
 
 pub fn parse_associated_type(s: &str) -> IResult<&str, AssociatedType> {
-    let (s, (trait_id, _, _, _, type_id)) = tuple((parse_trait_id, multispace0, tag("::"), multispace0, parse_associated_type_identifier))(s)?;
-    Ok((s, AssociatedType { trait_id, type_id }))
+    let (s, (trait_spec, _, _, _, type_id)) = tuple((parse_trait_spec, multispace0, tag("::"), multispace0, parse_associated_type_identifier))(s)?;
+    Ok((s, AssociatedType { trait_spec, type_id }))
 }
 
 

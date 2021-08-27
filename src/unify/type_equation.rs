@@ -127,10 +127,10 @@ impl Type {
                 }
                 false
             }
-            Type::AssociatedType(ref ty, tr, _) => {
+            Type::AssociatedType(ref ty, ref tr, _) => {
                 ty.as_ref().occurs(t) || tr.occurs(t)
             }
-            Type::SolvedAssociatedType(ref ty, tr, _) => {
+            Type::SolvedAssociatedType(ref ty, ref tr, _) => {
                 ty.as_ref().occurs(t) || tr.occurs(t)
             }
             Type::TraitMethod(ref ty, _, _) => {
