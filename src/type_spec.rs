@@ -57,7 +57,10 @@ impl TypeSign {
             _ => {
                 if self.id == TypeId::from_str("Self") {
                     if self.gens.len() == 0 {
-                        equs.get_self_type()
+                       let self_type = equs.get_self_type()?;
+                       let alpha = self.id.id.generate_type_variable("SelfId", 0, equs);
+                       equs.add_equation(self_type.clone(), alpha);
+                       Ok(self_type)
                     }
                     else {
                         Err(format!("Self cant have generics arg"))
@@ -148,12 +151,12 @@ impl Transpile for TypeSign {
             else {
                 format!("")
             };
-            /* let ty = if self.id == TypeId::from_str("Self") {
-               ta.annotation(self.id.id.get_tag_number(), 0).transpile(ta)
-               } else {
-
-               }; */
-            format!("{}{}", self.id.transpile(ta), gens_trans)
+            let ty = if self.id == TypeId::from_str("Self") {
+                ta.annotation(self.id.id.get_tag_number(), "SelfId", 0).transpile(ta)
+            } else {
+                self.id.transpile(ta)
+            };
+            format!("{}{}", ty, gens_trans)
         }
     }
 }
@@ -179,7 +182,8 @@ impl TypeSpec {
                 Ok(Type::MutRef(Box::new(spec.as_ref().generics_to_type(mp, equs, trs)?)))
             }
             TypeSpec::Associated(ref spec, ref asso) => {
-                Ok(Type::AssociatedType(Box::new(spec.as_ref().generics_to_type(mp, equs, trs)?), asso.clone()))
+                let trait_gen = asso.trait_spec.generate_trait_generics(equs, trs, mp)?;
+                Ok(Type::AssociatedType(Box::new(spec.as_ref().generics_to_type(mp, equs, trs)?), trait_gen, asso.type_id.clone()))
             }
         }
     }
@@ -196,7 +200,8 @@ impl TypeSpec {
                 Ok(Type::Ref(Box::new(spec.as_ref().generate_type_no_auto_generics(equs, trs)?)))
             }
             TypeSpec::Associated(ref spec, ref asso) => {
-                Ok(Type::AssociatedType(Box::new(spec.as_ref().generate_type_no_auto_generics(equs, trs)?), asso.clone()))
+                let trait_gen = asso.trait_spec.generate_trait_generics_with_no_map(equs, trs)?;
+                Ok(Type::AssociatedType(Box::new(spec.as_ref().generate_type_no_auto_generics(equs, trs)?), trait_gen, asso.type_id.clone()))
             }
         }
     }
@@ -292,8 +297,10 @@ impl Transpile for TypeSpec {
             TypeSpec::MutPointer(ref spec) => {
                 format!("{}*", spec.transpile(ta))
             }
-            TypeSpec::Associated(ref spec, AssociatedType { ref trait_id, ref type_id } ) => {
-                format!("typename {}<{}>::{}", trait_id.transpile(ta), spec.transpile(ta), type_id.transpile(ta))
+            TypeSpec::Associated(ref spec, AssociatedType { ref trait_spec, ref type_id } ) => {
+                let generics = std::iter::once(spec.transpile(ta)).chain(trait_spec.generics.iter().map(|g| g.transpile(ta)))
+                    .collect::<Vec<_>>().join(", ");
+                format!("typename {}<{}>::{}", trait_spec.trait_id.transpile(ta), generics, type_id.transpile(ta))
             }
         }
                 

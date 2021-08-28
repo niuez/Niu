@@ -70,7 +70,7 @@ impl ImplSelfDefinition {
 
 impl ImplSelfCandidate {
     pub fn generate_equations_for_call_equation(&self, call_eq: &CallEquation, trs: &TraitsInfo) -> Result<TypeEquations, String> {
-        if call_eq.trait_id != None {
+        if call_eq.trait_gen != None {
             return Err(format!("trait_id is not matched"))
         }
         let mut equs = TypeEquations::new();
