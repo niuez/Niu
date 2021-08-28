@@ -11,12 +11,35 @@ use nom::branch::*;
 
 use crate::unary_expr::{ UnaryExpr, parse_unary_expr };
 use crate::identifier::*;
+use crate::traits::*;
 use crate::unify::*;
 use crate::trans::*;
 use crate::mut_checker::*;
 
 pub use if_expr::*;
 pub use for_expr::*;
+
+fn expr_gen_type<'a, EI: Iterator<Item=Type>, O: 'a, OI: Iterator<Item=&'a O>, F: Fn(&O) -> (&'static str, &'static str)>
+(equs: &mut TypeEquations, mut exprs: EI, opes: OI, f: F, tag: Tag) -> TResult {
+    let ty = exprs.next().unwrap();
+    let mut left = tag.generate_type_variable("Operators", 0, equs);
+    equs.add_equation(ty, left.clone());
+    for (cnt, (right, ope)) in exprs.zip(opes).enumerate() {
+        let (tr, method) = f(ope);
+        let tr = TraitId::from_str(tr);
+        let method = Identifier::from_str(method);
+        let next_ty = Type::CallEquation( CallEquation {
+            caller_type: Some(Box::new(left.clone())),
+            trait_gen: Some(TraitGenerics { trait_id: tr, generics: vec![right.clone()] }),
+            func_id: method,
+            args: vec![left, right],
+            tag: Tag::new()
+        });
+        left = tag.generate_type_variable("Operators", cnt + 1, equs);
+        equs.add_equation(next_ty, left.clone());
+    }
+    Ok(left)
+}
 
 #[derive(Debug)]
 pub enum Expression {
@@ -340,11 +363,10 @@ pub struct ExpBitOr {
 
 impl GenType for ExpBitOr {
     fn gen_type(&self, equs: &mut TypeEquations, trs: &TraitsInfo) -> TResult {
-        let ty = self.terms.iter().map(|t| t.gen_type(equs, trs)).collect::<Result<Vec<_>, String>>()?;
-        for i in 0..self.opes.len() {
-            equs.add_equation(ty[i].clone(), ty[i + 1].clone());
-        }
-        Ok(ty[0].clone())
+        let exprs = self.terms.iter().map(|e| e.gen_type(equs, trs)).collect::<Result<Vec<_>, _>>()?;
+        expr_gen_type(equs, exprs.into_iter(), self.opes.iter(), |ope| match *ope {
+                OperatorBitOr() => ("BitOr", "operator|"),
+            }, Tag::new())
     }
 }
 
@@ -408,11 +430,10 @@ pub struct ExpBitXor {
 
 impl GenType for ExpBitXor {
     fn gen_type(&self, equs: &mut TypeEquations, trs: &TraitsInfo) -> TResult {
-        let ty = self.terms.iter().map(|t| t.gen_type(equs, trs)).collect::<Result<Vec<_>, String>>()?;
-        for i in 0..self.opes.len() {
-            equs.add_equation(ty[i].clone(), ty[i + 1].clone());
-        }
-        Ok(ty[0].clone())
+        let exprs = self.terms.iter().map(|e| e.gen_type(equs, trs)).collect::<Result<Vec<_>, _>>()?;
+        expr_gen_type(equs, exprs.into_iter(), self.opes.iter(), |ope| match *ope {
+                OperatorBitXor() => ("BitXor", "operator^"),
+            }, Tag::new())
     }
 }
 
@@ -476,12 +497,12 @@ pub struct ExpBitAnd {
 
 impl GenType for ExpBitAnd {
     fn gen_type(&self, equs: &mut TypeEquations, trs: &TraitsInfo) -> TResult {
-        let ty = self.terms.iter().map(|t| t.gen_type(equs, trs)).collect::<Result<Vec<_>, String>>()?;
-        for i in 0..self.opes.len() {
-            equs.add_equation(ty[i].clone(), ty[i + 1].clone());
-        }
-        Ok(ty[0].clone())
+        let exprs = self.terms.iter().map(|e| e.gen_type(equs, trs)).collect::<Result<Vec<_>, _>>()?;
+        expr_gen_type(equs, exprs.into_iter(), self.opes.iter(), |ope| match *ope {
+                OperatorBitAnd() => ("BitAnd", "operator&"),
+            }, Tag::new())
     }
+
 }
 
 #[derive(Debug)]
@@ -544,11 +565,11 @@ pub struct ExpShift {
 
 impl GenType for ExpShift {
     fn gen_type(&self, equs: &mut TypeEquations, trs: &TraitsInfo) -> TResult {
-        let ty = self.terms.iter().map(|t| t.gen_type(equs, trs)).collect::<Result<Vec<_>, String>>()?;
-        for i in 0..self.opes.len() {
-            equs.add_equation(ty[i].clone(), ty[i + 1].clone());
-        }
-        Ok(ty[0].clone())
+        let exprs = self.terms.iter().map(|e| e.gen_type(equs, trs)).collect::<Result<Vec<_>, _>>()?;
+        expr_gen_type(equs, exprs.into_iter(), self.opes.iter(), |ope| match *ope {
+                OperatorShift::Shl => ("Shl", "operator<<"),
+                OperatorShift::Shr => ("Shr", "operator>>"),
+            }, Tag::new())
     }
 }
 
@@ -623,11 +644,11 @@ pub struct ExpAddSub {
 
 impl GenType for ExpAddSub {
     fn gen_type(&self, equs: &mut TypeEquations, trs: &TraitsInfo) -> TResult {
-        let ty = self.terms.iter().map(|t| t.gen_type(equs, trs)).collect::<Result<Vec<_>, String>>()?;
-        for i in 0..self.opes.len() {
-            equs.add_equation(ty[i].clone(), ty[i + 1].clone());
-        }
-        Ok(ty[0].clone())
+        let exprs = self.terms.iter().map(|e| e.gen_type(equs, trs)).collect::<Result<Vec<_>, _>>()?;
+        expr_gen_type(equs, exprs.into_iter(), self.opes.iter(), |ope| match *ope {
+                OperatorAddSub::Add => ("Add", "operator+"),
+                OperatorAddSub::Sub => ("Sub", "operator-"),
+            }, Tag::new())
     }
 }
 
@@ -698,15 +719,17 @@ impl MutCheck for ExpAddSub {
 pub struct ExpMulDivRem {
     pub unary_exprs: Vec<ExpUnaryOpe>,
     pub opes: Vec<OperatorMulDivRem>,
+    pub tag: Tag,
 }
 
 impl GenType for ExpMulDivRem {
     fn gen_type(&self, equs: &mut TypeEquations, trs: &TraitsInfo) -> TResult {
-        let ty = self.unary_exprs.iter().map(|t| t.gen_type(equs, trs)).collect::<Result<Vec<_>, String>>()?;
-        for i in 0..self.opes.len() {
-            equs.add_equation(ty[i].clone(), ty[i + 1].clone());
-        }
-        Ok(ty[0].clone())
+        let exprs = self.unary_exprs.iter().map(|e| e.gen_type(equs, trs)).collect::<Result<Vec<_>, _>>()?;
+        expr_gen_type(equs, exprs.into_iter(), self.opes.iter(), |ope| match *ope {
+                OperatorMulDivRem::Mul => ("Mul", "operator*"),
+                OperatorMulDivRem::Div => ("Div", "operator/"),
+                OperatorMulDivRem::Rem => ("Rem", "operator%"),
+            }, self.tag.clone())
     }
 }
 
@@ -742,7 +765,7 @@ impl ParseExpression for ExpMulDivRem {
     type Child = ExpUnaryOpe;
     type Operator = OperatorMulDivRem;
     fn new_expr(unary_exprs: Vec<Self::Child>, opes: Vec<Self::Operator>) -> Self {
-        Self { unary_exprs, opes }
+        Self { unary_exprs, opes, tag: Tag::new(), }
     }
     fn parse_expression(s: &str) -> IResult<&str, Self> {
         let (s, (head, _, tails)) = 
@@ -754,7 +777,7 @@ impl ParseExpression for ExpMulDivRem {
             unary_exprs.push(expr);
             opes.push(ope);
         }
-        Ok((s, ExpMulDivRem { unary_exprs, opes }))
+        Ok((s, ExpMulDivRem { unary_exprs, opes, tag: Tag::new() }))
     }
 }
 

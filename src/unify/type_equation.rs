@@ -216,8 +216,18 @@ impl Transpile for Type {
     fn transpile(&self, ta: &TypeAnnotation) -> String {
         match *self {
             Type::SolvedAssociatedType(ref ty, ref tr, ref asso_id) => {
-                let generics = std::iter::once(ty.transpile(ta)).chain(tr.generics.iter().map(|g| g.transpile(ta))).collect::<Vec<_>>().join(", ");
-                format!("typename {}<{}>::{}", tr.trait_id.transpile(ta), generics, asso_id.transpile(ta))
+                match find_binary_operator(tr.trait_id.id.into_string().as_str()) {
+                    Some((_, ope)) => {
+                        let left = ty.transpile(ta);
+                        let right = tr.generics[0].transpile(ta);
+                        format!("decltype(std::declval<{}>() {} std::declval<{}>())", left, ope, right)
+                    }
+                    None => {
+
+                        let generics = std::iter::once(ty.transpile(ta)).chain(tr.generics.iter().map(|g| g.transpile(ta))).collect::<Vec<_>>().join(", ");
+                        format!("typename {}<{}>::{}", tr.trait_id.transpile(ta), generics, asso_id.transpile(ta))
+                    }
+                }
             }
             Type::Ref(ref ty) => {
                 format!("{}*", ty.as_ref().transpile(ta))

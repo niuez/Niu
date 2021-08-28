@@ -154,15 +154,37 @@ impl ImplDefinition {
         Ok(())
     }
     pub fn transpile_functions(&self, ta: &TypeAnnotation) -> String {
-        let generics = self.generics.iter().map(|id| format!("class {}", id.transpile(ta))).collect::<Vec<_>>().join(", ");
-        let templates = if generics == "" { format!("") } else { format!("template<{}> ", generics) };
-        let generics_param = std::iter::once(self.impl_ty.transpile(ta)).chain(self.trait_spec.generics.iter().map(|g| g.transpile(ta)))
-            .collect::<Vec<_>>().join(", ");
-        let class_str = format!("{}<{}>::", self.trait_spec.trait_id.transpile(ta), generics_param);
-        let require_methods = self.require_methods.iter().map(|(_, def)| {
-            format!("{}{}", templates, def.transpile_for_impl(ta, &class_str, false))
-        }).collect::<Vec<_>>().join("\n");
-        require_methods
+        match find_binary_operator(self.trait_spec.trait_id.id.into_string().as_str()) {
+            None => {
+                let generics = self.generics.iter().map(|id| format!("class {}", id.transpile(ta))).collect::<Vec<_>>().join(", ");
+                let templates = if generics == "" { format!("") } else { format!("template<{}> ", generics) };
+                let where_str = self.where_sec.transpile(ta);
+                let generics_param = std::iter::once(self.impl_ty.transpile(ta)).chain(self.trait_spec.generics.iter().map(|g| g.transpile(ta)))
+                    .collect::<Vec<_>>().join(", ");
+                let class_str = format!("{}<{}, {}>::", self.trait_spec.trait_id.transpile(ta), generics_param, where_str);
+                let require_methods = self.require_methods.iter().map(|(_, def)| {
+                    format!("{}{}", templates, def.transpile_for_impl(ta, &class_str, false))
+                }).collect::<Vec<_>>().join("\n");
+                require_methods
+            }
+            Some((func, _)) => {
+                
+                let generics = self.generics.iter().map(|id| format!("class {}", id.transpile(ta)))
+                    .chain(std::iter::once(format!("class = {}", self.where_sec.transpile(ta))))
+                    .collect::<Vec<_>>().join(", ");
+                let templates = format!("template<{}> ", generics);
+                let require_methods = self.require_methods.iter().map(|(_, def)| {
+                    let func = def.transpile(ta, false);
+                    if func == "" {
+                        format!("")
+                    }
+                    else {
+                        format!("{}{}\n", templates, func)
+                    }
+                }).collect::<Vec<_>>().join("");
+                require_methods
+            }
+        }
     }
 }
 
@@ -187,31 +209,67 @@ pub fn parse_impl_definition(s: &str) -> IResult<&str, ImplDefinition> {
             many0(tuple((parse_func_definition, multispace0))),
             multispace0, char('}')))(s)?;
     let asso_defs = many_types.into_iter().map(|(_, _, id, _, _, _, ty, _, _, _)| (id, ty)).collect();
-    let require_methods = many_methods.into_iter().map(|(func, _)| (TraitMethodIdentifier { id: func.func_id.clone() }, func)).collect();
+    let require_methods = match find_binary_operator(trait_spec.trait_id.id.into_string().as_str()) {
+        None => {
+            many_methods.into_iter().map(|(func, _)| (TraitMethodIdentifier { id: func.func_id.clone() }, func)).collect()
+        }
+        Some((_, ope)) => {
+            many_methods.into_iter().map(|(mut func, _)| {
+                func.func_id = Identifier::from_str(format!("operator{}", ope).as_str());
+                (TraitMethodIdentifier { id: func.func_id.clone() }, func)
+            }).collect()
+        }
+    };
     Ok((s, ImplDefinition { generics, trait_spec, impl_ty, where_sec, asso_defs, require_methods }))
 }
 
 impl Transpile for ImplDefinition {
     fn transpile(&self, ta: &TypeAnnotation) -> String {
-        let generics = self.generics.iter().map(|id| format!("class {}", id.transpile(ta))).collect::<Vec<_>>().join(", ");
-        let where_str = self.where_sec.transpile(ta);
-        let templates = format!("template<{}> ", generics);
-        let generics_param = std::iter::once(self.impl_ty.transpile(ta)).chain(self.trait_spec.generics.iter().map(|g| g.transpile(ta)))
-            .collect::<Vec<_>>().join(", ");
-        let impl_def = if where_str == "" {
-            format!("{}struct {}<{}, void>: std::true_type", templates, self.trait_spec.trait_id.transpile(ta), generics_param.clone())
+
+        match find_binary_operator(self.trait_spec.trait_id.id.into_string().as_str()) {
+            None => {
+                let generics = self.generics.iter().map(|id| format!("class {}", id.transpile(ta))).collect::<Vec<_>>().join(", ");
+                let where_str = self.where_sec.transpile(ta);
+                let templates = format!("template<{}> ", generics);
+                let generics_param = std::iter::once(self.impl_ty.transpile(ta)).chain(self.trait_spec.generics.iter().map(|g| g.transpile(ta)))
+                    .collect::<Vec<_>>().join(", ");
+                let impl_def = if self.where_sec.is_empty() {
+                    format!("{}struct {}<{}, void>: std::true_type", templates, self.trait_spec.trait_id.transpile(ta), generics_param.clone())
+                }
+                else {
+                    format!("{}struct {}<{}, {}>: std::true_type", templates, self.trait_spec.trait_id.transpile(ta), generics_param.clone(), where_str)
+                };
+                let asso_defs = self.asso_defs.iter().map(|(id, spec)| {
+                    format!("using {} = {};\n", id.transpile(ta), spec.transpile(ta))
+                }).collect::<Vec<_>>().join(" ");
+                let require_methods = self.require_methods.iter().map(|(_, def)| {
+                    let def_str = def.transpile_definition_only(ta, "", true);
+                    format!("{};", def_str)
+                }).collect::<Vec<_>>().join("\n");
+                format!("{} {{\nusing Self = {};\n{}\n{}\n}};\n", impl_def, self.impl_ty.transpile(ta), asso_defs, require_methods)
+            }
+            Some((func, _)) => {
+                if let FuncBlock::CppInline(_) = self.require_methods[&TraitMethodIdentifier { id: Identifier::from_str(func) }].block {
+                    format!("")
+                }
+                else {
+                    let generics = self.generics.iter().map(|id| format!("class {}", id.transpile(ta)))
+                        .chain(std::iter::once(format!("class")))
+                        .collect::<Vec<_>>().join(", ");
+                    let templates = format!("template<{}> ", generics);
+                    let require_methods = self.require_methods.iter().map(|(_, def)| {
+                        let func = def.transpile_definition_only(ta, "", false);
+                        if func == "" {
+                            format!("")
+                        }
+                        else {
+                            format!("{}{};\n", templates, func)
+                        }
+                    }).collect::<Vec<_>>().join("");
+                    require_methods
+                }
+            }
         }
-        else {
-            format!("{}struct {}<{}, {}>: std::true_type", templates, self.trait_spec.trait_id.transpile(ta), generics_param.clone(), where_str)
-        };
-        let asso_defs = self.asso_defs.iter().map(|(id, spec)| {
-            format!("using {} = {};\n", id.transpile(ta), spec.transpile(ta))
-        }).collect::<Vec<_>>().join(" ");
-        let require_methods = self.require_methods.iter().map(|(_, def)| {
-            let def_str = def.transpile_definition_only(ta, "", true);
-            format!("{};", def_str)
-        }).collect::<Vec<_>>().join("\n");
-        format!("{} {{\nusing Self = {};\n{}\n{}\n}};\n", impl_def, self.impl_ty.transpile(ta), asso_defs, require_methods)
     }
 }
 

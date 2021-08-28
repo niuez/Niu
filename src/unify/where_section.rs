@@ -78,16 +78,36 @@ impl WhereSection {
 
     pub fn transpile(&self, ta: &TypeAnnotation) -> String {
         let mut conds = Vec::new();
+        let bin_opes = BINARY_OPERATOR_TRAITS.iter().cloned().collect::<HashMap<_, _>>();
         for (ty, _, tr, assos) in self.has_traits.iter() {
-            let generics = std::iter::once(ty.transpile(ta)).chain(tr.generics.iter().map(|g| g.transpile(ta))).collect::<Vec<_>>().join(", ");
-            let trait_ty = format!("{}<{}>", tr.trait_id.transpile(ta), generics);
-            conds.push(trait_ty.clone());
-            for (id, asso_ty) in assos.iter() {
-                conds.push(format!("std::is_same<typename {}::{}, {}>", trait_ty.clone(), id.transpile(ta), asso_ty.transpile(ta)));
+            match bin_opes.get(tr.trait_id.id.into_string().as_str()) {
+                Some((_, ope)) => {
+                    let assos = assos.iter().map(|(id, asso_ty)| (id.id.into_string(), asso_ty.clone())).collect::<HashMap<_, _>>();
+                    let arg_ty = tr.generics[0].transpile(ta);
+                    let output_ty = assos.get("Output").cloned();
+                    match output_ty {
+                        Some(output_ty) => {
+                            conds.push(format!("std::is_same<decltype(std::declval<{}>() {} std::declval<{}>()), {}>",
+                                ty.transpile(ta), ope, arg_ty, output_ty.transpile(ta)));
+                        }
+                        None => {
+                            conds.push(format!("decltype(std::declval<{}>() {} std::declval<{}>(), std::true_type())",
+                                ty.transpile(ta), ope, arg_ty));
+                        }
+                    }
+                }
+                None => {
+                    let generics = std::iter::once(ty.transpile(ta)).chain(tr.generics.iter().map(|g| g.transpile(ta))).collect::<Vec<_>>().join(", ");
+                    let trait_ty = format!("{}<{}>", tr.trait_id.transpile(ta), generics);
+                    conds.push(trait_ty.clone());
+                    for (id, asso_ty) in assos.iter() {
+                        conds.push(format!("std::is_same<typename {}::{}, {}>", trait_ty.clone(), id.transpile(ta), asso_ty.transpile(ta)));
+                    }
+                }
             }
         }
         if conds.len() == 0 {
-            format!("")
+            format!("void")
         }
         else {
             format!("std::enable_if_t<std::conjunction_v<{}>>", conds.join(", "))

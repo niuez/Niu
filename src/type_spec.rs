@@ -58,8 +58,6 @@ impl TypeSign {
                 if self.id == TypeId::from_str("Self") {
                     if self.gens.len() == 0 {
                        let self_type = equs.get_self_type()?;
-                       let alpha = self.id.id.generate_type_variable("SelfId", 0, equs);
-                       equs.add_equation(self_type.clone(), alpha);
                        Ok(self_type)
                     }
                     else {
@@ -152,7 +150,7 @@ impl Transpile for TypeSign {
                 format!("")
             };
             let ty = if self.id == TypeId::from_str("Self") {
-                ta.annotation(self.id.id.get_tag_number(), "SelfId", 0).transpile(ta)
+                ta.self_type_annotation().to_string()
             } else {
                 self.id.transpile(ta)
             };
@@ -298,9 +296,22 @@ impl Transpile for TypeSpec {
                 format!("{}*", spec.transpile(ta))
             }
             TypeSpec::Associated(ref spec, AssociatedType { ref trait_spec, ref type_id } ) => {
-                let generics = std::iter::once(spec.transpile(ta)).chain(trait_spec.generics.iter().map(|g| g.transpile(ta)))
-                    .collect::<Vec<_>>().join(", ");
-                format!("typename {}<{}>::{}", trait_spec.trait_id.transpile(ta), generics, type_id.transpile(ta))
+                match BINARY_OPERATOR_TRAITS.iter().find_map(|(tr_id, (_, ope))| {
+                    if *tr_id == trait_spec.trait_id.id.into_string() { Some(ope.to_string()) }
+                    else { None }
+                }) {
+                    Some(ope) => {
+                        let left = spec.transpile(ta);
+                        let right = trait_spec.generics[0].transpile(ta);
+                        format!("decltype(std::declval<{}>() {} std::declval<{}>())", left, ope, right)
+                    }
+                    None => {
+                        let generics = std::iter::once(spec.transpile(ta)).chain(trait_spec.generics.iter().map(|g| g.transpile(ta)))
+                            .collect::<Vec<_>>().join(", ");
+                        format!("typename {}<{}>::{}", trait_spec.trait_id.transpile(ta), generics, type_id.transpile(ta))
+                    }
+                }
+
             }
         }
                 

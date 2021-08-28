@@ -31,12 +31,12 @@ impl FullContent {
         }
         Ok(())
     }
-    fn regist_impls(&mut self, trs: &mut TraitsInfo) -> Result<(), String> {
+    fn regist_impls(&mut self, equs: &mut TypeEquations, trs: &mut TraitsInfo) -> Result<(), String> {
         for im in self.impls.iter() {
             trs.preregist_impl_candidate(im);
         }
         for im in self.impls.iter() {
-            trs.regist_impl_candidate(im)?;
+            trs.regist_impl_candidate(equs, im)?;
         }
         Ok(())
     }
@@ -58,7 +58,7 @@ impl FullContent {
         }
 
         self.regist_traits(&mut trs)?;
-        self.regist_impls(&mut trs)?;
+        self.regist_impls(&mut equs, &mut trs)?;
         self.regist_self_impls(&mut trs)?;
 
         for st in self.structs.iter() {
@@ -97,14 +97,13 @@ impl FullContent {
         }
         Ok(())
     }
-}
-
-impl Transpile for FullContent {
-    fn transpile(&self, ta: &TypeAnnotation) -> String {
+    pub fn transpile(&self, ta: &mut TypeAnnotation) -> String {
         let mut res = "#include <bits/stdc++.h>\n\n".to_string();
         let mut operators = HashMap::new();
-        operators.insert("Index".to_string(), HashSet::new());
-        operators.insert("IndexMut".to_string(), HashSet::new());
+        let opes_str = ["Index", "IndexMut", "BitOr", "BitXor", "BitAnd", "Shl", "Shr", "Add", "Sub", "Mul", "Div", "Rem"];
+        for ope in opes_str {
+            operators.insert(ope.to_string(), HashSet::new());
+        }
         for t in self.impls.iter() {
             let tr_id = t.get_trait_id().id.into_string();
             if let Some(set) = operators.get_mut(&tr_id) {
@@ -115,8 +114,10 @@ impl Transpile for FullContent {
         }
         // structs definition
         for t in self.structs.iter() {
+            ta.self_type = Some(t.transpile_self_type());
             let s = t.transpile_definition(ta);
             res.push_str(&s);
+            ta.self_type = None;
         }
         // traits definition
         for t in self.traits.iter() {
@@ -125,8 +126,10 @@ impl Transpile for FullContent {
         }
         // impls definition
         for i in self.impls.iter() {
+            ta.self_type = Some(i.impl_ty.transpile(ta));
             let s = i.transpile(ta);
             res.push_str(&s);
+            ta.self_type = None;
         }
         // functions definition
         for f in self.funcs.iter() {
@@ -136,17 +139,21 @@ impl Transpile for FullContent {
         }
         // structs implementation
         for t in self.structs.iter() {
+            ta.self_type = Some(t.transpile_self_type());
             let st_id = t.get_id();
             let opes = operators.iter()
                 .filter_map(|(k, set)| if set.contains(&st_id) { Some(k.clone()) } else { None })
                 .collect::<Vec<_>>();
             let s = t.transpile(ta, opes);
             res.push_str(&s);
+            ta.self_type = None;
         }
         // functions of impls implementation
         for i in self.impls.iter() {
+            ta.self_type = Some(i.impl_ty.transpile(ta));
             let s = i.transpile_functions(ta);
             res.push_str(&s);
+            ta.self_type = None;
         }
         for f in self.funcs.iter() {
             let s = f.transpile(ta, false);
@@ -155,6 +162,7 @@ impl Transpile for FullContent {
         res
     }
 }
+
 
 #[derive(Debug)]
 enum ContentElement {
@@ -240,6 +248,7 @@ pub fn parse_full_content_from_file(filename: &str, import_path: &[PathBuf]) -> 
         if s != "" {
             Err(format!("path {:?} parse error, remaining -> {}", path, s))?;
         }
+        dbg!(import_path);
         for import in imports.into_iter() {
             let mut ok = false;
             for mut import_dir in import_path.into_iter().cloned().chain(std::iter::once(path.parent().unwrap().to_path_buf())) {

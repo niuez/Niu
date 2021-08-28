@@ -229,14 +229,14 @@ impl FuncDefinition {
         let template_str =
             if self.generics.len() > 0 {
                 let gen = self.generics.iter().map(|g| format!("class {}", g.transpile(ta))).collect::<Vec<_>>().join(", ");
-                if where_str == "" {
+                if self.where_sec.is_empty() {
                     format!("template<{}> ", gen)
                 }
                 else {
                     format!("template<{}, class = {}> ", gen, where_str)
                 }
             } 
-            else if where_str != "" {
+            else if !self.where_sec.is_empty() {
                 format!("template<class = {}> ", where_str)
             }
             else {

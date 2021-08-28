@@ -299,16 +299,15 @@ impl<'a> TraitsInfo<'a> {
         self.regist_selection_candidate(&trait_id, cand);
     }
 
-    pub fn regist_impl_candidate(&self, ti: &ImplDefinition) -> Result<(), String> {
+    pub fn regist_impl_candidate(&self, equs: &mut TypeEquations, ti: &ImplDefinition) -> Result<(), String> {
         let (trait_id, _) = ti.get_impl_trait_pair();
         let mut gen_trs = self.into_scope();
         for id in ti.generics.iter() {
             gen_trs.regist_generics_type(id)?;
         }
-        let mut equs = TypeEquations::new();
-        let impl_ty = ti.impl_ty.generics_to_type(&GenericsTypeMap::empty(), &mut equs, &gen_trs)?;
-        equs.set_self_type(Some(impl_ty));
-        ti.where_sec.regist_candidate(&mut equs, &mut gen_trs)?;
+        let impl_ty = ti.impl_ty.generics_to_type(&GenericsTypeMap::empty(), equs, &gen_trs)?;
+        let before_self_type = equs.set_self_type(Some(impl_ty));
+        ti.where_sec.regist_candidate(equs, &mut gen_trs)?;
         self.check_trait(&ti.trait_spec)?;
 
         match self.get_traitinfo(&trait_id) {
@@ -321,7 +320,7 @@ impl<'a> TraitsInfo<'a> {
                 let tr_gen_map = empty_gen_map.next(tr_gen_map);
                 log::debug!("{:?}", tr_gen_map);
                 {
-                    tr.where_sec.regist_equations(&GenericsTypeMap::empty(), &mut equs, &gen_trs)?;
+                    tr.where_sec.regist_equations(&GenericsTypeMap::empty(), equs, &gen_trs)?;
                     match equs.unify(&gen_trs) {
                         Ok(_) => Ok(()),
                         Err(UnifyErr::Deficiency(s)) => Err(format!("trait {:?} where section error, {:?}", tr.trait_id, s)),
@@ -334,11 +333,12 @@ impl<'a> TraitsInfo<'a> {
                         Some(impl_method) => {
                             {
                                 equs.clear_equations();
-                                info.check_equal(&impl_method.get_func_info().1, &mut equs, &gen_trs, &tr_gen_map, &empty_gen_map)?;
+                                info.check_equal(&impl_method.get_func_info().1, equs, &gen_trs, &tr_gen_map, &empty_gen_map)?;
                             }
                         }
                     }
                 }
+                equs.set_self_type(before_self_type);
                 Ok(())
             }
         }

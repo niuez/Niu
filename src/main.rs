@@ -34,7 +34,7 @@ pub mod mut_checker;
 
 use std::path::*;
 
-use crate::trans::Transpile;
+//use crate::trans::Transpile;
 
 use nom::IResult;
 use nom::bytes::complete::*;
@@ -60,9 +60,9 @@ fn type_check() -> Result<String, String> {
     let import_path = get_import_path()?;
     let mut t = crate::full_content::parse_full_content_from_file(&filename, &import_path).map_err(|e| format!("{:?}", e))?;
     //log::debug!("{:?}", t);
-    let ta = t.type_check()?;
+    let mut ta = t.type_check()?;
     t.mut_check(&ta)?;
-    Ok(t.transpile(&ta))
+    Ok(t.transpile(&mut ta))
 }
 
 fn main() {
