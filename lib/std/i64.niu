@@ -1,0 +1,42 @@
+import "opes.niu"
+
+impl BitOr<i64> for i64 {
+  type Output = i64;
+  fn bit_or(a: Self, b: i64) -> i64 $${a | b}$$
+}
+impl BitXor<i64> for i64 {
+  type Output = i64;
+  fn bit_xor(a: Self, b: i64) -> i64 $${a ^ b}$$
+}
+impl BitAnd<i64> for i64 {
+  type Output = i64;
+  fn bit_and(a: Self, b: i64) -> i64 $${a & b}$$
+}
+impl Shl<i64> for i64 {
+  type Output = i64;
+  fn shl(a: Self, b: i64) -> i64 $${a << b}$$
+}
+impl Shr<i64> for i64 {
+  type Output = i64;
+  fn shr(a: Self, b: i64) -> i64 $${a >> b}$$
+}
+impl Add<i64> for i64 {
+  type Output = i64;
+  fn add(a: Self, b: i64) -> i64 $${a + b}$$
+}
+impl Sub<i64> for i64 {
+  type Output = i64;
+  fn sub(a: Self, b: i64) -> i64 $${a - b}$$
+}
+impl Mul<i64> for i64 {
+  type Output = i64;
+  fn mul(a: Self, b: i64) -> i64 $${a * b}$$
+}
+impl Div<i64> for i64 {
+  type Output = i64;
+  fn div(a: Self, b: i64) -> i64 $${a / b}$$
+}
+impl Rem<i64> for i64 {
+  type Output = i64;
+  fn rem(a: Self, b: i64) -> i64 $${a % b}$$
+}
