@@ -58,8 +58,6 @@ impl TypeSign {
                 if self.id == TypeId::from_str("Self") {
                     if self.gens.len() == 0 {
                        let self_type = equs.get_self_type()?;
-                       let alpha = self.id.id.generate_type_variable("SelfId", 0, equs);
-                       equs.add_equation(self_type.clone(), alpha);
                        Ok(self_type)
                     }
                     else {
@@ -152,7 +150,7 @@ impl Transpile for TypeSign {
                 format!("")
             };
             let ty = if self.id == TypeId::from_str("Self") {
-                ta.annotation(self.id.id.get_tag_number(), "SelfId", 0).transpile(ta)
+                ta.self_type_annotation().to_string()
             } else {
                 self.id.transpile(ta)
             };

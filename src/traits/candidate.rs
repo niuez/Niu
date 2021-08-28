@@ -167,7 +167,8 @@ impl ImplDefinition {
                 }).collect::<Vec<_>>().join("\n");
                 require_methods
             }
-            Some(_) => {
+            Some((func, _)) => {
+                
                 let generics = self.generics.iter().map(|id| format!("class {}", id.transpile(ta)))
                     .chain(std::iter::once(format!("class = {}", self.where_sec.transpile(ta))))
                     .collect::<Vec<_>>().join(", ");
@@ -247,21 +248,26 @@ impl Transpile for ImplDefinition {
                 }).collect::<Vec<_>>().join("\n");
                 format!("{} {{\nusing Self = {};\n{}\n{}\n}};\n", impl_def, self.impl_ty.transpile(ta), asso_defs, require_methods)
             }
-            Some(_) => {
-                let generics = self.generics.iter().map(|id| format!("class {}", id.transpile(ta)))
-                    .chain(std::iter::once(format!("class")))
-                    .collect::<Vec<_>>().join(", ");
-                let templates = format!("template<{}> ", generics);
-                let require_methods = self.require_methods.iter().map(|(_, def)| {
-                    let func = def.transpile_definition_only(ta, "", false);
-                    if func == "" {
-                        format!("")
-                    }
-                    else {
-                        format!("{}{};\n", templates, func)
-                    }
-                }).collect::<Vec<_>>().join("");
-                require_methods
+            Some((func, _)) => {
+                if let FuncBlock::CppInline(_) = self.require_methods[&TraitMethodIdentifier { id: Identifier::from_str(func) }].block {
+                    format!("")
+                }
+                else {
+                    let generics = self.generics.iter().map(|id| format!("class {}", id.transpile(ta)))
+                        .chain(std::iter::once(format!("class")))
+                        .collect::<Vec<_>>().join(", ");
+                    let templates = format!("template<{}> ", generics);
+                    let require_methods = self.require_methods.iter().map(|(_, def)| {
+                        let func = def.transpile_definition_only(ta, "", false);
+                        if func == "" {
+                            format!("")
+                        }
+                        else {
+                            format!("{}{};\n", templates, func)
+                        }
+                    }).collect::<Vec<_>>().join("");
+                    require_methods
+                }
             }
         }
     }

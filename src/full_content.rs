@@ -97,10 +97,7 @@ impl FullContent {
         }
         Ok(())
     }
-}
-
-impl Transpile for FullContent {
-    fn transpile(&self, ta: &TypeAnnotation) -> String {
+    pub fn transpile(&self, ta: &mut TypeAnnotation) -> String {
         let mut res = "#include <bits/stdc++.h>\n\n".to_string();
         let mut operators = HashMap::new();
         let opes_str = ["Index", "IndexMut", "BitOr", "BitXor", "BitAnd", "Shl", "Shr", "Add", "Sub", "Mul", "Div", "Rem"];
@@ -117,8 +114,10 @@ impl Transpile for FullContent {
         }
         // structs definition
         for t in self.structs.iter() {
+            ta.self_type = Some(t.transpile_self_type());
             let s = t.transpile_definition(ta);
             res.push_str(&s);
+            ta.self_type = None;
         }
         // traits definition
         for t in self.traits.iter() {
@@ -127,8 +126,10 @@ impl Transpile for FullContent {
         }
         // impls definition
         for i in self.impls.iter() {
+            ta.self_type = Some(i.impl_ty.transpile(ta));
             let s = i.transpile(ta);
             res.push_str(&s);
+            ta.self_type = None;
         }
         // functions definition
         for f in self.funcs.iter() {
@@ -138,17 +139,21 @@ impl Transpile for FullContent {
         }
         // structs implementation
         for t in self.structs.iter() {
+            ta.self_type = Some(t.transpile_self_type());
             let st_id = t.get_id();
             let opes = operators.iter()
                 .filter_map(|(k, set)| if set.contains(&st_id) { Some(k.clone()) } else { None })
                 .collect::<Vec<_>>();
             let s = t.transpile(ta, opes);
             res.push_str(&s);
+            ta.self_type = None;
         }
         // functions of impls implementation
         for i in self.impls.iter() {
+            ta.self_type = Some(i.impl_ty.transpile(ta));
             let s = i.transpile_functions(ta);
             res.push_str(&s);
+            ta.self_type = None;
         }
         for f in self.funcs.iter() {
             let s = f.transpile(ta, false);
@@ -157,6 +162,7 @@ impl Transpile for FullContent {
         res
     }
 }
+
 
 #[derive(Debug)]
 enum ContentElement {

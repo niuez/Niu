@@ -13,11 +13,12 @@ pub struct TypeAnnotation {
     func: HashMap<Variable, FuncDefinitionInfo>,
     structs: HashMap<TypeId, (Vec<TypeId>, StructMember)>,
     theta: HashMap<(usize, &'static str, usize), Type>,
+    pub self_type: Option<String>,
 }
 
 impl TypeAnnotation {
     pub fn new() -> Self {
-        Self { func: HashMap::new(), structs: HashMap::new(), theta: HashMap::new(), }
+        Self { func: HashMap::new(), structs: HashMap::new(), theta: HashMap::new(), self_type: None }
     }
     pub fn insert(&mut self, tv: TypeVariable, t: Type) {
         let TypeVariable::Counter(i, label, num) = tv;
@@ -41,6 +42,9 @@ impl TypeAnnotation {
                 unreachable!(err);
             }
         }
+    }
+    pub fn self_type_annotation(&self) -> &str {
+        self.self_type.as_ref().unwrap().as_str()
     }
     pub fn trans_variable(&self, var: &Variable) -> String {
         if let Some(f) = self.func.get(var).cloned() {

@@ -65,6 +65,15 @@ impl StructDefinition {
     pub fn get_impl_self_def(&self) -> &ImplSelfDefinition {
         &self.impl_self
     }
+    pub fn transpile_self_type(&self) -> String {
+        let generics = if self.member_def.generics.is_empty() {
+            format!("")
+        }
+        else {
+            format!("<{}>", self.member_def.generics.iter().map(|g| g.id.into_string()).collect::<Vec<_>>().join(", "))
+        };
+        format!("{}{}", self.member_def.struct_id.id.into_string(), generics)
+    }
     pub fn transpile_definition(&self, ta: &TypeAnnotation) -> String {
         match self.member_def.member {
             StructMember::MemberInfo(MemberInfo { .. }) => {
