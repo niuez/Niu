@@ -365,7 +365,7 @@ impl GenType for ExpBitOr {
     fn gen_type(&self, equs: &mut TypeEquations, trs: &TraitsInfo) -> TResult {
         let exprs = self.terms.iter().map(|e| e.gen_type(equs, trs)).collect::<Result<Vec<_>, _>>()?;
         expr_gen_type(equs, exprs.into_iter(), self.opes.iter(), |ope| match *ope {
-                OperatorBitOr() => ("BitOr", "bit_or"),
+                OperatorBitOr() => ("BitOr", "operator|"),
             }, Tag::new())
     }
 }
@@ -432,7 +432,7 @@ impl GenType for ExpBitXor {
     fn gen_type(&self, equs: &mut TypeEquations, trs: &TraitsInfo) -> TResult {
         let exprs = self.terms.iter().map(|e| e.gen_type(equs, trs)).collect::<Result<Vec<_>, _>>()?;
         expr_gen_type(equs, exprs.into_iter(), self.opes.iter(), |ope| match *ope {
-                OperatorBitXor() => ("BitXor", "bit_xor"),
+                OperatorBitXor() => ("BitXor", "operator^"),
             }, Tag::new())
     }
 }
@@ -499,7 +499,7 @@ impl GenType for ExpBitAnd {
     fn gen_type(&self, equs: &mut TypeEquations, trs: &TraitsInfo) -> TResult {
         let exprs = self.terms.iter().map(|e| e.gen_type(equs, trs)).collect::<Result<Vec<_>, _>>()?;
         expr_gen_type(equs, exprs.into_iter(), self.opes.iter(), |ope| match *ope {
-                OperatorBitAnd() => ("BitAnd", "bit_and"),
+                OperatorBitAnd() => ("BitAnd", "operator&"),
             }, Tag::new())
     }
 
@@ -567,8 +567,8 @@ impl GenType for ExpShift {
     fn gen_type(&self, equs: &mut TypeEquations, trs: &TraitsInfo) -> TResult {
         let exprs = self.terms.iter().map(|e| e.gen_type(equs, trs)).collect::<Result<Vec<_>, _>>()?;
         expr_gen_type(equs, exprs.into_iter(), self.opes.iter(), |ope| match *ope {
-                OperatorShift::Shl => ("Shl", "shl"),
-                OperatorShift::Shr => ("Shr", "shr"),
+                OperatorShift::Shl => ("Shl", "operator<<"),
+                OperatorShift::Shr => ("Shr", "operator>>"),
             }, Tag::new())
     }
 }
@@ -646,8 +646,8 @@ impl GenType for ExpAddSub {
     fn gen_type(&self, equs: &mut TypeEquations, trs: &TraitsInfo) -> TResult {
         let exprs = self.terms.iter().map(|e| e.gen_type(equs, trs)).collect::<Result<Vec<_>, _>>()?;
         expr_gen_type(equs, exprs.into_iter(), self.opes.iter(), |ope| match *ope {
-                OperatorAddSub::Add => ("Add", "add"),
-                OperatorAddSub::Sub => ("Sub", "sub"),
+                OperatorAddSub::Add => ("Add", "operator+"),
+                OperatorAddSub::Sub => ("Sub", "operator-"),
             }, Tag::new())
     }
 }
@@ -726,9 +726,9 @@ impl GenType for ExpMulDivRem {
     fn gen_type(&self, equs: &mut TypeEquations, trs: &TraitsInfo) -> TResult {
         let exprs = self.unary_exprs.iter().map(|e| e.gen_type(equs, trs)).collect::<Result<Vec<_>, _>>()?;
         expr_gen_type(equs, exprs.into_iter(), self.opes.iter(), |ope| match *ope {
-                OperatorMulDivRem::Mul => ("Mul", "mul"),
-                OperatorMulDivRem::Div => ("Div", "div"),
-                OperatorMulDivRem::Rem => ("Rem", "rem"),
+                OperatorMulDivRem::Mul => ("Mul", "operator*"),
+                OperatorMulDivRem::Div => ("Div", "operator/"),
+                OperatorMulDivRem::Rem => ("Rem", "operator%"),
             }, self.tag.clone())
     }
 }

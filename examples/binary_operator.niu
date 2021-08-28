@@ -1,4 +1,12 @@
-import "std/opes.niu"
+trait Add<Arg> {
+  type Output;
+  fn add(a: Self, b: Arg) -> Self#Add<Arg>::Output;
+}
+
+impl Add<u64> for u64 {
+  type Output = u64;
+  fn add(a: Self, b: u64) -> u64 $${a + b}$$
+}
 
 struct Hoge<S> {
   s: S,
@@ -12,6 +20,12 @@ impl<S> Add<Hoge<S>> for Hoge<S> where S: Add<S> {
 }
 
 fn try_add<S, T>(s: S, t: T) -> S#Add<T>::Output where S: Add<T> {
-  let ans = s.add(t);
+  let ans = s + t;
   ans
+}
+
+fn main() -> void {
+  let a = Hoge { s: 9u64 };
+  let b = Hoge { s: 1u64 };
+  let c = a + b;
 }

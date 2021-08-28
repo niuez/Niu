@@ -28,10 +28,16 @@ use crate::type_spec::*;
 use crate::type_id::*;
 
 pub const BINARY_OPERATOR_TRAITS : [(&'static str, (&'static str, &'static str)); 10] = [
-            ("BitOr", ("bit_or", "|")), ("BitXor", ("bit_xor", "^")), ("BitAnd", ("bit_and", "&")),
-            ("Shl", ("shl", "<<")), ("Shr", ("shr", ">>")), ("Add", ("add", "+")),
-            ("Sub", ("sub", "-")), ("Mul", ("mul", "*")), ("Div", ("div", "/")), ("Rem", ("rem", "%"))
+            ("BitOr", ("operator|", "|")), ("BitXor", ("operator^", "^")), ("BitAnd", ("operator&", "&")),
+            ("Shl", ("operator<<", "<<")), ("Shr", ("operator>>", ">>")), ("Add", ("operator+", "+")),
+            ("Sub", ("operator-", "-")), ("Mul", ("operator*", "*")), ("Div", ("operator/", "/")), ("Rem", ("operator%", "%"))
         ];
+pub fn find_binary_operator(tr: &str) -> Option<(&'static str, &'static str)> {
+    BINARY_OPERATOR_TRAITS.iter().find_map(|(tr_id, val)|
+        if *tr_id == tr { Some(*val) }
+        else { None }
+    )
+}
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct TraitId {
@@ -122,8 +128,15 @@ impl TraitDefinition {
 
 impl Transpile for TraitDefinition {
     fn transpile(&self, ta: &TypeAnnotation) -> String {
-        let generics = self.generics.iter().map(|g| format!(", class {}", g.transpile(ta))).collect::<Vec<_>>().join("");
-        format!("template<class Self{}, class = void> struct {}: std::false_type {{ }};\n", generics, self.trait_id.transpile(ta))
+        match find_binary_operator(self.trait_id.id.into_string().as_str()) {
+            None => {
+                let generics = self.generics.iter().map(|g| format!(", class {}", g.transpile(ta))).collect::<Vec<_>>().join("");
+                format!("template<class Self{}, class = void> struct {}: std::false_type {{ }};\n", generics, self.trait_id.transpile(ta))
+            }
+            Some(_) => {
+                format!("")
+            }
+        }
     }
 }
 
@@ -136,7 +149,18 @@ pub fn parse_trait_definition(s: &str) -> IResult<&str, TraitDefinition> {
             many0(tuple((parse_func_definition_info, multispace0, char(';'), multispace0))),
             multispace0, char('}')))(s)?;
     let asso_ids = many_types.into_iter().map(|(_, _, id, _, _, _)| id).collect();
-    let required_methods = many_methods.into_iter().map(|(info, _, _, _)| (TraitMethodIdentifier { id: info.func_id.clone() }, info)).collect();
+    //let required_methods = many_methods.into_iter().map(|(info, _, _, _)| (TraitMethodIdentifier { id: info.func_id.clone() }, info)).collect();
+    let required_methods = match find_binary_operator(trait_id.id.into_string().as_str()) {
+        None => {
+            many_methods.into_iter().map(|(func, _, _, _)| (TraitMethodIdentifier { id: func.func_id.clone() }, func)).collect()
+        }
+        Some((_, ope)) => {
+            many_methods.into_iter().map(|(mut func, _, _, _)| {
+                func.func_id = Identifier::from_str(format!("operator{}", ope).as_str());
+                (TraitMethodIdentifier { id: func.func_id.clone() }, func)
+            }).collect()
+        }
+    };
     Ok((s, TraitDefinition { trait_id, generics, where_sec, asso_ids, required_methods }))
 }
 

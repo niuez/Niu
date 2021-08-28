@@ -118,14 +118,14 @@ impl StructDefinition {
                     "IndexMut" => {
                         format!("typename std::enable_if<IndexMut<Self>::value, typename Index<Self>::Output&>::type operator[](typename Index<Self>::Arg k) {{ return *IndexMut<Self>::index_mut(this, k); }}\n")
                     }
-                    bin_ope if binary_operators.contains_key(bin_ope) => {
+                    /* bin_ope if binary_operators.contains_key(bin_ope) => {
                         let method = binary_operators[&bin_ope];
                         format!("template<class Arg> typename std::enable_if<{0}<Self, Arg>::value, typename {0}<Self, Arg>::Output>::type operator{2}(Arg k) {{ return {0}<Self, Arg>::{1}(*this, k); }}\n", bin_ope, method.0, method.1)
-                    }
+                    } */
                     _ => "".to_string(),
                 }).collect::<Vec<_>>().join("");
 
-                format!("{}struct {} {{\n{}\n{}\n{}\n{}\n{}\n}} ;\n", template, impl_type, self_type, members_str, constructor, methods, operators)
+                format!("{}struct {} {{\n{}\n{}\n{}\n{}{}}} ;\n", template, impl_type, self_type, members_str, constructor, methods, operators)
             }
             _ => format!(""),
         }
