@@ -1,61 +1,51 @@
-trait BitOr {
+trait BitOr<Arg> {
   type Output;
-  type Arg;
-  fn bit_or(a: Self, b: Self#BitOr::Arg) -> Self#BitOr::Output;
+  fn bit_or(a: Self, b: Arg) -> Self#BitOr<Arg>::Output;
 }
 
-trait BitXor {
+trait BitXor<Arg> {
   type Output;
-  type Arg;
-  fn bit_xor(a: Self, b: Self#BitXor::Arg) -> Self#BitXor::Output;
+  fn bit_xor(a: Self, b: Arg) -> Self#BitXor<Arg>::Output;
 }
 
-trait BitAnd {
+trait BitAnd<Arg> {
   type Output;
-  type Arg;
-  fn bit_and(a: Self, b: Self#BitAnd::Arg) -> Self#BitAnd::Output;
+  fn bit_and(a: Self, b: Arg) -> Self#BitAnd<Arg>::Output;
 }
 
-trait Shl {
+trait Shl<Arg> {
   type Output;
-  type Arg;
-  fn shl(a: Self, b: Self#Shl::Arg) -> Self#Shl::Output;
+  fn shl(a: Self, b: Arg) -> Self#Shl<Arg>::Output;
 }
 
-trait Shr {
+trait Shr<Arg> {
   type Output;
-  type Arg;
-  fn shr(a: Self, b: Self#Shr::Arg) -> Self#Shr::Output;
+  fn shr(a: Self, b: Arg) -> Self#Shr<Arg>::Output;
 }
 
-trait Add {
+trait Add<Arg> {
   type Output;
-  type Arg;
-  fn add(a: Self, b: Self#Add::Arg) -> Self#Add::Output;
+  fn add(a: Self, b: Arg) -> Self#Add<Arg>::Output;
 }
 
-trait Sub {
+trait Sub<Arg> {
   type Output;
-  type Arg;
-  fn sub(a: Self, b: Self#Sub::Arg) -> Self#Sub::Output;
+  fn sub(a: Self, b: Arg) -> Self#Sub<Arg>::Output;
 }
 
-trait Mul {
+trait Mul<Arg> {
   type Output;
-  type Arg;
-  fn mul(a: Self, b: Self#Mul::Arg) -> Self#Mul::Output;
+  fn mul(a: Self, b: Arg) -> Self#Mul<Arg>::Output;
 }
 
-trait Div {
+trait Div<Arg> {
   type Output;
-  type Arg;
-  fn div(a: Self, b: Self#Div::Arg) -> Self#Div::Output;
+  fn div(a: Self, b: Arg) -> Self#Div<Arg>::Output;
 }
 
-trait Rem {
+trait Rem<Arg> {
   type Output;
-  type Arg;
-  fn rem(a: Self, b: Self#Rem::Arg) -> Self#Rem::Output;
+  fn rem(a: Self, b: Arg) -> Self#Rem<Arg>::Output;
 }
 
 trait Index {

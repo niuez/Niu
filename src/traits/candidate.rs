@@ -156,9 +156,10 @@ impl ImplDefinition {
     pub fn transpile_functions(&self, ta: &TypeAnnotation) -> String {
         let generics = self.generics.iter().map(|id| format!("class {}", id.transpile(ta))).collect::<Vec<_>>().join(", ");
         let templates = if generics == "" { format!("") } else { format!("template<{}> ", generics) };
+        let where_str = self.where_sec.transpile(ta);
         let generics_param = std::iter::once(self.impl_ty.transpile(ta)).chain(self.trait_spec.generics.iter().map(|g| g.transpile(ta)))
             .collect::<Vec<_>>().join(", ");
-        let class_str = format!("{}<{}>::", self.trait_spec.trait_id.transpile(ta), generics_param);
+        let class_str = format!("{}<{}, {}>::", self.trait_spec.trait_id.transpile(ta), generics_param, where_str);
         let require_methods = self.require_methods.iter().map(|(_, def)| {
             format!("{}{}", templates, def.transpile_for_impl(ta, &class_str, false))
         }).collect::<Vec<_>>().join("\n");
@@ -198,7 +199,7 @@ impl Transpile for ImplDefinition {
         let templates = format!("template<{}> ", generics);
         let generics_param = std::iter::once(self.impl_ty.transpile(ta)).chain(self.trait_spec.generics.iter().map(|g| g.transpile(ta)))
             .collect::<Vec<_>>().join(", ");
-        let impl_def = if where_str == "" {
+        let impl_def = if self.where_sec.is_empty() {
             format!("{}struct {}<{}, void>: std::true_type", templates, self.trait_spec.trait_id.transpile(ta), generics_param.clone())
         }
         else {

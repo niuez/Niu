@@ -31,12 +31,12 @@ impl FullContent {
         }
         Ok(())
     }
-    fn regist_impls(&mut self, trs: &mut TraitsInfo) -> Result<(), String> {
+    fn regist_impls(&mut self, equs: &mut TypeEquations, trs: &mut TraitsInfo) -> Result<(), String> {
         for im in self.impls.iter() {
             trs.preregist_impl_candidate(im);
         }
         for im in self.impls.iter() {
-            trs.regist_impl_candidate(im)?;
+            trs.regist_impl_candidate(equs, im)?;
         }
         Ok(())
     }
@@ -58,7 +58,7 @@ impl FullContent {
         }
 
         self.regist_traits(&mut trs)?;
-        self.regist_impls(&mut trs)?;
+        self.regist_impls(&mut equs, &mut trs)?;
         self.regist_self_impls(&mut trs)?;
 
         for st in self.structs.iter() {

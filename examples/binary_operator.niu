@@ -1,0 +1,12 @@
+import "std/opes.niu"
+
+struct Hoge<S> {
+  s: S,
+} {}
+
+impl<S> Add<Hoge<S>> for Hoge<S> where S: Add<S> {
+  type Output = S#Add<S>::Output;
+  fn add(self: Self, right: Self) -> S#Add<S>::Output {
+    self.s + right.s
+  }
+}

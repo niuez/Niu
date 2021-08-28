@@ -122,8 +122,8 @@ impl TraitDefinition {
 
 impl Transpile for TraitDefinition {
     fn transpile(&self, ta: &TypeAnnotation) -> String {
-        let generics = self.generics.iter().map(|g| format!("class {}, ", g.transpile(ta))).collect::<Vec<_>>().join("");
-        format!("template<class Self, {}class = void> struct {}: std::false_type {{ }};\n", generics, self.trait_id.transpile(ta))
+        let generics = self.generics.iter().map(|g| format!(", class {}", g.transpile(ta))).collect::<Vec<_>>().join("");
+        format!("template<class Self{}, class = void> struct {}: std::false_type {{ }};\n", generics, self.trait_id.transpile(ta))
     }
 }
 

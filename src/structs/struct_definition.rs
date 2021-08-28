@@ -119,8 +119,8 @@ impl StructDefinition {
                         format!("typename std::enable_if<IndexMut<Self>::value, typename Index<Self>::Output&>::type operator[](typename Index<Self>::Arg k) {{ return *IndexMut<Self>::index_mut(this, k); }}\n")
                     }
                     bin_ope if binary_operators.contains_key(bin_ope) => {
-                        let method = binary_operators[bin_ope];
-                        format!("typename std::enable_if<{0}<Self>::value, typename {0}<Self>::Output>::type operator{2}(typename {0}<Self>::Arg k) {{ return {0}<Self>::{1}(this, k); }}\n", bin_ope, method.0, method.1)
+                        let method = binary_operators[&bin_ope];
+                        format!("template<class Arg> typename std::enable_if<{0}<Self, Arg>::value, typename {0}<Self, Arg>::Output>::type operator{2}(typename {0}<Self, Arg>::Arg k) {{ return {0}<Self, Arg>::{1}(*this, k); }}\n", bin_ope, method.0, method.1)
                     }
                     _ => "".to_string(),
                 }).collect::<Vec<_>>().join("");

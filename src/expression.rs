@@ -30,7 +30,7 @@ fn expr_gen_type<'a, EI: Iterator<Item=Type>, O: 'a, OI: Iterator<Item=&'a O>, F
         let method = Identifier::from_str(method);
         let next_ty = Type::CallEquation( CallEquation {
             caller_type: Some(Box::new(left.clone())),
-            trait_id: Some(tr),
+            trait_gen: Some(TraitGenerics { trait_id: tr, generics: vec![right.clone()] }),
             func_id: method,
             args: vec![left, right],
             tag: Tag::new()

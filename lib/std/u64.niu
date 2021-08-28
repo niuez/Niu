@@ -1,52 +1,42 @@
 import "opes.niu"
 
-impl BitOr for u64 {
+impl BitOr<u64> for u64 {
   type Output = u64;
-  type Arg = u64;
   fn bit_or(a: Self, b: u64) -> u64 $${a | b}$$
 }
-impl BitXor for u64 {
+impl BitXor<u64> for u64 {
   type Output = u64;
-  type Arg = u64;
   fn bit_xor(a: Self, b: u64) -> u64 $${a ^ b}$$
 }
-impl BitAnd for u64 {
+impl BitAnd<u64> for u64 {
   type Output = u64;
-  type Arg = u64;
   fn bit_and(a: Self, b: u64) -> u64 $${a & b}$$
 }
-impl Shl for u64 {
+impl Shl<u64> for u64 {
   type Output = u64;
-  type Arg = u64;
   fn shl(a: Self, b: u64) -> u64 $${a << b}$$
 }
-impl Shr for u64 {
+impl Shr<u64> for u64 {
   type Output = u64;
-  type Arg = u64;
   fn shr(a: Self, b: u64) -> u64 $${a >> b}$$
 }
-impl Add for u64 {
+impl Add<u64> for u64 {
   type Output = u64;
-  type Arg = u64;
   fn add(a: Self, b: u64) -> u64 $${a + b}$$
 }
-impl Sub for u64 {
+impl Sub<u64> for u64 {
   type Output = u64;
-  type Arg = u64;
   fn sub(a: Self, b: u64) -> u64 $${a - b}$$
 }
-impl Mul for u64 {
+impl Mul<u64> for u64 {
   type Output = u64;
-  type Arg = u64;
   fn mul(a: Self, b: u64) -> u64 $${a * b}$$
 }
-impl Div for u64 {
+impl Div<u64> for u64 {
   type Output = u64;
-  type Arg = u64;
   fn div(a: Self, b: u64) -> u64 $${a / b}$$
 }
-impl Rem for u64 {
+impl Rem<u64> for u64 {
   type Output = u64;
-  type Arg = u64;
   fn rem(a: Self, b: u64) -> u64 $${a % b}$$
 }

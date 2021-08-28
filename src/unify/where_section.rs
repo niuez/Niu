@@ -113,7 +113,7 @@ impl WhereSection {
             }
         }
         if conds.len() == 0 {
-            format!("")
+            format!("void")
         }
         else {
             format!("std::enable_if_t<std::conjunction_v<{}>>", conds.join(", "))
