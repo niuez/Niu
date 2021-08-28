@@ -120,7 +120,7 @@ impl StructDefinition {
                     }
                     bin_ope if binary_operators.contains_key(bin_ope) => {
                         let method = binary_operators[&bin_ope];
-                        format!("template<class Arg> typename std::enable_if<{0}<Self, Arg>::value, typename {0}<Self, Arg>::Output>::type operator{2}(typename {0}<Self, Arg>::Arg k) {{ return {0}<Self, Arg>::{1}(*this, k); }}\n", bin_ope, method.0, method.1)
+                        format!("template<class Arg> typename std::enable_if<{0}<Self, Arg>::value, typename {0}<Self, Arg>::Output>::type operator{2}(Arg k) {{ return {0}<Self, Arg>::{1}(*this, k); }}\n", bin_ope, method.0, method.1)
                     }
                     _ => "".to_string(),
                 }).collect::<Vec<_>>().join("");

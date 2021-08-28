@@ -10,3 +10,8 @@ impl<S> Add<Hoge<S>> for Hoge<S> where S: Add<S> {
     self.s + right.s
   }
 }
+
+fn try_add<S, T>(s: S, t: T) -> S#Add<T>::Output where S: Add<T> {
+  let ans = s.add(t);
+  ans
+}
