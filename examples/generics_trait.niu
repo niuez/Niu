@@ -11,7 +11,8 @@ impl Add<u64> for u64 {
 }
 
 fn try_add<S, T>(s: S, t: T) -> S#Add<T>::Output where S: Add<T> {
-  s.add(t)
+  let ans = s.add(t);
+  ans
 }
 
 fn main() -> void {

@@ -216,7 +216,8 @@ impl Transpile for Type {
     fn transpile(&self, ta: &TypeAnnotation) -> String {
         match *self {
             Type::SolvedAssociatedType(ref ty, ref tr, ref asso_id) => {
-                format!("typename {}<{}>::{}", tr.trait_id.transpile(ta), ty.as_ref().transpile(ta), asso_id.transpile(ta))
+                let generics = std::iter::once(ty.transpile(ta)).chain(tr.generics.iter().map(|g| g.transpile(ta))).collect::<Vec<_>>().join(", ");
+                format!("typename {}<{}>::{}", tr.trait_id.transpile(ta), generics, asso_id.transpile(ta))
             }
             Type::Ref(ref ty) => {
                 format!("{}*", ty.as_ref().transpile(ta))
