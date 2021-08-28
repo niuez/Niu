@@ -15,7 +15,7 @@ use crate::trans::*;
 
 #[derive(Debug, Clone)]
 pub struct WhereSection {
-    has_traits: Vec<(TypeSpec, usize, TraitId, Vec<(AssociatedTypeIdentifier, TypeSpec)>)>,
+    has_traits: Vec<(TypeSpec, usize, TraitSpec, Vec<(AssociatedTypeIdentifier, TypeSpec)>)>,
 }
 
 impl WhereSection {
@@ -26,11 +26,12 @@ impl WhereSection {
         self.has_traits.is_empty()
     }
     pub fn regist_equations(&self, mp: &GenericsTypeMap, equs: &mut TypeEquations, trs: &TraitsInfo) -> Result<(), String> {
-        for (spec, _, tr_id, asso_eqs) in self.has_traits.iter() {
+        for (spec, _, tr_spec, asso_eqs) in self.has_traits.iter() {
             let ty = spec.generics_to_type(mp, equs, trs)?;
-            equs.add_has_trait(ty.clone(), tr_id.clone());
+            let tr_gen = tr_spec.generate_trait_generics(equs, trs, mp)?;
+            equs.add_has_trait(ty.clone(), tr_gen.clone());
             for (asso_id, asso_spec) in asso_eqs.iter() {
-                let asso_ty = Type::AssociatedType(Box::new(ty.clone()), AssociatedType { trait_id: tr_id.clone(), type_id: asso_id.clone() });
+                let asso_ty = Type::AssociatedType(Box::new(ty.clone()), tr_gen.clone(), asso_id.clone());
                 let asso_spec_ty = asso_spec.generics_to_type(mp, equs, trs)?;
                 equs.add_equation(asso_ty, asso_spec_ty)
             }
@@ -39,14 +40,16 @@ impl WhereSection {
     }
 
     pub fn regist_candidate(&self, equs: &TypeEquations, trs: &mut TraitsInfo) -> Result<(), String> {
-        for (spec, _, tr_id, asso_eqs) in self.has_traits.iter() {
+        for (spec, _, tr_spec, asso_eqs) in self.has_traits.iter() {
 
 
             let mut tmp_equs = TypeEquations::new();
 
             let param_ty = spec.generate_type_no_auto_generics(equs, trs)?;
-            let alpha = tr_id.id.generate_type_variable("ParamType", 0, &mut tmp_equs);
+            let alpha = tr_spec.get_tag().generate_type_variable("ParamType", 0, &mut tmp_equs);
             tmp_equs.add_equation(param_ty, alpha);
+
+            let tr_gen = tr_spec.generate_trait_generics_with_no_map(equs, trs)?;
 
             for (asso_id, asso_spec) in asso_eqs.iter() {
                 let asso_spec_ty = asso_spec.generate_type_no_auto_generics(&equs, trs)?;
@@ -56,13 +59,13 @@ impl WhereSection {
             tmp_equs.unify(trs).map_err(|err| err.to_string())?;
             let substs = SubstsMap::new(tmp_equs.take_substs().clone());
 
-            let param_ty = substs.get(&tr_id.id, "ParamType", 0)?;
+            let param_ty = substs.get_from_tag(&tr_spec.get_tag(), "ParamType", 0)?;
             let asso_mp = asso_eqs.iter().map(|(asso_id, _)| {
                     let asso_spec_ty = substs.get(&asso_id.id, "AssociatedType", 0)?;
                     Ok((asso_id.clone(), asso_spec_ty))
                 }).collect::<Result<HashMap<_, _>, String>>()?;
             
-            trs.regist_param_candidate(param_ty, tr_id, asso_mp)?;
+            trs.regist_param_candidate(param_ty, &tr_gen, asso_mp)?;
             
         }
         Ok(())
@@ -77,6 +80,7 @@ impl WhereSection {
         let mut conds = Vec::new();
         let bin_opes = BINARY_OPERATOR_TRAITS.iter().cloned().collect::<HashMap<_, _>>();
         for (ty, _, tr, assos) in self.has_traits.iter() {
+/*
             match bin_opes.get(tr.id.into_string().as_str()) {
                 Some((_, ope)) => {
                     let assos = assos.iter().map(|(id, asso_ty)| (id.id.into_string(), asso_ty.clone())).collect::<HashMap<_, _>>();
@@ -100,6 +104,12 @@ impl WhereSection {
                         conds.push(format!("std::is_same<typename {}::{}, {}>", trait_ty.clone(), id.transpile(ta), asso_ty.transpile(ta)));
                     }
                 }
+*/
+            let generics = std::iter::once(ty.transpile(ta)).chain(tr.generics.iter().map(|g| g.transpile(ta))).collect::<Vec<_>>().join(", ");
+            let trait_ty = format!("{}<{}>", tr.trait_id.transpile(ta), generics);
+            conds.push(trait_ty.clone());
+            for (id, asso_ty) in assos.iter() {
+                conds.push(format!("std::is_same<typename {}::{}, {}>", trait_ty.clone(), id.transpile(ta), asso_ty.transpile(ta)));
             }
         }
         if conds.len() == 0 {
@@ -125,8 +135,8 @@ fn parse_associated_type_specifiers(s: &str) -> IResult<&str, Vec<(AssociatedTyp
     Ok((s, res))
 }
 
-fn parse_has_trait_element(s: &str) -> IResult<&str, (TypeSpec, usize, TraitId, Vec<(AssociatedTypeIdentifier, TypeSpec)>)> {
-    let (s, (spec, _, _, _, tr_id, _, assos)) = tuple((parse_type_spec, multispace0, char(':'), multispace0, parse_trait_id, multispace0, parse_associated_type_specifiers))(s)?;
+fn parse_has_trait_element(s: &str) -> IResult<&str, (TypeSpec, usize, TraitSpec, Vec<(AssociatedTypeIdentifier, TypeSpec)>)> {
+    let (s, (spec, _, _, _, tr_id, _, assos)) = tuple((parse_type_spec, multispace0, char(':'), multispace0, parse_trait_spec, multispace0, parse_associated_type_specifiers))(s)?;
     let dep = spec.associated_type_depth();
     Ok((s, (spec, dep, tr_id, assos)))
 }
