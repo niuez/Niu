@@ -57,7 +57,10 @@ impl TypeSign {
             _ => {
                 if self.id == TypeId::from_str("Self") {
                     if self.gens.len() == 0 {
-                        equs.get_self_type()
+                       let self_type = equs.get_self_type()?;
+                       let alpha = self.id.id.generate_type_variable("SelfId", 0, equs);
+                       equs.add_equation(self_type.clone(), alpha);
+                       Ok(self_type)
                     }
                     else {
                         Err(format!("Self cant have generics arg"))
@@ -148,12 +151,12 @@ impl Transpile for TypeSign {
             else {
                 format!("")
             };
-            /* let ty = if self.id == TypeId::from_str("Self") {
-               ta.annotation(self.id.id.get_tag_number(), 0).transpile(ta)
-               } else {
-
-               }; */
-            format!("{}{}", self.id.transpile(ta), gens_trans)
+            let ty = if self.id == TypeId::from_str("Self") {
+                ta.annotation(self.id.id.get_tag_number(), "SelfId", 0).transpile(ta)
+            } else {
+                self.id.transpile(ta)
+            };
+            format!("{}{}", ty, gens_trans)
         }
     }
 }
