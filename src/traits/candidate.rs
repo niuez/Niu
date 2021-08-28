@@ -156,7 +156,9 @@ impl ImplDefinition {
     pub fn transpile_functions(&self, ta: &TypeAnnotation) -> String {
         let generics = self.generics.iter().map(|id| format!("class {}", id.transpile(ta))).collect::<Vec<_>>().join(", ");
         let templates = if generics == "" { format!("") } else { format!("template<{}> ", generics) };
-        let class_str = format!("{}<{}>::", self.trait_spec.trait_id.transpile(ta), self.impl_ty.transpile(ta));
+        let generics_param = std::iter::once(self.impl_ty.transpile(ta)).chain(self.trait_spec.generics.iter().map(|g| g.transpile(ta)))
+            .collect::<Vec<_>>().join(", ");
+        let class_str = format!("{}<{}>::", self.trait_spec.trait_id.transpile(ta), generics_param);
         let require_methods = self.require_methods.iter().map(|(_, def)| {
             format!("{}{}", templates, def.transpile_for_impl(ta, &class_str, false))
         }).collect::<Vec<_>>().join("\n");
@@ -169,10 +171,10 @@ fn parse_generics_args(s: &str) -> IResult<&str, Vec<TypeId>> {
     Ok((s, op.map(|(_, _, _, res, _, _)| res).unwrap_or(Vec::new())))
 }
 
-fn parse_generics_params(s: &str) -> IResult<&str, Vec<TypeSpec>> {
+/*fn parse_generics_params(s: &str) -> IResult<&str, Vec<TypeSpec>> {
     let (s, op) = opt(tuple((multispace0, char('<'), multispace0, separated_list0(tuple((multispace0, char(','), multispace0)), parse_type_spec), multispace0, char('>'))))(s)?;
     Ok((s, op.map(|(_, _, _, res, _, _)| res).unwrap_or(Vec::new())))
-}
+}*/
 
 pub fn parse_impl_definition(s: &str) -> IResult<&str, ImplDefinition> {
     let (s, (_, generics, _, trait_spec, _, _, _, impl_ty, _, where_sec, _, _, _, many_types, many_methods, _, _)) = 
@@ -194,11 +196,13 @@ impl Transpile for ImplDefinition {
         let generics = self.generics.iter().map(|id| format!("class {}", id.transpile(ta))).collect::<Vec<_>>().join(", ");
         let where_str = self.where_sec.transpile(ta);
         let templates = format!("template<{}> ", generics);
+        let generics_param = std::iter::once(self.impl_ty.transpile(ta)).chain(self.trait_spec.generics.iter().map(|g| g.transpile(ta)))
+            .collect::<Vec<_>>().join(", ");
         let impl_def = if where_str == "" {
-            format!("{}struct {}<{}, void>: std::true_type", templates, self.trait_spec.trait_id.transpile(ta), self.impl_ty.transpile(ta))
+            format!("{}struct {}<{}, void>: std::true_type", templates, self.trait_spec.trait_id.transpile(ta), generics_param.clone())
         }
         else {
-            format!("{}struct {}<{}, {}>: std::true_type", templates, self.trait_spec.trait_id.transpile(ta), self.impl_ty.transpile(ta), where_str)
+            format!("{}struct {}<{}, {}>: std::true_type", templates, self.trait_spec.trait_id.transpile(ta), generics_param.clone(), where_str)
         };
         let asso_defs = self.asso_defs.iter().map(|(id, spec)| {
             format!("using {} = {};\n", id.transpile(ta), spec.transpile(ta))
@@ -245,8 +249,8 @@ impl ImplCandidate {
 
         let self_trait_gen = self.trait_spec.generate_trait_generics(&mut equs, trs, &gen_mp).unwrap();
         if let Some(ref trait_gen) = call_eq.trait_gen {
-            for (self_g, right_g) in self_trait_gen.generics.into_iter().zip(trait_gen.generics.iter()) {
-                equs.add_equation(self_g, right_g.clone());
+            for (self_g, right_g) in self_trait_gen.generics.iter().zip(trait_gen.generics.iter()) {
+                equs.add_equation(self_g.clone(), right_g.clone());
             }
         }
 
@@ -265,7 +269,12 @@ impl ImplCandidate {
                         let tag = Tag::new();
                         let alpha = tag.generate_type_variable("SelfType", 0, &mut equs);
                         equs.add_equation(alpha, self_type.clone());
-                        FuncTypeInfo::TraitFunc(self.trait_spec.trait_id.clone(), tag)
+                        let generics_cnt = self_trait_gen.generics.len();
+                        for (i, g) in self_trait_gen.generics.into_iter().enumerate() {
+                            let beta = tag.generate_type_variable("TraitGenerics", i, &mut equs);
+                            equs.add_equation(beta, g);
+                        }
+                        FuncTypeInfo::TraitFunc(self.trait_spec.trait_id.clone(), generics_cnt, tag)
                     }
                     info => info,
                 };
@@ -330,7 +339,13 @@ impl ImplCandidate {
                 let tag = Tag::new();
                 let alpha = tag.generate_type_variable("SelfType", 0, equs);
                 equs.add_equation(alpha, ty.clone());
-                Type::Func(args, ret, FuncTypeInfo::TraitFunc(self.trait_spec.trait_id.clone(), tag))
+                let self_trait_gen = self.trait_spec.generate_trait_generics(equs, trs, &gen_mp).unwrap();
+                let generics_cnt = self_trait_gen.generics.len();
+                for (i, g) in self_trait_gen.generics.into_iter().enumerate() {
+                    let beta = tag.generate_type_variable("TraitGenerics", i, equs);
+                    equs.add_equation(beta, g);
+                }
+                Type::Func(args, ret, FuncTypeInfo::TraitFunc(self.trait_spec.trait_id.clone(), generics_cnt, tag))
             }
             func_ty => func_ty
         };
@@ -347,16 +362,16 @@ impl ImplCandidate {
 #[derive(Debug, Clone)]
 pub struct ParamCandidate {
     pub trait_gen: TraitGenerics,
-    pub generics_arg: Vec<TypeId>,
+    pub trait_generics_arg: Vec<TypeId>,
     pub impl_ty: Type,
     pub asso_defs: HashMap<AssociatedTypeIdentifier, Type>,
     pub require_methods: HashMap<TraitMethodIdentifier, FuncDefinitionInfo>,
 }
 
 impl ParamCandidate {
-    pub fn new(trait_gen: TraitGenerics, generics_arg: Vec<TypeId>, impl_ty: Type, asso_defs: HashMap<AssociatedTypeIdentifier, Type>, require_methods: HashMap<TraitMethodIdentifier, FuncDefinitionInfo>) -> SelectionCandidate {
+    pub fn new(trait_gen: TraitGenerics, trait_generics_arg: Vec<TypeId>, impl_ty: Type, asso_defs: HashMap<AssociatedTypeIdentifier, Type>, require_methods: HashMap<TraitMethodIdentifier, FuncDefinitionInfo>) -> SelectionCandidate {
         SelectionCandidate::ParamCandidate(ParamCandidate {
-            trait_gen, generics_arg, impl_ty, asso_defs, require_methods,
+            trait_gen, trait_generics_arg, impl_ty, asso_defs, require_methods,
         })
     }
     pub fn generate_equations_for_call_equation(&self, call_eq: &CallEquation, trs: &TraitsInfo) -> Result<TypeEquations, String> {
@@ -366,7 +381,7 @@ impl ParamCandidate {
             }
         }
         let empty_gen_mp = GenericsTypeMap::empty();
-        let gen_mp = self.generics_arg.iter().cloned().zip(self.trait_gen.generics.iter().cloned()).collect::<HashMap<_, _>>();
+        let gen_mp = self.trait_generics_arg.iter().cloned().zip(self.trait_gen.generics.iter().cloned()).collect::<HashMap<_, _>>();
         let gen_mp = empty_gen_mp.next(gen_mp);
         let mut equs = TypeEquations::new();
         let self_type = call_eq.tag.generate_type_variable("SelfType", 0, &mut equs);
@@ -395,7 +410,12 @@ impl ParamCandidate {
                         let tag = Tag::new();
                         let alpha = tag.generate_type_variable("SelfType", 0, &mut equs);
                         equs.add_equation(alpha, self_type.clone());
-                        FuncTypeInfo::TraitFunc(self.trait_gen.trait_id.clone(), tag)
+                        let generics_cnt = self.trait_gen.generics.len();
+                        for (i, g) in self.trait_gen.generics.iter().enumerate() {
+                            let beta = tag.generate_type_variable("TraitGenerics", i, &mut equs);
+                            equs.add_equation(beta, g.clone());
+                        }
+                        FuncTypeInfo::TraitFunc(self.trait_gen.trait_id.clone(), generics_cnt, tag)
                     }
                     info => info,
                 };
@@ -437,7 +457,12 @@ impl ParamCandidate {
                 let tag = Tag::new();
                 let alpha = tag.generate_type_variable("SelfType", 0, equs);
                 equs.add_equation(alpha, ty.clone());
-                Type::Func(args, ret, FuncTypeInfo::TraitFunc(self.trait_gen.trait_id.clone(), tag))
+                let generics_cnt = self.trait_gen.generics.len();
+                for (i, g) in self.trait_gen.generics.iter().enumerate() {
+                    let beta = tag.generate_type_variable("TraitGenerics", i, equs);
+                    equs.add_equation(beta, g.clone());
+                }
+                Type::Func(args, ret, FuncTypeInfo::TraitFunc(self.trait_gen.trait_id.clone(), generics_cnt, tag))
             }
             func_ty => func_ty
         };

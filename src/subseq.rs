@@ -108,11 +108,13 @@ pub fn subseq_transpile(uexpr: &UnaryExpr, subseq: &Subseq, ta: &TypeAnnotation)
                 //if let Type::Func(_, _, Some((trait_id, ty))) = ty {
                 if let Type::Func(_, _, info) = ty {
                     match info {
-                        FuncTypeInfo::TraitFunc(trait_id, tag) => {
+                        FuncTypeInfo::TraitFunc(trait_id, generics_cnt, tag) => {
                             let args = call.args.iter().map(|arg| arg.transpile(ta));
                             let args = std::iter::once(caller_trans).chain(args).collect::<Vec<_>>().join(", ");
-                            let ty = ta.annotation(tag.get_num(), "SelfType", 0);
-                            format!("{}<{}>::{}({})", trait_id.transpile(ta), ty.transpile(ta), mem.mem_id.into_string(), args)
+                            let ty = std::iter::once(ta.annotation(tag.get_num(), "SelfType", 0)).chain(
+                                (0..generics_cnt).map(|i| ta.annotation(tag.get_num(), "TraitGenerics", i)))
+                                .map(|t| t.transpile(ta)).collect::<Vec<_>>().join(", ");
+                            format!("{}<{}>::{}({})", trait_id.transpile(ta), ty, mem.mem_id.into_string(), args)
                         }
                         FuncTypeInfo::SelfFunc(tag) => {
                             let ty = ta.annotation(tag.get_num(), "SelfType", 0).transpile(ta);
@@ -140,11 +142,13 @@ pub fn subseq_transpile(uexpr: &UnaryExpr, subseq: &Subseq, ta: &TypeAnnotation)
                 //if let Type::Func(_, _, Some((trait_id, ty))) = ty {
                 if let Type::Func(_, _, info) = ty {
                     match info {
-                        FuncTypeInfo::TraitFunc(trait_id, tag) => {
+                        FuncTypeInfo::TraitFunc(trait_id, generics_cnt, tag) => {
                             let args = call.args.iter().map(|arg| arg.transpile(ta));
                             let args = args.collect::<Vec<_>>().join(", ");
-                            let ty = ta.annotation(tag.get_num(), "SelfType", 0);
-                            format!("{}<{}>::{}({})", trait_id.transpile(ta), ty.transpile(ta), method_id.into_string(), args)
+                            let ty = std::iter::once(ta.annotation(tag.get_num(), "SelfType", 0)).chain(
+                                (0..generics_cnt).map(|i| ta.annotation(tag.get_num(), "TraitGenerics", i)))
+                                .map(|t| t.transpile(ta)).collect::<Vec<_>>().join(", ");
+                            format!("{}<{}>::{}({})", trait_id.transpile(ta), ty, method_id.into_string(), args)
                         }
                         FuncTypeInfo::SelfFunc(tag) => {
                             let ty = ta.annotation(tag.get_num(), "SelfType", 0).transpile(ta);

@@ -295,7 +295,9 @@ impl Transpile for TypeSpec {
                 format!("{}*", spec.transpile(ta))
             }
             TypeSpec::Associated(ref spec, AssociatedType { ref trait_spec, ref type_id } ) => {
-                format!("typename {}<{}>::{}", trait_spec.trait_id.transpile(ta), spec.transpile(ta), type_id.transpile(ta))
+                let generics = std::iter::once(spec.transpile(ta)).chain(trait_spec.generics.iter().map(|g| g.transpile(ta)))
+                    .collect::<Vec<_>>().join(", ");
+                format!("typename {}<{}>::{}", trait_spec.trait_id.transpile(ta), generics, type_id.transpile(ta))
             }
         }
                 

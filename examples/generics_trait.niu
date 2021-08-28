@@ -5,7 +5,7 @@ trait Add<Arg> {
 
 impl Add<u64> for u64 {
   type Output = u64;
-  fn add(self: u64, arg: u64) -> Self#Add<u64>::Output {
+  fn add(self: u64, arg: u64) -> u64#Add<u64>::Output {
     self + arg
   }
 }

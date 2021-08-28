@@ -79,7 +79,8 @@ impl WhereSection {
     pub fn transpile(&self, ta: &TypeAnnotation) -> String {
         let mut conds = Vec::new();
         for (ty, _, tr, assos) in self.has_traits.iter() {
-            let trait_ty = format!("{}<{}>", tr.trait_id.transpile(ta), ty.transpile(ta));
+            let generics = std::iter::once(ty.transpile(ta)).chain(tr.generics.iter().map(|g| g.transpile(ta))).collect::<Vec<_>>().join(", ");
+            let trait_ty = format!("{}<{}>", tr.trait_id.transpile(ta), generics);
             conds.push(trait_ty.clone());
             for (id, asso_ty) in assos.iter() {
                 conds.push(format!("std::is_same<typename {}::{}, {}>", trait_ty.clone(), id.transpile(ta), asso_ty.transpile(ta)));

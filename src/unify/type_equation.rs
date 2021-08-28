@@ -42,7 +42,7 @@ impl CppInlineInfo {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum FuncTypeInfo {
-    TraitFunc(TraitId, Tag),
+    TraitFunc(TraitId, usize, Tag),
     SelfFunc(Tag),
     CppInline(CppInlineInfo, Vec<Identifier>),
     None,
