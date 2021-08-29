@@ -86,7 +86,7 @@ impl FuncDefinitionInfo {
             Type::Func(self_args, Box::new(self_return_type), FuncTypeInfo::None),
             Type::Func(right_args, Box::new(right_return_type), FuncTypeInfo::None)
             );
-        log::debug!("function {:?} and {:?} are equal unify", self.func_id, right.func_id);
+        log::info!("function {:?} and {:?} are equal unify", self.func_id, right.func_id);
         equs.unify(&mut trs).map_err(|err| err.to_string())?;
         Ok(())
     }
@@ -167,7 +167,7 @@ impl FuncDefinition {
             let return_t = self.return_type.generics_to_type(&GenericsTypeMap::empty(), equs, &trs)?;
             equs.add_equation(result_type, return_t);
 
-            log::debug!("function {:?} unify", self.func_id);
+            log::info!("function {:?} unify", self.func_id);
             //equs.debug();
             let result = equs.unify(&mut trs);
 

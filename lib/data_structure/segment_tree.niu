@@ -1,4 +1,7 @@
 import "std/vec.niu"
+import "std/u64.niu"
+import "std/i64.niu"
+
 trait Monoid {
   fn ide() -> Self;
   fn ope(self: &Self, right: &Self) -> Self;
@@ -18,22 +21,22 @@ struct SegmentTree<T> where T: Monoid {
     for(n = 1; n < arr.len(); n = n * 2) {};
     let mut node = Vec::init(2 * n, T#Monoid::ide());
     for(let mut i = 0; i < arr.len(); i = i + 1) {
-      *node.index_mut(i + n) = *arr.index(i);
+      node[i + n] = arr[i];
     };
     for(let mut i = n - 1; i >= 1; i = i - 1) {
-      *node.index_mut(i) = node.index(i * 2).ope(node.index(i * 2 + 1));
+      node[i] = node[i * 2].ope(&node[i * 2 + 1]);
     };
     SegmentTree { node: node, n: n, }
   }
 
   fn get(self: &Self, i: u64) -> &T {
-    self.node.index(i + self.n)
+    &self.node[i + self.n]
   }
 
   fn update(self: &mut Self, p: u64, x: T) -> void {
-    *self.node.index_mut(p + self.n) = x;
+    self.node[p + self.n] = x;
     for(let mut i = (p + self.n) / 2; i >= 1; i = i / 2) {
-      *self.node.index_mut(i) = self.node.index(i * 2).ope(self.node.index(i * 2 + 1));
+      self.node[i] = self.node[i * 2].ope(&self.node[i * 2 + 1]);
     };
   }
 
@@ -43,12 +46,12 @@ struct SegmentTree<T> where T: Monoid {
     let mut i = l + self.n;
     for(let mut j = r + self.n; i < j; j = j >> 1) {
       if (i & 1) == 1 {
-        lx = lx.ope(self.node.index(i));
+        lx = lx.ope(&self.node[i]);
         i = i + 1;
       } else {};
       if (j & 1) == 1 {
         j = j - 1;
-        rx = self.node.index(j).ope(&rx);
+        rx = self.node[j].ope(&rx);
       } else {};
       i = i >> 1;
     };

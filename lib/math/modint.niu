@@ -1,0 +1,27 @@
+import "std/u64.niu"
+import "std/opes.niu"
+
+trait Mod {
+  fn m() -> u64;
+}
+
+struct M9982 {} {}
+
+impl Mod for M9982 {
+  fn m() -> u64 { 998244353 }
+}
+
+struct Modint<M> where M: Mod {
+  a: u64
+} {
+  fn init(a: u64) -> Self {
+    Modint { a: a }
+  }
+}
+
+impl<M> Add<Modint<M>> for Modint<M> where M: Mod {
+  type Output = Self;
+  fn add(self: Self, right: Self) -> Self {
+    Modint { a: (self.a + right.a) % M::m() }
+  }
+}

@@ -82,7 +82,7 @@ pub fn subseq_gen_type(uexpr: &UnaryExpr, subseq: &Subseq, equs: &mut TypeEquati
             let arg1 = index.arg.as_ref().gen_type(equs, trs)?;
             Ok(Type::Deref(Box::new(
                         Type::CallEquation(CallEquation {
-                            caller_type: Some(Box::new(caller)),
+                            caller_type: None,
                             trait_gen: Some(TraitGenerics { trait_id: TraitId { id: Identifier::from_str("Index") }, generics: Vec::new() }),
                             func_id: Identifier::from_str("index"),
                             args: vec![arg0, arg1],
