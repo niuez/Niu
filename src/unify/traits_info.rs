@@ -486,7 +486,7 @@ impl<'a> TraitsInfo<'a> {
             let vs = self.generate_call_equations_for_trait(&t, call_eq, self);
             let mut vs = vs.into_iter().filter_map(|(mut equs, cand, pri)| {
                 //log::debug!("{:?}", equs);
-                match dbg!(equs.unify(self)) {
+                match equs.unify(self) {
                     Ok(_) => Some((equs, cand, pri)),
                     Err(UnifyErr::Deficiency(_)) => Some((equs, cand, pri)),
                     Err(UnifyErr::Contradiction(_)) => None
