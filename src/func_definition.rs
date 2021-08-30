@@ -346,17 +346,17 @@ pub fn parse_func_definition(s: &str) -> IResult<&str, FuncDefinition> {
 
 #[test]
 fn parse_func_definition_test() {
-    log::debug!("{:?}", parse_func_definition("fn func(x: i64) -> i64 { let y = x * x; y + x }"));
-    log::debug!("{:?}", parse_func_definition("fn func2<t>(x: t) -> t { x }"));
-    log::debug!("{:?}", parse_func_definition("fn func3<x, y, z>(x: x) -> z { x }"));
+    log::debug!("{:?}", parse_func_definition("fn func(x: i64) -> i64 { let y = x * x; y + x }").ok());
+    log::debug!("{:?}", parse_func_definition("fn func2<t>(x: t) -> t { x }").ok());
+    log::debug!("{:?}", parse_func_definition("fn func3<x, y, z>(x: x) -> z { x }").ok());
 }
 #[test]
 fn parse_func_definition2_test() {
-    log::debug!("{:?}", parse_func_definition("fn func2<t>(x: t) -> t where t: MyTraits{ x }"));
-    log::debug!("{:?}", parse_func_definition_info("fn nest_out<T>(t: T) -> T#MyTrait::Output#MyTrait::Output where T: MyTrait, T#MyTrait::Output: MyTrait"));
+    log::debug!("{:?}", parse_func_definition("fn func2<t>(x: t) -> t where t: MyTraits{ x }").ok());
+    log::debug!("{:?}", parse_func_definition_info("fn nest_out<T>(t: T) -> T#MyTrait::Output#MyTrait::Output where T: MyTrait, T#MyTrait::Output: MyTrait").ok());
 }
 
 #[test]
 fn parse_func_cppinline_test() {
-    log::debug!("{:?}", parse_func_definition("fn push_back(self: Self, t: T) -> bool $${ $arg(self).push_back($arg(t)) }$$"));
+    log::debug!("{:?}", parse_func_definition("fn push_back(self: Self, t: T) -> bool $${ $arg(self).push_back($arg(t)) }$$").ok());
 }

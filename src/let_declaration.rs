@@ -61,6 +61,6 @@ pub fn parse_let_declaration(s: &str) -> IResult<&str, LetDeclaration> {
 
 #[test]
 fn parse_decl_test() {
-    log::debug!("{:?}", parse_let_declaration("let x = 1 + 2"));
-    log::debug!("{:?}", parse_let_declaration("let x: i64 = 1 + 2"));
+    log::debug!("{:?}", parse_let_declaration("let x = 1 + 2").ok());
+    log::debug!("{:?}", parse_let_declaration("let x: i64 = 1 + 2").ok());
 }

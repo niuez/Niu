@@ -77,11 +77,11 @@ impl StructDefinition {
     pub fn transpile_definition(&self, ta: &TypeAnnotation) -> String {
         match self.member_def.member {
             StructMember::MemberInfo(MemberInfo { .. }) => {
-                let template = if self.member_def.generics.len() > 0 {
-                    format!("template <{}> ",
-                            self.member_def.generics.iter().map(|gen| format!("class {}", gen.transpile(ta)))
-                            .chain(std::iter::once(format!("class = void"))).collect::<Vec<_>>().join(", ")
-                            )
+                let generics = self.member_def.generics.iter().map(|gen| format!("class {}", gen.transpile(ta)))
+                    .chain(if self.member_def.where_sec.is_empty() { None } else { Some(format!("class = void"))})
+                    .collect::<Vec<_>>();
+                let template = if generics.len() > 0 {
+                    format!("template <{}> ", generics.join(", "))
                 }
                 else {
                     format!("")
@@ -101,31 +101,48 @@ impl StructDefinition {
                 else {
                     format!("")
                 };
-                let impl_type = format!("{}<{}>", self.member_def.struct_id.transpile(ta),
-                    self.member_def.generics.iter().map(|gen| format!("{}", gen.transpile(ta)))
-                        .chain(std::iter::once(self.member_def.where_sec.transpile(ta))).collect::<Vec<_>>().join(", "));
+                let generics = self.member_def.generics.iter().map(|gen| format!("{}", gen.transpile(ta)))
+                    .chain(if self.member_def.where_sec.is_empty() {
+                        None
+                    } else {
+                        Some(self.member_def.where_sec.transpile(ta))
+                    }).collect::<Vec<_>>();
+                let impl_type = if !self.member_def.where_sec.is_empty() {
+                    format!("{}<{}>", self.member_def.struct_id.transpile(ta),generics.join(", "))
+                }
+                else {
+                    format!("{}", self.member_def.struct_id.transpile(ta))
+                };
                 let self_type_generics = if self.member_def.generics.len() > 0 {
                     format!("<{}>", self.member_def.generics.iter().map(|gen| format!("{}", gen.transpile(ta))).collect::<Vec<_>>().join(", "))
                 }
                 else {
                     format!("")
                 };
-                let self_type = format!("using Self = {}{};", self.member_def.struct_id.transpile(ta), self_type_generics);
+                let self_type = format!("{}{}", self.member_def.struct_id.transpile(ta), self_type_generics);
                 let members_str = members_order.iter().map(|mem| members.get_key_value(mem).unwrap()).map(|(mem, ty)| format!("{} {};", ty.transpile(ta), mem.into_string())).collect::<Vec<_>>().join("\n");
-                let constructor = format!("{}({}):{} {{ }}",
+                let constructor_member_init = 
+                    members_order.iter().map(|mem| members.get_key_value(mem).unwrap())
+                        .map(|(mem, _)| format!("{}({})", mem.into_string(), mem.into_string())).collect::<Vec<_>>().join(", ");
+                let constructor_member_init = if constructor_member_init.is_empty() {
+                    format!("")
+                }
+                else {
+                    format!(":{}", constructor_member_init)
+                };
+                let constructor = format!("{}({}){} {{ }}",
                     self.member_def.struct_id.transpile(ta),
                     members_order.iter().map(|mem| members.get_key_value(mem).unwrap())
                         .map(|(mem, ty)| format!("{} {}", ty.transpile(ta), mem.into_string())).collect::<Vec<_>>().join(", "),
-                    members_order.iter().map(|mem| members.get_key_value(mem).unwrap())
-                        .map(|(mem, _)| format!("{}({})", mem.into_string(), mem.into_string())).collect::<Vec<_>>().join(", ")
+                    constructor_member_init
                 );
                 let methods = self.impl_self.require_methods.iter().map(|(_, func)| format!("{}", func.transpile(ta, true))).collect::<Vec<_>>().join("\n");
                 let operators = opes.into_iter().map(|ope| match ope.as_str() {
                     "Index" => {
-                        format!("typename std::enable_if<Index<Self>::value, const typename Index<Self>::Output&>::type operator[](typename Index<Self>::Arg k) const {{ return *Index<Self>::index(this, k); }}\n")
+                        format!("typename std::enable_if<Index<{0}>::value, const typename Index<{0}>::Output&>::type operator[](typename Index<{0}>::Arg k) const {{ return *Index<{0}>::index(this, k); }}\n", self_type)
                     }
                     "IndexMut" => {
-                        format!("typename std::enable_if<IndexMut<Self>::value, typename Index<Self>::Output&>::type operator[](typename Index<Self>::Arg k) {{ return *IndexMut<Self>::index_mut(this, k); }}\n")
+                        format!("typename std::enable_if<IndexMut<{0}>::value, typename Index<{0}>::Output&>::type operator[](typename Index<{0}>::Arg k) {{ return *IndexMut<{0}>::index_mut(this, k); }}\n", self_type)
                     }
                     /* bin_ope if binary_operators.contains_key(bin_ope) => {
                         let method = binary_operators[&bin_ope];
@@ -134,7 +151,7 @@ impl StructDefinition {
                     _ => "".to_string(),
                 }).collect::<Vec<_>>().join("");
 
-                format!("{}struct {} {{\n{}\n{}\n{}\n{}{}}} ;\n", template, impl_type, self_type, members_str, constructor, methods, operators)
+                format!("{}struct {} {{\n{}\n{}\n{}{}}} ;\n", template, impl_type, members_str, constructor, methods, operators)
             }
             _ => format!(""),
         }
@@ -237,12 +254,12 @@ pub fn parse_struct_definition(s: &str) -> IResult<&str, StructDefinition> {
 
 #[test]
 fn parse_struct_definition_test() {
-    log::debug!("{:?}", parse_struct_definition("struct MyStruct { a: i64, b: u64, }"));
+    log::debug!("{:?}", parse_struct_definition("struct MyStruct { a: i64, b: u64, }").ok());
 }
 
 #[test]
 fn parse_struct_definition2_test() {
-    log::debug!("{:?}", parse_struct_definition("struct MyStruct<S, T> { a: S, b: T }"));
+    log::debug!("{:?}", parse_struct_definition("struct MyStruct<S, T> { a: S, b: T }").ok());
 }
 
 /*#[test]

@@ -168,5 +168,5 @@ pub fn parse_trait_definition(s: &str) -> IResult<&str, TraitDefinition> {
 
 #[test]
 fn parse_trait_definition_test() {
-    log::debug!("{:?}", parse_trait_definition("trait MyTrait { type Output; type Input; }"));
+    log::debug!("{:?}", parse_trait_definition("trait MyTrait { type Output; type Input; }").ok());
 }

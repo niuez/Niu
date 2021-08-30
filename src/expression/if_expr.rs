@@ -92,5 +92,5 @@ pub fn parse_if_expr(s: &str) -> IResult<&str, Expression> {
 
 #[test]
 fn parse_if_expr_test() {
-    println!("{:?}", parse_if_expr("if a == b { c } else { d }"));
+    println!("{:?}", parse_if_expr("if a == b { c } else { d }").ok());
 }

@@ -246,7 +246,7 @@ impl Transpile for ImplDefinition {
                     let def_str = def.transpile_definition_only(ta, "", true);
                     format!("{};", def_str)
                 }).collect::<Vec<_>>().join("\n");
-                format!("{} {{\nusing Self = {};\n{}\n{}\n}};\n", impl_def, self.impl_ty.transpile(ta), asso_defs, require_methods)
+                format!("{} {{\n{}\n{}\n}};\n", impl_def, asso_defs, require_methods)
             }
             Some((func, _)) => {
                 if let FuncBlock::CppInline(_) = self.require_methods[&TraitMethodIdentifier { id: Identifier::from_str(func) }].block {
