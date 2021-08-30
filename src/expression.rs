@@ -539,6 +539,7 @@ impl ParseExpression for ExpBitAnd {
 impl ParseOperator for OperatorBitAnd {
     fn parse_operator(s: &str) -> IResult<&str, Self> {
         let (s, _) = char('&')(s)?;
+        let (_, _) = none_of("&")(s)?;
         Ok((s, OperatorBitAnd()))
     }
 }
