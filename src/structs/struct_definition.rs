@@ -77,11 +77,11 @@ impl StructDefinition {
     pub fn transpile_definition(&self, ta: &TypeAnnotation) -> String {
         match self.member_def.member {
             StructMember::MemberInfo(MemberInfo { .. }) => {
-                let template = if self.member_def.generics.len() > 0 {
-                    format!("template <{}> ",
-                            self.member_def.generics.iter().map(|gen| format!("class {}", gen.transpile(ta)))
-                            .chain(std::iter::once(format!("class = void"))).collect::<Vec<_>>().join(", ")
-                            )
+                let generics = self.member_def.generics.iter().map(|gen| format!("class {}", gen.transpile(ta)))
+                    .chain(if self.member_def.where_sec.is_empty() { None } else { Some(format!("class = void"))})
+                    .collect::<Vec<_>>();
+                let template = if generics.len() > 0 {
+                    format!("template <{}> ", generics.join(", "))
                 }
                 else {
                     format!("")
@@ -101,9 +101,18 @@ impl StructDefinition {
                 else {
                     format!("")
                 };
-                let impl_type = format!("{}<{}>", self.member_def.struct_id.transpile(ta),
-                    self.member_def.generics.iter().map(|gen| format!("{}", gen.transpile(ta)))
-                        .chain(std::iter::once(self.member_def.where_sec.transpile(ta))).collect::<Vec<_>>().join(", "));
+                let generics = self.member_def.generics.iter().map(|gen| format!("{}", gen.transpile(ta)))
+                    .chain(if self.member_def.where_sec.is_empty() {
+                        None
+                    } else {
+                        Some(self.member_def.where_sec.transpile(ta))
+                    }).collect::<Vec<_>>();
+                let impl_type = if generics.len() > 0 {
+                    format!("{}<{}>", self.member_def.struct_id.transpile(ta),generics.join(", "))
+                }
+                else {
+                    format!("{}", self.member_def.struct_id.transpile(ta))
+                };
                 let self_type_generics = if self.member_def.generics.len() > 0 {
                     format!("<{}>", self.member_def.generics.iter().map(|gen| format!("{}", gen.transpile(ta))).collect::<Vec<_>>().join(", "))
                 }
