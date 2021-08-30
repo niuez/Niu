@@ -107,7 +107,7 @@ impl StructDefinition {
                     } else {
                         Some(self.member_def.where_sec.transpile(ta))
                     }).collect::<Vec<_>>();
-                let impl_type = if generics.len() > 0 {
+                let impl_type = if !self.member_def.where_sec.is_empty() {
                     format!("{}<{}>", self.member_def.struct_id.transpile(ta),generics.join(", "))
                 }
                 else {
