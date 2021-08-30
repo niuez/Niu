@@ -119,7 +119,7 @@ impl StructDefinition {
                 else {
                     format!("")
                 };
-                let self_type = format!("using Self = {}{};", self.member_def.struct_id.transpile(ta), self_type_generics);
+                let self_type = format!("{}{}", self.member_def.struct_id.transpile(ta), self_type_generics);
                 let members_str = members_order.iter().map(|mem| members.get_key_value(mem).unwrap()).map(|(mem, ty)| format!("{} {};", ty.transpile(ta), mem.into_string())).collect::<Vec<_>>().join("\n");
                 let constructor_member_init = 
                     members_order.iter().map(|mem| members.get_key_value(mem).unwrap())
@@ -139,10 +139,10 @@ impl StructDefinition {
                 let methods = self.impl_self.require_methods.iter().map(|(_, func)| format!("{}", func.transpile(ta, true))).collect::<Vec<_>>().join("\n");
                 let operators = opes.into_iter().map(|ope| match ope.as_str() {
                     "Index" => {
-                        format!("typename std::enable_if<Index<Self>::value, const typename Index<Self>::Output&>::type operator[](typename Index<Self>::Arg k) const {{ return *Index<Self>::index(this, k); }}\n")
+                        format!("typename std::enable_if<Index<{0}>::value, const typename Index<{0}>::Output&>::type operator[](typename Index<{0}>::Arg k) const {{ return *Index<{0}>::index(this, k); }}\n", self_type)
                     }
                     "IndexMut" => {
-                        format!("typename std::enable_if<IndexMut<Self>::value, typename Index<Self>::Output&>::type operator[](typename Index<Self>::Arg k) {{ return *IndexMut<Self>::index_mut(this, k); }}\n")
+                        format!("typename std::enable_if<IndexMut<{0}>::value, typename Index<{0}>::Output&>::type operator[](typename Index<{0}>::Arg k) {{ return *IndexMut<{0}>::index_mut(this, k); }}\n", self_type)
                     }
                     /* bin_ope if binary_operators.contains_key(bin_ope) => {
                         let method = binary_operators[&bin_ope];
@@ -151,7 +151,7 @@ impl StructDefinition {
                     _ => "".to_string(),
                 }).collect::<Vec<_>>().join("");
 
-                format!("{}struct {} {{\n{}\n{}\n{}\n{}{}}} ;\n", template, impl_type, self_type, members_str, constructor, methods, operators)
+                format!("{}struct {} {{\n{}\n{}\n{}{}}} ;\n", template, impl_type, members_str, constructor, methods, operators)
             }
             _ => format!(""),
         }
