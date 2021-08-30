@@ -66,6 +66,6 @@ pub fn parse_block(s: &str) -> IResult<&str, Block> {
 
 #[test]
 fn parse_block_test() {
-    println!("{:?}", parse_block("let x = 0; let y = 91; let z = 1333; func(x * x, y, z);"));
-    println!("{:?}", parse_block("let x = 0; let y = 91; let z = 1333; func(x * x, y, z)"));
+    println!("{:?}", parse_block("let x = 0; let y = 91; let z = 1333; func(x * x, y, z);").ok());
+    println!("{:?}", parse_block("let x = 0; let y = 91; let z = 1333; func(x * x, y, z)").ok());
 }

@@ -909,39 +909,39 @@ pub fn parse_expor(s: &str) -> IResult<&str, Expression> {
 
 #[test]
 fn parse_expression_test() {
-    println!("{:?}", parse_expression("1 + 2 - 3 + 4 - 5"));
-    println!("{:?}", parse_expression("func(1 + 2, 3 - 4)"));
-    println!("{:#?}", parse_expression("1 + 2 * 3 - 4 / 5"));
-    println!("{:#?}", parse_expression("(1 + 2) * (3 - 4) / 5"));
+    println!("{:?}", parse_expression("1 + 2 - 3 + 4 - 5").ok());
+    println!("{:?}", parse_expression("func(1 + 2, 3 - 4)").ok());
+    println!("{:#?}", parse_expression("1 + 2 * 3 - 4 / 5").ok());
+    println!("{:#?}", parse_expression("(1 + 2) * (3 - 4) / 5").ok());
 }
 
 #[test]
 fn parse_bit_test() {
-    println!("{:#?}", parse_expression("1 & 2 | 3 ^ 4"));
+    println!("{:#?}", parse_expression("1 & 2 | 3 ^ 4").ok());
 }
 #[test]
 fn parse_conditions_test() {
-    println!("{:?}", parse_expression("1 == 2"));
-    println!("{:?}", parse_expression("1 != 2"));
-    println!("{:?}", parse_expression("1 < 2"));
-    println!("{:?}", parse_expression("1 > 2"));
-    println!("{:?}", parse_expression("1 <= 2"));
-    println!("{:?}", parse_expression("1 >= 2"));
+    println!("{:?}", parse_expression("1 == 2").ok());
+    println!("{:?}", parse_expression("1 != 2").ok());
+    println!("{:?}", parse_expression("1 < 2").ok());
+    println!("{:?}", parse_expression("1 > 2").ok());
+    println!("{:?}", parse_expression("1 <= 2").ok());
+    println!("{:?}", parse_expression("1 >= 2").ok());
 }
 
 #[test]
 fn parse_all_test() {
-    println!("{:?}", parse_expression("1 + 2 == 3 * 4 || 5 << 6 & 7 >> 8 != 9 | 0 ^ 1 && 2 % 3 < 4 / 5 && 6 > 7 && 8 < 9 || 0 <= 1 && 2 >= 3"));
+    println!("{:?}", parse_expression("1 + 2 == 3 * 4 || 5 << 6 & 7 >> 8 != 9 | 0 ^ 1 && 2 % 3 < 4 / 5 && 6 > 7 && 8 < 9 || 0 <= 1 && 2 >= 3").ok());
 }
 
 #[test]
 fn parse_ref_test() {
-    println!("{:?}", parse_expression("*var"));
-    println!("{:?}", parse_expression("&var"));
+    println!("{:?}", parse_expression("*var").ok());
+    println!("{:?}", parse_expression("&var").ok());
 }
 
 #[test]
 #[should_panic]
 fn parse_conditions_failure_test() {
-    println!("{:?}", parse_expression("1 == 2 == 3"));
+    println!("{:?}", parse_expression("1 == 2 == 3").ok());
 }

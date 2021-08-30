@@ -152,6 +152,6 @@ pub fn parse_where_section(s: &str) -> IResult<&str, WhereSection> {
 
 #[test]
 fn parse_where_section_test() {
-    log::debug!("{:?}", parse_where_section("where T: Add, T#Hoge::Output: Add, T#Hoge::Output=i64"));
-    log::debug!("{:?}", parse_where_section("where S: Add(Output=T)"));
+    log::debug!("{:?}", parse_where_section("where T: Add, T#Hoge::Output: Add, T#Hoge::Output=i64").ok());
+    log::debug!("{:?}", parse_where_section("where S: Add(Output=T)").ok());
 }

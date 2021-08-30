@@ -237,12 +237,12 @@ pub fn parse_struct_definition(s: &str) -> IResult<&str, StructDefinition> {
 
 #[test]
 fn parse_struct_definition_test() {
-    log::debug!("{:?}", parse_struct_definition("struct MyStruct { a: i64, b: u64, }"));
+    log::debug!("{:?}", parse_struct_definition("struct MyStruct { a: i64, b: u64, }").ok());
 }
 
 #[test]
 fn parse_struct_definition2_test() {
-    log::debug!("{:?}", parse_struct_definition("struct MyStruct<S, T> { a: S, b: T }"));
+    log::debug!("{:?}", parse_struct_definition("struct MyStruct<S, T> { a: S, b: T }").ok());
 }
 
 /*#[test]

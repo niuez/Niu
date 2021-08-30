@@ -112,6 +112,6 @@ pub fn parse_cpp_inline(s: &str) -> IResult<&str, CppInline> {
 
 #[test]
 fn parse_inline_test() {
-    println!("{:?}", parse_cpp_inline("$${$ty(Vec<T>)($arg(vec)).push_back($arg(elem))}$$"));
-    println!("{:?}", parse_cpp_inline("$${ $arg(self).push_back($arg(t)) }$$"));
+    println!("{:?}", parse_cpp_inline("$${$ty(Vec<T>)($arg(vec)).push_back($arg(elem))}$$").ok());
+    println!("{:?}", parse_cpp_inline("$${ $arg(self).push_back($arg(t)) }$$").ok());
 }

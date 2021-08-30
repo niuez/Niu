@@ -195,17 +195,17 @@ pub fn parse_unary_trait_method(ss: &str) -> IResult<&str, UnaryExpr> {
 
 #[test]
 fn parse_unary_expr_test() {
-    log::debug!("{:?}", parse_unary_expr("func(1, 2, 3)"));
-    log::debug!("{:?}", parse_unary_expr("add(1, add(2, 3), 4)"));
-    log::debug!("{:?}", parse_unary_expr("generate_func(91)(1333)"));
-    log::debug!("{:?}", parse_unary_expr("MyStruct { a: 1i64 + 2i64, b: val, }"));
-    log::debug!("{:?}", parse_unary_expr("generate_func(31 * 91, 210)(1333 / 5 * 3)"));
+    log::debug!("{:?}", parse_unary_expr("func(1, 2, 3)").ok());
+    log::debug!("{:?}", parse_unary_expr("add(1, add(2, 3), 4)").ok());
+    log::debug!("{:?}", parse_unary_expr("generate_func(91)(1333)").ok());
+    log::debug!("{:?}", parse_unary_expr("MyStruct { a: 1i64 + 2i64, b: val, }").ok());
+    log::debug!("{:?}", parse_unary_expr("generate_func(31 * 91, 210)(1333 / 5 * 3)").ok());
 }
 #[test]
 fn parse_parentheses_expr_test() {
-    log::debug!("{:?}", parse_unary_expr("(1 + 2 + 3)"));
+    log::debug!("{:?}", parse_unary_expr("(1 + 2 + 3)").ok());
 }
 #[test]
 fn parse_trait_method_test() {
-    log::debug!("{:?}", parse_unary_expr("i64#MyTrait.out"));
+    log::debug!("{:?}", parse_unary_expr("i64#MyTrait.out").ok());
 }

@@ -96,6 +96,6 @@ pub fn parse_statement(s: &str) -> IResult<&str, Statement> {
 
 #[test]
 fn parse_statement_test() {
-    log::debug!("{:?}", parse_statement("let x = 1 + 2;"));
-    log::debug!("{:?}", parse_statement("clamp(x, y, z);"));
+    log::debug!("{:?}", parse_statement("let x = 1 + 2;").ok());
+    log::debug!("{:?}", parse_statement("clamp(x, y, z);").ok());
 }
