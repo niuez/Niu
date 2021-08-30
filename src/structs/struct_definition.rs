@@ -121,12 +121,20 @@ impl StructDefinition {
                 };
                 let self_type = format!("using Self = {}{};", self.member_def.struct_id.transpile(ta), self_type_generics);
                 let members_str = members_order.iter().map(|mem| members.get_key_value(mem).unwrap()).map(|(mem, ty)| format!("{} {};", ty.transpile(ta), mem.into_string())).collect::<Vec<_>>().join("\n");
-                let constructor = format!("{}({}):{} {{ }}",
+                let constructor_member_init = 
+                    members_order.iter().map(|mem| members.get_key_value(mem).unwrap())
+                        .map(|(mem, _)| format!("{}({})", mem.into_string(), mem.into_string())).collect::<Vec<_>>().join(", ");
+                let constructor_member_init = if constructor_member_init.is_empty() {
+                    format!("")
+                }
+                else {
+                    format!(":{}", constructor_member_init)
+                };
+                let constructor = format!("{}({}){} {{ }}",
                     self.member_def.struct_id.transpile(ta),
                     members_order.iter().map(|mem| members.get_key_value(mem).unwrap())
                         .map(|(mem, ty)| format!("{} {}", ty.transpile(ta), mem.into_string())).collect::<Vec<_>>().join(", "),
-                    members_order.iter().map(|mem| members.get_key_value(mem).unwrap())
-                        .map(|(mem, _)| format!("{}({})", mem.into_string(), mem.into_string())).collect::<Vec<_>>().join(", ")
+                    constructor_member_init
                 );
                 let methods = self.impl_self.require_methods.iter().map(|(_, func)| format!("{}", func.transpile(ta, true))).collect::<Vec<_>>().join("\n");
                 let operators = opes.into_iter().map(|ope| match ope.as_str() {
