@@ -30,7 +30,7 @@ pub struct FuncDefinition {
     pub func_id: Identifier,
     pub generics: Vec<TypeId>,
     pub where_sec: WhereSection,
-    pub args: Vec<(Identifier, TypeSpec)>,
+    pub args: Vec<(Identifier, TypeSpec, bool)>,
     pub return_type: TypeSpec,
     pub block: FuncBlock,
 }
@@ -40,7 +40,7 @@ pub struct FuncDefinitionInfo {
     pub func_id: Identifier,
     pub generics: Vec<TypeId>,
     pub where_sec: WhereSection,
-    pub args: Vec<(Identifier, TypeSpec)>,
+    pub args: Vec<(Identifier, TypeSpec, bool)>,
     pub return_type: TypeSpec,
     pub inline: Option<CppInline>,
 }
@@ -54,13 +54,13 @@ impl FuncDefinitionInfo {
         }
         let mp = before_mp.next(gen_mp);
         self.where_sec.regist_equations(&mp, equs, trs)?;
-        let args = self.args.iter().map(|(_, t)| t.generics_to_type(&mp, equs, trs)).collect::<Result<Vec<Type>, String>>()?;
+        let args = self.args.iter().map(|(_, t, _)| t.generics_to_type(&mp, equs, trs)).collect::<Result<Vec<Type>, String>>()?;
         let return_type = self.return_type.generics_to_type(&mp, equs, trs)?;
 
         let type_info = match self.inline {
             None => FuncTypeInfo::None,
             Some(ref inline) => {
-                let args = self.args.iter().map(|(id, _)| id.clone()).collect();
+                let args = self.args.iter().map(|(id, _, _)| id.clone()).collect();
                 FuncTypeInfo::CppInline(inline.generate_cpp_inline_info(equs, trs, &mp)?, args)
             }
         };
@@ -78,8 +78,8 @@ impl FuncDefinitionInfo {
         for g_id in self.generics.iter() {
             trs.regist_generics_type(g_id)?;
         }
-        let self_args  =  self.args.iter().map(|(_, t)| t.generics_to_type(self_gen_map, equs, &trs)).collect::<Result<Vec<Type>, String>>()?;
-        let right_args = right.args.iter().map(|(_, t)| t.generics_to_type(right_gen_map, equs, &trs)).collect::<Result<Vec<Type>, String>>()?;
+        let self_args  =  self.args.iter().map(|(_, t, _)| t.generics_to_type(self_gen_map, equs, &trs)).collect::<Result<Vec<Type>, String>>()?;
+        let right_args = right.args.iter().map(|(_, t, _)| t.generics_to_type(right_gen_map, equs, &trs)).collect::<Result<Vec<Type>, String>>()?;
         let self_return_type = self.return_type.generics_to_type(self_gen_map, equs, &trs)?;
         let right_return_type = right.return_type.generics_to_type(right_gen_map, equs, &trs)?;
         equs.add_equation(
@@ -157,7 +157,7 @@ impl FuncDefinition {
 
             self.where_sec.regist_candidate(equs, &mut trs)?;
 
-            for (i, t) in self.args.iter() {
+            for (i, t, _) in self.args.iter() {
                 let alpha = i.generate_not_void_type_variable("ForRegist", 0, equs);
                 let t_type = t.generics_to_type(&GenericsTypeMap::empty(), equs, &trs)?; 
                 equs.regist_variable(Variable::from_identifier(i.clone()), alpha.clone());
@@ -181,8 +181,8 @@ impl FuncDefinition {
 
     pub fn mut_check(&self, ta: &TypeAnnotation, vars: &mut VariablesInfo) -> Result<(), String> {
         vars.into_scope();
-        for (id, _) in self.args.iter() {
-            vars.regist_variable(id, false);
+        for (id, _, is_mutable) in self.args.iter() {
+            vars.regist_variable(id, *is_mutable);
         }
         if let FuncBlock::Block(ref block) = self.block {
             block.mut_check(ta, vars)?;
@@ -217,8 +217,13 @@ impl FuncDefinition {
         };
         let static_str = if is_static { "static " } else { "" };
         let func_str = self.func_id.into_string();
-        let arg_str = self.args.iter().map(|(id, ty)| {
-            format!("{} {}", ty.transpile(ta), id.into_string())
+        let arg_str = self.args.iter().map(|(id, ty, is_mutable)| {
+            if *is_mutable {
+                format!("{} {}", ty.transpile(ta), id.into_string())
+            }
+            else {
+                format!("{} const {}", ty.transpile(ta), id.into_string())
+            }
         }).collect::<Vec<_>>().join(", ");
 
         format!("{}{}{} {}{}({})", template_str, static_str, return_str, class_str, func_str, arg_str)
@@ -251,8 +256,13 @@ impl FuncDefinition {
         };
         let static_str = if is_static { "static " } else { "" };
         let func_str = self.func_id.into_string();
-        let arg_str = self.args.iter().map(|(id, ty)| {
-            format!("{} {}", ty.transpile(ta), id.into_string())
+        let arg_str = self.args.iter().map(|(id, ty, is_mutable)| {
+            if *is_mutable {
+                format!("{} {}", ty.transpile(ta), id.into_string())
+            }
+            else {
+                format!("{} const {}", ty.transpile(ta), id.into_string())
+            }
         }).collect::<Vec<_>>().join(", ");
 
         format!("{}{}{} {}{}({})", template_str, static_str, return_str, class_str, func_str, arg_str)
@@ -289,11 +299,20 @@ impl FuncDefinition {
     Ok((s, (id, opt.map(|(_, _, tr)| tr))))
 }*/
 
+fn parse_mutable(s: &str) -> IResult<&str, bool> {
+    let (s, op) = opt(tuple((tag("mut"), multispace1)))(s)?;
+    let is_mutable = match op {
+        Some(_) => true,
+        None => false,
+    };
+    Ok((s, is_mutable))
+}
+
 pub fn parse_func_definition_info(s: &str) -> IResult<&str, FuncDefinitionInfo> {
     let (s, (_, _, func_id, _, generics_opt, _, _, _, op, _, _, _, _, return_type, _, where_sec)) = 
         tuple((tag("fn"), multispace1, parse_identifier, multispace0, opt(tuple((char('<'), multispace0, opt(tuple((parse_type_id, multispace0, many0(tuple((char(','), multispace0, parse_type_id, multispace0))), opt(char(',')), multispace0))), char('>'), multispace0))), multispace0,
                char('('), multispace0,
-            opt(tuple((parse_identifier, multispace0, char(':'), multispace0, parse_type_spec, multispace0, many0(tuple((char(','), multispace0, parse_identifier, multispace0, char(':'), multispace0, parse_type_spec, multispace0))), opt(char(',')), multispace0))),
+            opt(tuple((parse_mutable, parse_identifier, multispace0, char(':'), multispace0, parse_type_spec, multispace0, many0(tuple((char(','), multispace0, parse_mutable, parse_identifier, multispace0, char(':'), multispace0, parse_type_spec, multispace0))), opt(char(',')), multispace0))),
             char(')'), multispace0, tag("->"), multispace0, parse_type_spec, multispace0, parse_where_section))(s)?;
     let generics = match generics_opt {
         Some((_, _, generics_opt, _, _)) => {
@@ -311,10 +330,10 @@ pub fn parse_func_definition_info(s: &str) -> IResult<&str, FuncDefinitionInfo> 
         None => Vec::new(),
     };
     let args = match op {
-        Some((arg0, _, _, _, ty0, _, many, _, _)) => {
-            let mut args = vec![(arg0, ty0)];
-            for (_, _, arg, _, _, _, ty, _) in many {
-                args.push((arg, ty));
+        Some((is_mut0, arg0, _, _, _, ty0, _, many, _, _)) => {
+            let mut args = vec![(arg0, ty0, is_mut0)];
+            for (_, _, is_mut, arg, _, _, _, ty, _) in many {
+                args.push((arg, ty, is_mut));
             }
             args
         }
@@ -354,6 +373,11 @@ fn parse_func_definition_test() {
 fn parse_func_definition2_test() {
     log::debug!("{:?}", parse_func_definition("fn func2<t>(x: t) -> t where t: MyTraits{ x }").ok());
     log::debug!("{:?}", parse_func_definition_info("fn nest_out<T>(t: T) -> T#MyTrait::Output#MyTrait::Output where T: MyTrait, T#MyTrait::Output: MyTrait").ok());
+}
+
+#[test]
+fn parse_func_mutable_argument_test() {
+    log::debug!("{:?}", parse_func_definition("fn func(mut x: i64, mut y: u64) -> bool { false }").unwrap());
 }
 
 #[test]
