@@ -138,7 +138,7 @@ fn parse_has_trait_element(s: &str) -> IResult<&str, (TypeSpec, usize, TraitSpec
 pub fn parse_where_section(s: &str) -> IResult<&str, WhereSection> {
     let (s, op) = opt(
         tuple((
-                tag("where"), space1,
+                tag("where"), multispace1,
                 separated_list0(tuple((multispace0, char(','), multispace0)), parse_has_trait_element),
                 opt(tuple((multispace0, char(','))))
                 ))
@@ -152,6 +152,7 @@ pub fn parse_where_section(s: &str) -> IResult<&str, WhereSection> {
 
 #[test]
 fn parse_where_section_test() {
-    log::debug!("{:?}", parse_where_section("where T: Add, T#Hoge::Output: Add, T#Hoge::Output=i64").ok());
-    log::debug!("{:?}", parse_where_section("where S: Add(Output=T)").ok());
+    log::debug!("{:?}", parse_where_section("where S: Add(Output=T)").unwrap());
+    log::debug!("{:?}", parse_where_section("where S: Add<T>(Output=T)").unwrap());
+    log::debug!("{:?}", parse_where_section("where S: Add<T>(Output=T), S: Sub<T>(Output=T)").unwrap());
 }

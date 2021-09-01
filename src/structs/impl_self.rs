@@ -167,7 +167,7 @@ fn parse_generics_args(s: &str) -> IResult<&str, Vec<TypeId>> {
 pub fn parse_impl_self_definition(s: &str) -> IResult<&str, ImplSelfDefinition> {
     let (s, (_, generics, _, impl_ty, _, where_sec, _, _, _, many_methods, _, _)) = 
         tuple((tag("impl"), parse_generics_args,
-            space1, parse_type_spec,
+            multispace1, parse_type_spec,
             multispace0, parse_where_section,
             multispace0, char('{'), multispace0,
             many0(tuple((parse_func_definition, multispace0))),

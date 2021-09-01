@@ -82,9 +82,9 @@ impl MutCheck for IfExpr {
 }
 
 pub fn parse_if_expr(s: &str) -> IResult<&str, Expression> {
-    let (s, (_, _, if_cond, _, _, if_block, _, _, many, _, _, _, el_block, _, _)) = tuple((tag("if"), space1, parse_expression, multispace0, char('{'), parse_block, char('}'), multispace0,
-                        many0(tuple((tag("else"), space1, tag("if"), space1, parse_expression, multispace0, char('{'), parse_block, char('}'), multispace0))),
-                        tag("else"), space1, char('{'), parse_block, char('}'), multispace0))(s)?;
+    let (s, (_, _, if_cond, _, _, if_block, _, _, many, _, _, _, el_block, _, _)) = tuple((tag("if"), multispace1, parse_expression, multispace0, char('{'), parse_block, char('}'), multispace0,
+                        many0(tuple((tag("else"), multispace1, tag("if"), multispace1, parse_expression, multispace0, char('{'), parse_block, char('}'), multispace0))),
+                        tag("else"), multispace1, char('{'), parse_block, char('}'), multispace0))(s)?;
     let ifp = IfPair { cond: if_cond, block: if_block };
     let elifp = many.into_iter().map(|(_, _, _, _, cond, _, _, block, _, _)| IfPair { cond, block }).collect::<Vec<_>>();
     Ok((s, Expression::IfExpr(Box::new(IfExpr { ifp, elifp, el_block, tag: Tag::new(), }))))
