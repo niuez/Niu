@@ -168,7 +168,7 @@ impl FuncDefinition {
             equs.add_equation(result_type, return_t);
 
             log::info!("function {:?} unify", self.func_id);
-            //equs.debug();
+            equs.debug();
             let result = equs.unify(&mut trs);
 
             equs.out_scope();

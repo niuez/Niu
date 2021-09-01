@@ -22,20 +22,19 @@ pub use for_expr::*;
 fn expr_gen_type<'a, EI: Iterator<Item=Type>, O: 'a, OI: Iterator<Item=&'a O>, F: Fn(&O) -> (&'static str, &'static str)>
 (equs: &mut TypeEquations, mut exprs: EI, opes: OI, f: F, tag: Tag) -> TResult {
     let ty = exprs.next().unwrap();
-    let mut left = tag.generate_type_variable("Operators", 0, equs);
-    equs.add_equation(ty, left.clone());
+    let mut left = ty;
     for (cnt, (right, ope)) in exprs.zip(opes).enumerate() {
         let (tr, method) = f(ope);
         let tr = TraitId::from_str(tr);
         let method = Identifier::from_str(method);
         let next_ty = Type::CallEquation( CallEquation {
-            caller_type: Some(Box::new(left.clone())),
+            caller_type: None,
             trait_gen: Some(TraitGenerics { trait_id: tr, generics: vec![right.clone()] }),
             func_id: method,
             args: vec![left, right],
             tag: Tag::new()
         });
-        left = tag.generate_type_variable("Operators", cnt + 1, equs);
+        left = tag.generate_type_variable("Operators", cnt, equs);
         equs.add_equation(next_ty, left.clone());
     }
     Ok(left)
