@@ -1,0 +1,6 @@
+import "std/u64.niu"
+
+fn try_add(mut a: u64, b: u64) -> u64 {
+  a = a + b;
+  a
+}
