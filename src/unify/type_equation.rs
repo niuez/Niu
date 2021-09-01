@@ -310,8 +310,10 @@ impl CallEquation {
             || self.args.iter().map(|arg| arg.occurs(tv)).any(|f| f)
     }
     pub fn subst(&mut self, theta: &TypeSubst) -> SolveChange {
+        //log::info!("subst {:?}", theta);
         let mut changed = SolveChange::Not;
         changed &= self.caller_type.as_mut().map_or(SolveChange::Not, |t| t.subst(theta));
+        changed &= self.trait_gen.as_mut().map_or(SolveChange::Not, |t| t.subst(theta));
         self.args.iter_mut().map(|arg| arg.subst(theta))
             .fold(changed, |a, b| a & b)
     }
@@ -797,6 +799,7 @@ impl TypeEquations {
                     }
                 }
                 TypeEquation::Equal(left, right, before_changed) => {
+                    log::info!("\n{:?} = {:?}", left, right);
                     self.change_cnt -= before_changed.cnt();
                     let (left, left_changed) = self.solve_relations(left, trs)?;
                     let (right, right_changed) = self.solve_relations(right, trs)?;

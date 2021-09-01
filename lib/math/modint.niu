@@ -17,11 +17,48 @@ struct Modint<M> where M: Mod {
   fn init(a: u64) -> Self {
     Modint { a: a }
   }
+  fn pow(self: &Self, p: u64) -> Self {
+    let mut now = *self;
+    let mut ans = Self::init(1);
+    for(let mut exp = p; exp > 0; exp = exp >> 1) {
+      if exp & 1 == 1 {
+        ans = ans * now;
+      }
+      else {};
+      now = now * now;
+    };
+    ans
+  }
 }
 
 impl<M> Add<Modint<M>> for Modint<M> where M: Mod {
   type Output = Self;
   fn add(self: Self, right: Self) -> Self {
-    Modint { a: (self.a + right.a) % M::m() }
+    let a = self.a + right.a;
+    if a >= M::m() {
+      Modint { a: a - M::m() }
+    }
+    else {
+      Modint { a: a }
+    }
+  }
+}
+
+impl<M> Sub<Modint<M>> for Modint<M> where M: Mod {
+  type Output = Self;
+  fn sub(self: Self, right: Self) -> Self {
+    if self.a < right.a {
+      Modint { a: self.a + M::m() - right.a }
+    }
+    else {
+      Modint { a: self.a - right.a }
+    }
+  }
+}
+
+impl<M> Mul<Modint<M>> for Modint<M> where M: Mod {
+  type Output = Self;
+  fn mul(self: Self, right: Self) -> Self {
+    Modint { a: self.a * right.a % M::m() }
   }
 }

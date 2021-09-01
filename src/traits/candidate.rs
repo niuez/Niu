@@ -370,7 +370,7 @@ impl ImplCandidate {
         equs.add_equation(ty.clone(), impl_ty);
         if self.where_sec.regist_equations(&gen_mp, &mut equs, trs).is_ok() {
             //equs.debug();
-            dbg!(equs.unify(trs)).ok().map(|_| SubstsMap::new(equs.take_substs()))
+            equs.unify(trs).ok().map(|_| SubstsMap::new(equs.take_substs()))
         }
         else {
             None
@@ -501,7 +501,7 @@ impl ParamCandidate {
         equs.add_equation(self.impl_ty.clone(), alpha.clone());
         equs.add_equation(ty.clone(), alpha);
         //equs.debug();
-        dbg!(equs.unify(trs)).ok().map(|_| SubstsMap::new(equs.take_substs()))
+        equs.unify(trs).ok().map(|_| SubstsMap::new(equs.take_substs()))
     }
     pub fn get_associated_from_id(&self, _equs: &mut TypeEquations, _trs: &TraitsInfo, asso_id: &AssociatedTypeIdentifier, _subst: &SubstsMap) -> Type {
         self.asso_defs.get(asso_id).unwrap().clone()
