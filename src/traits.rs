@@ -142,10 +142,10 @@ impl Transpile for TraitDefinition {
 
 pub fn parse_trait_definition(s: &str) -> IResult<&str, TraitDefinition> {
     let (s, (_, _, trait_id, _, generics, _, where_sec, _, _, _, many_types, many_methods, _, _)) = 
-        tuple((tag("trait"), space1, parse_trait_id,
+        tuple((tag("trait"), multispace1, parse_trait_id,
             multispace0, parse_generics_args,
             multispace0, parse_where_section, multispace0, char('{'), multispace0,
-            many0(tuple((tag("type"), space1, parse_associated_type_identifier, multispace0, char(';'), multispace0))),
+            many0(tuple((tag("type"), multispace1, parse_associated_type_identifier, multispace0, char(';'), multispace0))),
             many0(tuple((parse_func_definition_info, multispace0, char(';'), multispace0))),
             multispace0, char('}')))(s)?;
     let asso_ids = many_types.into_iter().map(|(_, _, id, _, _, _)| id).collect();

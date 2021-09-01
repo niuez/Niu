@@ -29,6 +29,9 @@ struct Modint<M> where M: Mod {
     };
     ans
   }
+  fn inv(self: &Self) -> Self {
+    self.pow(M::m() - 2)
+  }
 }
 
 impl<M> Add<Modint<M>> for Modint<M> where M: Mod {
@@ -60,5 +63,12 @@ impl<M> Mul<Modint<M>> for Modint<M> where M: Mod {
   type Output = Self;
   fn mul(self: Self, right: Self) -> Self {
     Modint { a: self.a * right.a % M::m() }
+  }
+}
+
+impl<M> Div<Modint<M>> for Modint<M> where M: Mod {
+  type Output = Self;
+  fn div(self: Self, right: Self) -> Self {
+    self * right.inv()
   }
 }

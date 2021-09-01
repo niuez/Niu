@@ -228,7 +228,7 @@ fn parse_struct_cpp_inline(s: &str) -> IResult<&str, StructMember> {
 
 pub fn parse_struct_member_definition(s: &str) -> IResult<&str, StructMemberDefinition> {
     let (s, (_, _, struct_id, _, generics, _, where_sec, _, member)) =
-        tuple((tag("struct"), space1, parse_type_id, multispace0, parse_generics_annotation, multispace0, parse_where_section, multispace0, alt((parse_struct_members, parse_struct_cpp_inline))))(s)?;
+        tuple((tag("struct"), multispace1, parse_type_id, multispace0, parse_generics_annotation, multispace0, parse_where_section, multispace0, alt((parse_struct_members, parse_struct_cpp_inline))))(s)?;
     Ok((s, StructMemberDefinition { struct_id, generics, member, where_sec }))
 }
 

@@ -201,11 +201,11 @@ fn parse_generics_args(s: &str) -> IResult<&str, Vec<TypeId>> {
 pub fn parse_impl_definition(s: &str) -> IResult<&str, ImplDefinition> {
     let (s, (_, generics, _, trait_spec, _, _, _, impl_ty, _, where_sec, _, _, _, many_types, many_methods, _, _)) = 
         tuple((tag("impl"), parse_generics_args,
-            space1, parse_trait_spec,
-            space1, tag("for"), space1, parse_type_spec,
+            multispace1, parse_trait_spec,
+            multispace1, tag("for"), multispace1, parse_type_spec,
             multispace0, parse_where_section,
             multispace0, char('{'), multispace0,
-            many0(tuple((tag("type"), space1, parse_associated_type_identifier, multispace0, char('='), multispace0, parse_type_spec, multispace0, char(';'), multispace0))),
+            many0(tuple((tag("type"), multispace1, parse_associated_type_identifier, multispace0, char('='), multispace0, parse_type_spec, multispace0, char(';'), multispace0))),
             many0(tuple((parse_func_definition, multispace0))),
             multispace0, char('}')))(s)?;
     let asso_defs = many_types.into_iter().map(|(_, _, id, _, _, _, ty, _, _, _)| (id, ty)).collect();
