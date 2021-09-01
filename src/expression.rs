@@ -286,7 +286,15 @@ pub enum OperatorOrd {
 impl Transpile for ExpOrd {
     fn transpile(&self, ta: &TypeAnnotation) -> String {
         match self.ope {
-            Some(ref o) => format!("{} {} {}", self.terms[0].transpile(ta), o.transpile(ta), self.terms[1].transpile(ta)),
+            Some(ref o) => {
+                let left = self.terms[0].transpile(ta);
+                let right = self.terms[1].transpile(ta);
+                let left = if self.terms[0].has_bit_operator() { format!("({})", left) }
+                           else { left };
+                let right = if self.terms[1].has_bit_operator() { format!("({})", right) }
+                           else { right };
+                format!("{} {} {}", left, o.transpile(ta), right)
+            }
             None => self.terms[0].transpile(ta),
         }
     }
@@ -360,6 +368,12 @@ pub struct ExpBitOr {
     pub opes: Vec<OperatorBitOr>,
 }
 
+impl ExpBitOr {
+    fn has_bit_operator(&self) -> bool {
+        self.opes.len() > 0 || self.terms.iter().map(|t| t.has_bit_operator()).any(|b| b)
+    }
+}
+
 impl GenType for ExpBitOr {
     fn gen_type(&self, equs: &mut TypeEquations, trs: &TraitsInfo) -> TResult {
         let exprs = self.terms.iter().map(|e| e.gen_type(equs, trs)).collect::<Result<Vec<_>, _>>()?;
@@ -427,6 +441,12 @@ pub struct ExpBitXor {
     pub opes: Vec<OperatorBitXor>,
 }
 
+impl ExpBitXor {
+    fn has_bit_operator(&self) -> bool {
+        self.opes.len() > 0 || self.terms.iter().map(|t| t.has_bit_operator()).any(|b| b)
+    }
+}
+
 impl GenType for ExpBitXor {
     fn gen_type(&self, equs: &mut TypeEquations, trs: &TraitsInfo) -> TResult {
         let exprs = self.terms.iter().map(|e| e.gen_type(equs, trs)).collect::<Result<Vec<_>, _>>()?;
@@ -492,6 +512,13 @@ impl MutCheck for ExpBitXor {
 pub struct ExpBitAnd {
     pub terms: Vec<ExpShift>,
     pub opes: Vec<OperatorBitAnd>,
+}
+
+
+impl ExpBitAnd {
+    fn has_bit_operator(&self) -> bool {
+        self.opes.len() > 0
+    }
 }
 
 impl GenType for ExpBitAnd {
