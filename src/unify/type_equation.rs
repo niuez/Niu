@@ -327,11 +327,19 @@ impl CallEquation {
         else {
             SolveChange::Not
         };
+        let (trait_gen, trait_changed) = match self.trait_gen {
+            None => (None, SolveChange::Not),
+            Some(t) => {
+                let (t, changed) = t.solve(equs, trs)?;
+                (Some(t), changed)
+            }
+        };
+        self.trait_gen = trait_gen;
         let args = self.args.into_iter().map(|arg| equs.solve_relations(arg, trs)).collect::<Result<Vec<_>, UnifyErr>>()?;
         let args_changed = args.iter().map(|(_, c)| *c).fold(SolveChange::Not, |b, a| b & a);
         self.args = args.into_iter().map(|(a, _)| a).collect();
 
-        let next_change = caller_changed & args_changed;
+        let next_change = caller_changed & trait_changed & args_changed;
 
         match trs.regist_for_call_equtions(equs, &self) {
             Ok(ret_ty) => {
@@ -425,15 +433,17 @@ impl TypeEquations {
         }
     }
     pub fn debug(&self){
-        log::debug!("TypeEquations {{");
+        let mut debug_str = String::new();
         for equ in self.equs.iter() {
-            log::debug!("    {:?}", equ);
+            debug_str.push_str(&format!("\n{:?}", equ))
         }
+        /*
         for subst in self.substs.iter() {
-            log::debug!("     {:?}", subst);
+            log::info!("     {:?}", subst);
         }
-        log::debug!("    {:?}", self.want_solve);
-        log::debug!("}}");
+        log::info!("    {:?}", self.want_solve);
+        */
+        log::info!("{}", debug_str);
     }
     pub fn try_get_substs(&self, tv: TypeVariable) -> Type {
         self.substs.iter().find(|TypeSubst { tv: tsv, t: _t }| *tsv == tv)
@@ -799,7 +809,7 @@ impl TypeEquations {
                     }
                 }
                 TypeEquation::Equal(left, right, before_changed) => {
-                    log::info!("\n{:?} = {:?}", left, right);
+                    //log::info!("\n{:?} = {:?}", left, right);
                     self.change_cnt -= before_changed.cnt();
                     let (left, left_changed) = self.solve_relations(left, trs)?;
                     let (right, right_changed) = self.solve_relations(right, trs)?;
