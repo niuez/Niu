@@ -102,6 +102,20 @@ impl SelectionCandidate {
             }
         }
     }
+
+    pub fn debug_str(&self) -> String {
+        match *self {
+            SelectionCandidate::ImplCandidate(ref cand) => {
+                cand.debug_str()
+            }
+            SelectionCandidate::ParamCandidate(ref cand) => {
+                cand.debug_str()
+            }
+            SelectionCandidate::ImplSelfCandidate(ref cand) => {
+                cand.debug_str()
+            }
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -414,6 +428,10 @@ impl ImplCandidate {
     pub fn get_trait_id(&self) -> TraitId {
         self.trait_spec.trait_id.clone()
     }
+
+    pub fn debug_str(&self) -> String {
+        format!("ImplCandidate {:?} for {:?}", self.trait_spec.trait_id, self.impl_ty)
+    }
 }
 
 
@@ -530,5 +548,9 @@ impl ParamCandidate {
 
     pub fn get_trait_id(&self) -> TraitId {
         self.trait_gen.trait_id.clone()
+    }
+
+    pub fn debug_str(&self) -> String {
+        format!("ParamCandidate {:?} for {:?}", self.trait_gen.trait_id, self.impl_ty)
     }
 }

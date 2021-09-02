@@ -106,7 +106,7 @@ impl ImplSelfCandidate {
                 };
                 equs.add_equation(alpha, Type::Func(args.clone(), ret.clone(), info));
                 if args.len() != call_eq.args.len() {
-                    return Err(format!("args len is not matched"))
+                    return Err(format!("args len is not matched {:?} != {:?}", args, call_eq.args))
                 }
                 for (l, r) in args.into_iter().zip(call_eq.args.iter()) {
                     equs.add_equation(l, r.clone())
@@ -156,6 +156,10 @@ impl ImplSelfCandidate {
         };
         equs.set_self_type(before_self_type);
         res
+    }
+
+    pub fn debug_str(&self) -> String {
+        format!("SelfImplCandidate for {:?}", self.impl_ty)
     }
 }
 
