@@ -184,7 +184,7 @@ impl ImplDefinition {
             Some((func, _)) => {
                 
                 let generics = self.generics.iter().map(|id| format!("class {}", id.transpile(ta)))
-                    .chain(std::iter::once(format!("class = {}", self.where_sec.transpile(ta))))
+                    .chain(std::iter::once(format!("class")))
                     .collect::<Vec<_>>().join(", ");
                 let templates = format!("template<{}> ", generics);
                 let require_methods = self.require_methods.iter().map(|(_, def)| {
@@ -268,7 +268,7 @@ impl Transpile for ImplDefinition {
                 }
                 else {
                     let generics = self.generics.iter().map(|id| format!("class {}", id.transpile(ta)))
-                        .chain(std::iter::once(format!("class")))
+                        .chain(std::iter::once(format!("class = {}", self.where_sec.transpile(ta))))
                         .collect::<Vec<_>>().join(", ");
                     let templates = format!("template<{}> ", generics);
                     let require_methods = self.require_methods.iter().map(|(_, def)| {
