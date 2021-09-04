@@ -16,6 +16,7 @@ use crate::mut_checker::*;
 pub enum Literal {
     U64(LiteralU64),
     I64(LiteralI64),
+    F64(LiteralF64),
     Boolean(Boolean),
 }
 
@@ -24,6 +25,7 @@ impl GenType for Literal {
         match *self {
             Literal::U64(_) => Ok(Type::from_str("u64")),
             Literal::I64(_) => Ok(Type::from_str("i64")),
+            Literal::F64(_) => Ok(Type::from_str("f64")),
             Literal::Boolean(_) => Ok(Type::from_str("bool")),
         }
     }
@@ -33,6 +35,7 @@ impl Transpile for Literal {
         match *self {
             Literal::U64(ref u) => u.transpile(ta),
             Literal::I64(ref i) => i.transpile(ta),
+            Literal::F64(ref f) => f.transpile(ta),
             Literal::Boolean(ref b) => b.transpile(ta),
         }
     }
@@ -45,7 +48,7 @@ impl MutCheck for Literal {
 }
 
 pub fn parse_literal(s: &str) -> IResult<&str, UnaryExpr> {
-    let (s, x) = alt((literal_i64, literal_u64, literal_boolean))(s)?;
+    let (s, x) = alt((literal_f64, literal_i64, literal_u64, literal_boolean))(s)?;
     Ok((s, UnaryExpr::Literal(x)))
 }
 
@@ -56,6 +59,11 @@ pub struct LiteralU64 {
 
 #[derive(Debug)]
 pub struct LiteralI64 {
+    pub number: String,
+}
+
+#[derive(Debug)]
+pub struct LiteralF64 {
     pub number: String,
 }
 
@@ -74,6 +82,12 @@ impl Transpile for LiteralU64 {
 impl Transpile for LiteralI64 {
     fn transpile(&self, _: &TypeAnnotation) -> String {
         format!("{}ll", self.number)
+    }
+}
+
+impl Transpile for LiteralF64 {
+    fn transpile(&self, _: &TypeAnnotation) -> String {
+        format!("{}", self.number)
     }
 }
 
@@ -118,6 +132,14 @@ pub fn literal_boolean(s: &str) -> IResult<&str, Literal> {
         _ => unreachable!(),
     }
 }
+
+pub fn literal_f64(s: &str) -> IResult<&str, Literal> {
+    let (s, number) = nom::number::complete::recognize_float(s)?;
+    match number.find('.') {
+        Some(_) => Ok((s, Literal::F64(LiteralF64 { number: number.to_string() }))),
+        None => Err(nom::Err::Error(nom::error::Error { input: s, code: nom::error::ErrorKind::Float }))
+    }
+}
     
 
 #[test]
@@ -136,4 +158,12 @@ fn parse_literal_i64_test() {
 fn parse_literal_boolean_test() {
     log::debug!("{:?}", parse_literal("true").ok());
     log::debug!("{:?}", parse_literal("false").ok());
+}
+
+#[test]
+fn parse_literal_f64_test() {
+    println!("{:?}", parse_literal("12.3").unwrap());
+    println!("{:?}", parse_literal("91.").unwrap());
+    println!("{:?}", parse_literal("123.e-3").unwrap());
+    println!("{:?}", parse_literal("123.").unwrap());
 }
