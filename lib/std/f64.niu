@@ -1,0 +1,18 @@
+import "opes.niu"
+
+impl Add<f64> for f64 {
+  type Output = f64;
+  fn add(a: Self, b: f64) -> f64 $${a + b}$$
+}
+impl Sub<f64> for f64 {
+  type Output = f64;
+  fn sub(a: Self, b: f64) -> f64 $${a - b}$$
+}
+impl Mul<f64> for f64 {
+  type Output = f64;
+  fn mul(a: Self, b: f64) -> f64 $${a * b}$$
+}
+impl Div<f64> for f64 {
+  type Output = f64;
+  fn div(a: Self, b: f64) -> f64 $${a / b}$$
+}
