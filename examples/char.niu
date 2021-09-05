@@ -1,0 +1,6 @@
+fn main() -> void {
+  let a = 'a';
+  let b = '\"';
+  let c = '\x7F';
+  let d = '\'';
+}
