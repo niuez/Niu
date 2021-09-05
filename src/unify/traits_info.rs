@@ -43,6 +43,7 @@ impl<'a> TraitsInfo<'a> {
                 (TypeId::from_str("i64"), StructDefinitionInfo::Primitive),
                 (TypeId::from_str("u64"), StructDefinitionInfo::Primitive),
                 (TypeId::from_str("f64"), StructDefinitionInfo::Primitive),
+                (TypeId::from_str("char"), StructDefinitionInfo::Primitive),
                 (TypeId::from_str("bool"), StructDefinitionInfo::Primitive),
                 (TypeId::from_str("void"), StructDefinitionInfo::Primitive),
                 ].into_iter().collect(),
