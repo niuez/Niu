@@ -1,0 +1,5 @@
+fn main() -> void {
+  let a: f64 = 12.3;
+  let b: f64 = 91.;
+  let c: f64 = 210.e-3;
+}

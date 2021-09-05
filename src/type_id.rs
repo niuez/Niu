@@ -30,6 +30,7 @@ impl Transpile for TypeId {
         match self.id.into_string().as_str() {
             "i64" => "std::int_fast64_t",
             "u64" => "std::uint_fast64_t",
+            "f64" => "double",
             "bool" => "bool",
             "void" => "void",
             s => s,
