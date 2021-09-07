@@ -1,3 +1,6 @@
+pub mod char_literal;
+pub use char_literal::*;
+
 use nom::branch::*;
 use nom::bytes::complete::*;
 use nom::character::complete::*;
@@ -17,6 +20,7 @@ pub enum Literal {
     U64(LiteralU64),
     I64(LiteralI64),
     F64(LiteralF64),
+    Char(Char),
     Boolean(Boolean),
 }
 
@@ -26,6 +30,7 @@ impl GenType for Literal {
             Literal::U64(_) => Ok(Type::from_str("u64")),
             Literal::I64(_) => Ok(Type::from_str("i64")),
             Literal::F64(_) => Ok(Type::from_str("f64")),
+            Literal::Char(_) => Ok(Type::from_str("char")),
             Literal::Boolean(_) => Ok(Type::from_str("bool")),
         }
     }
@@ -36,6 +41,7 @@ impl Transpile for Literal {
             Literal::U64(ref u) => u.transpile(ta),
             Literal::I64(ref i) => i.transpile(ta),
             Literal::F64(ref f) => f.transpile(ta),
+            Literal::Char(ref c) => c.transpile(ta),
             Literal::Boolean(ref b) => b.transpile(ta),
         }
     }
@@ -48,7 +54,7 @@ impl MutCheck for Literal {
 }
 
 pub fn parse_literal(s: &str) -> IResult<&str, UnaryExpr> {
-    let (s, x) = alt((literal_f64, literal_i64, literal_u64, literal_boolean))(s)?;
+    let (s, x) = alt((parse_char, literal_f64, literal_i64, literal_u64, literal_boolean))(s)?;
     Ok((s, UnaryExpr::Literal(x)))
 }
 
