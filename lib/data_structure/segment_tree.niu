@@ -22,10 +22,10 @@ struct SegmentTree<T> where T: Monoid {
     let mut node = Vec::init(2 * n, T#Monoid::ide());
     for i = 0; i < arr.len(); i = i + 1 {
       node[i + n] = arr[i];
-    };
+    }
     for i = n - 1; i >= 1; i = i - 1 {
       node[i] = node[i * 2].ope(&node[i * 2 + 1]);
-    };
+    }
     SegmentTree { node: node, n: n, }
   }
 
@@ -37,7 +37,7 @@ struct SegmentTree<T> where T: Monoid {
     self.node[p + self.n] = x;
     for i = (p + self.n) / 2; i >= 1; i = i / 2 {
       self.node[i] = self.node[i * 2].ope(&self.node[i * 2 + 1]);
-    };
+    }
   }
 
   fn sum(self: &mut Self, l: u64, r: u64) -> T {
@@ -48,13 +48,13 @@ struct SegmentTree<T> where T: Monoid {
       if (i & 1) == 1 {
         lx = lx.ope(&self.node[i]);
         i = i + 1;
-      } else {};
+      } else {}
       if (j & 1) == 1 {
         j = j - 1;
         rx = self.node[j].ope(&rx);
-      } else {};
+      } else {}
       i = i >> 1;
-    };
+    }
     lx.ope(&rx)
   }
 }
