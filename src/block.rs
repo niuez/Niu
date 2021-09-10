@@ -5,12 +5,14 @@ use nom::character::complete::*;
 use nom::multi::*;
 use nom::sequence::*; 
 use nom::combinator::*;
+use nom::branch::*;
 
 use crate::statement::{ Statement, parse_statement };
-use crate::expression::{ Expression, parse_expression };
+use crate::expression::*;
 use crate::unify::*;
 use crate::trans::*;
 use crate::mut_checker::*;
+use crate::identifier::Tag;
 
 #[derive(Debug)]
 pub struct Block {
@@ -54,13 +56,32 @@ impl MutCheck for Block {
     }
 }
 
+fn parse_null_statement(s: &str) -> IResult<&str, ()> {
+    let (s, _) = many0(tuple((multispace0, tag(";"))))(s)?;
+    Ok((s, ()))
+}
+
+fn parse_if_statement_specialize(s: &str) -> IResult<&str, Statement> {
+    let (s, (_, if_expr)) = tuple((multispace0, parse_if_expr))(s)?;
+    Ok((s, Statement::Expression(if_expr, Tag::new())))
+}
+
+fn parse_for_statement_specialize(s: &str) -> IResult<&str, Statement> {
+    let (s, (_, for_expr)) = tuple((multispace0, parse_for_expr))(s)?;
+    Ok((s, Statement::Expression(for_expr, Tag::new())))
+}
+
+fn parse_normal_statement(s: &str) -> IResult<&str, Statement> {
+    let (s, (_, statement, _, _)) = tuple((multispace0, parse_statement, multispace0, tag(";")))(s)?;
+    Ok((s, statement))
+}
+
 
 pub fn parse_block(s: &str) -> IResult<&str, Block> {
-    let (s, (vec, _, return_exp, _)) = tuple((many0(tuple((multispace0, parse_statement, multispace0, tag(";")))), multispace0, opt(parse_expression), multispace0))(s)?;
-    let mut statements = Vec::new();
-    for (_, st, _, _) in vec {
-        statements.push(st);
-    }
+    let (s, (statements, _, _, return_exp, _)) = tuple((
+            many0(tuple((parse_null_statement, alt((parse_if_statement_specialize, parse_for_statement_specialize, parse_normal_statement))))),
+            parse_null_statement, multispace0, opt(parse_expression), multispace0))(s)?;
+    let statements = statements.into_iter().map(|(_, s)| s).collect();
     Ok((s, Block { statements, return_exp,}))
 }
 
