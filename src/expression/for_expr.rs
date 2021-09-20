@@ -59,12 +59,11 @@ impl MutCheck for ForExpr {
 }
 
 pub fn parse_for_expr_paren(s: &str) -> IResult<&str, Expression> {
-    let (s, (_, _, _, _, init, _, _, _, cond, _, _, _, update, _, _, _, _, _, block, _, _)) =
+    let (s, (_, _, _, _, init, _, _, _, cond, _, _, _, update, _, _, _, block)) =
         tuple((tag("for"), multispace0, char('('), multispace0,
             parse_statement, multispace0, char(';'), multispace0,
             parse_expression, multispace0, char(';'), multispace0,
-            alt((parse_substitute_to_statement, parse_expression_to_statement)), multispace0, char(')'), multispace0, char('{'), multispace0,
-            parse_block, multispace0, char('}')))(s)?;
+            alt((parse_substitute_to_statement, parse_expression_to_statement)), multispace0, char(')'), multispace0, parse_block))(s)?;
     Ok((s, Expression::ForExpr(Box::new(ForExpr { init, cond, update, block }))))
 }
 
@@ -74,12 +73,11 @@ fn parse_initial_variable(s: &str) -> IResult<&str, Statement> {
 }
 
 pub fn parse_for_expr_no_parentheses(s: &str) -> IResult<&str, Expression> {
-    let (s, (_, _, init, _, _, _, cond, _, _, _, update, _, _, _, block, _, _)) =
+    let (s, (_, _, init, _, _, _, cond, _, _, _, update, _, block)) =
         tuple((tag("for"), multispace1,
             parse_initial_variable, multispace0, char(';'), multispace0,
             parse_expression, multispace0, char(';'), multispace0,
-            alt((parse_substitute_to_statement, parse_expression_to_statement)), multispace0, char('{'), multispace0,
-            parse_block, multispace0, char('}')))(s)?;
+            alt((parse_substitute_to_statement, parse_expression_to_statement)), multispace0, parse_block))(s)?;
     Ok((s, Expression::ForExpr(Box::new(ForExpr { init, cond, update, block }))))
 }
 
