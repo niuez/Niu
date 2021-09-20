@@ -37,6 +37,7 @@ impl Transpile for Block {
         let statements = self.statements.iter().map(|s| format!("{};\n", s.transpile(ta))).collect::<Vec<_>>().join("");
         let return_trans = match self.return_exp {
             Some(Expression::IfExpr(ref ifexpr)) => format!("{};\n", ifexpr.transpile_for_return(ta)),
+            Some(Expression::ForExpr(ref forexpr)) => format!("{};\n", forexpr.transpile(ta)),
             Some(ref return_exp) => format!("return {};\n", return_exp.transpile(ta)),
             None => format!(""),
         };
