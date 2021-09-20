@@ -5,12 +5,14 @@ use nom::character::complete::*;
 use nom::multi::*;
 use nom::sequence::*; 
 use nom::combinator::*;
+use nom::branch::*;
 
 use crate::statement::{ Statement, parse_statement };
-use crate::expression::{ Expression, parse_expression };
+use crate::expression::*;
 use crate::unify::*;
 use crate::trans::*;
 use crate::mut_checker::*;
+use crate::identifier::Tag;
 
 #[derive(Debug)]
 pub struct Block {
@@ -55,17 +57,46 @@ impl MutCheck for Block {
 }
 
 
+enum BlockElement {
+    End(Option<Expression>),
+    Statement(Statement),
+}
+
+fn parse_block_end(s: &str) -> IResult<&str, BlockElement> {
+    let (s, (_, expr, _, _)) = tuple((multispace0, opt(parse_expression), multispace0, char('}')))(s)?;
+    Ok((s, BlockElement::End(expr)))
+}
+
+fn parse_block_statement_with_block(s: &str) -> IResult<&str, BlockElement> {
+    let (s, (_, expr)) = tuple((multispace0, alt((parse_if_expr, parse_for_expr))))(s)?;
+    Ok((s, BlockElement::Statement(Statement::Expression(expr, Tag::new()))))
+}
+
+fn parse_block_statement_without_block(s: &str) -> IResult<&str, BlockElement> {
+    let (s, (_, stmt, _, _)) = tuple((multispace0, parse_statement, multispace0, char(';')))(s)?;
+    Ok((s, BlockElement::Statement(stmt)))
+}
+
 pub fn parse_block(s: &str) -> IResult<&str, Block> {
-    let (s, (vec, _, return_exp, _)) = tuple((many0(tuple((multispace0, parse_statement, multispace0, tag(";")))), multispace0, opt(parse_expression), multispace0))(s)?;
+    let (mut s, _) = tuple((char('{'), multispace0))(s)?;
     let mut statements = Vec::new();
-    for (_, st, _, _) in vec {
-        statements.push(st);
+    loop {
+        match alt((parse_block_end, parse_block_statement_with_block, parse_block_statement_without_block))(s)? {
+            (s, BlockElement::End(return_exp)) => {
+                break Ok((s, Block { statements, return_exp }))
+            }
+            (ss, BlockElement::Statement(stmt)) => {
+                s = ss;
+                statements.push(stmt);
+            }
+        }
     }
-    Ok((s, Block { statements, return_exp,}))
 }
 
 #[test]
 fn parse_block_test() {
-    println!("{:?}", parse_block("let x = 0; let y = 91; let z = 1333; func(x * x, y, z);").ok());
-    println!("{:?}", parse_block("let x = 0; let y = 91; let z = 1333; func(x * x, y, z)").ok());
+    println!("{:?}", parse_block("{ let x = 0; let y = 91; let z = 1333; func(x * x, y, z); }").unwrap());
+    println!("{:?}", parse_block("{ let x = 0; let y = 91; let z = 1333; func(x * x, y, z) }").unwrap());
+    println!("{:?}", parse_block("{ let x = 0; let y = 91; if x == y { x; } else { y; } func(x * x, y, z); }").unwrap());
+    println!("{:?}", parse_block("{ let x = 0; let y = 91; if x == y { x } else { y } }").unwrap());
 }

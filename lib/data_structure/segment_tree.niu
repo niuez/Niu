@@ -18,14 +18,14 @@ struct SegmentTree<T> where T: Monoid {
 } {
   fn init(arr: &Vec<T>) -> Self {
     let mut n = 1;
-    for(n = 1; n < arr.len(); n = n * 2) {};
+    for n = 1; n < arr.len(); n = n * 2 {};
     let mut node = Vec::init(2 * n, T#Monoid::ide());
-    for(let mut i = 0; i < arr.len(); i = i + 1) {
+    for i = 0; i < arr.len(); i = i + 1 {
       node[i + n] = arr[i];
-    };
-    for(let mut i = n - 1; i >= 1; i = i - 1) {
+    }
+    for i = n - 1; i >= 1; i = i - 1 {
       node[i] = node[i * 2].ope(&node[i * 2 + 1]);
-    };
+    }
     SegmentTree { node: node, n: n, }
   }
 
@@ -35,26 +35,26 @@ struct SegmentTree<T> where T: Monoid {
 
   fn update(self: &mut Self, p: u64, x: T) -> void {
     self.node[p + self.n] = x;
-    for(let mut i = (p + self.n) / 2; i >= 1; i = i / 2) {
+    for i = (p + self.n) / 2; i >= 1; i = i / 2 {
       self.node[i] = self.node[i * 2].ope(&self.node[i * 2 + 1]);
-    };
+    }
   }
 
   fn sum(self: &mut Self, l: u64, r: u64) -> T {
     let mut lx = T#Monoid::ide();
     let mut rx = T#Monoid::ide();
     let mut i = l + self.n;
-    for(let mut j = r + self.n; i < j; j = j >> 1) {
+    for j = r + self.n; i < j; j = j >> 1 {
       if (i & 1) == 1 {
         lx = lx.ope(&self.node[i]);
         i = i + 1;
-      } else {};
+      } else {}
       if (j & 1) == 1 {
         j = j - 1;
         rx = self.node[j].ope(&rx);
-      } else {};
+      } else {}
       i = i >> 1;
-    };
+    }
     lx.ope(&rx)
   }
 }

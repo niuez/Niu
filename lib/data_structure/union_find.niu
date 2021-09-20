@@ -12,7 +12,7 @@ struct UnionFind {
     for(let mut i = 0; i < N; i = i + 1) {
       par.push(N);
       sz.push(1);
-    };
+    }
     UnionFind { par: par, sz: sz, N: N, }
   }
   fn root(self: &mut Self, x: u64) -> u64 {
@@ -41,9 +41,9 @@ struct UnionFind {
       else {
         self.sz[xr] = ys + xs;
         self.par[yr] = xr;
-      };
+      }
     }
     else {
-    };
+    }
   }
 }

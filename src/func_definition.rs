@@ -343,7 +343,7 @@ pub fn parse_func_definition_info(s: &str) -> IResult<&str, FuncDefinitionInfo> 
 }
 
 fn parse_func_block_block(s: &str) -> IResult<&str, FuncBlock> {
-    let (s, (_, block, _)) = tuple((char('{'), parse_block, char('}')))(s)?;
+    let (s, block) = parse_block(s)?;
     Ok((s, FuncBlock::Block(block)))
 }
 

@@ -29,7 +29,7 @@ struct Matrix<F> where F: Field
     let mut a = Vec::init(h, Vec::init(h, F::zero()));
     for(let mut i = 0;i < h;i = i + 1) {
       a[i][i] = F::one();
-    };
+    }
     Matrix {
       a: a,
       h: h,
@@ -43,9 +43,9 @@ struct Matrix<F> where F: Field
       if exp & 1 == 1 {
         ans = ans * now;
       }
-      else {};
+      else {}
       now = now * now;
-    };
+    }
     ans
   }
 }
@@ -73,8 +73,8 @@ impl<F> Add<Matrix<F>> for Matrix<F> where
     for(let mut i = 0; i < self.h; i = i + 1) {
       for(let mut j = 0; j < self.w; j = j + 1) {
         self[i][j] = self[i][j] + right[i][j];
-      };
-    };
+      }
+    }
     self
   }
 }
@@ -86,8 +86,8 @@ impl<F> Sub<Matrix<F>> for Matrix<F> where
     for(let mut i = 0; i < self.h; i = i + 1) {
       for(let mut j = 0; j < self.w; j = j + 1) {
         self[i][j] = self[i][j] - right[i][j];
-      };
-    };
+      }
+    }
     self
   }
 }
@@ -101,9 +101,9 @@ impl<F> Mul<Matrix<F>> for Matrix<F> where
       for(let mut k = 0; k < right.w; k = k + 1) {
         for(let mut j = 0; j < self.w; j = j + 1) {
           out[i][k] = out[i][k] + self[i][j] * right[j][k];
-        };
-      };
-    };
+        }
+      }
+    }
     out
   }
 }

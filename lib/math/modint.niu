@@ -24,9 +24,9 @@ struct Modint<M> where M: Mod {
       if exp & 1 == 1 {
         ans = ans * now;
       }
-      else {};
+      else {}
       now = now * now;
-    };
+    }
     ans
   }
   fn inv(self: &Self) -> Self {
@@ -70,5 +70,18 @@ impl<M> Div<Modint<M>> for Modint<M> where M: Mod {
   type Output = Self;
   fn div(self: Self, right: Self) -> Self {
     self * right.inv()
+  }
+}
+
+impl<M> Neg for Modint<M> where M: Mod {
+  type Output = Self;
+  fn neg(mut self: Self) -> Self {
+    if self.a == 0 {
+      self
+    }
+    else {
+      self.a = M::m() - self.a;
+      self
+    }
   }
 }

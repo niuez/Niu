@@ -28,8 +28,8 @@ impl GenType for TypeId {
 impl Transpile for TypeId {
     fn transpile(&self, _: &TypeAnnotation) -> String {
         match self.id.into_string().as_str() {
-            "i64" => "std::int_fast64_t",
-            "u64" => "std::uint_fast64_t",
+            "i64" => "long long",
+            "u64" => "unsigned long long",
             "f64" => "double",
             "bool" => "bool",
             "void" => "void",

@@ -3,6 +3,7 @@ use nom::IResult;
 use nom::character::complete::*;
 use nom::sequence::*; 
 use nom::bytes::complete::*;
+use nom::combinator::*;
 
 use crate::statement::*;
 use crate::expression::*;
@@ -10,6 +11,8 @@ use crate::block::*;
 use crate::unify::*;
 use crate::trans::*;
 use crate::mut_checker::*;
+use crate::type_spec::*;
+use crate::let_declaration::*;
 
 #[derive(Debug)]
 pub struct ForExpr {
@@ -55,17 +58,36 @@ impl MutCheck for ForExpr {
     }
 }
 
-pub fn parse_for_expr(s: &str) -> IResult<&str, Expression> {
-    let (s, (_, _, _, _, init, _, _, _, cond, _, _, _, update, _, _, _, _, _, block, _, _)) =
+pub fn parse_for_expr_paren(s: &str) -> IResult<&str, Expression> {
+    let (s, (_, _, _, _, init, _, _, _, cond, _, _, _, update, _, _, _, block)) =
         tuple((tag("for"), multispace0, char('('), multispace0,
             parse_statement, multispace0, char(';'), multispace0,
             parse_expression, multispace0, char(';'), multispace0,
-            alt((parse_substitute_to_statement, parse_expression_to_statement)), multispace0, char(')'), multispace0, char('{'), multispace0,
-            parse_block, multispace0, char('}')))(s)?;
+            alt((parse_substitute_to_statement, parse_expression_to_statement)), multispace0, char(')'), multispace0, parse_block))(s)?;
     Ok((s, Expression::ForExpr(Box::new(ForExpr { init, cond, update, block }))))
 }
 
+fn parse_initial_variable(s: &str) -> IResult<&str, Statement> {
+    let (s, (id, _, tyinfo, _, _e, _, value)) = tuple((parse_identifier, multispace0, opt(tuple((char(':'), multispace0, parse_type_spec))), multispace0, tag("="), multispace0, parse_expression))(s)?;
+    Ok((s, Statement::LetDeclaration(LetDeclaration { id, is_mut: true, type_info: tyinfo.map(|(_, _, type_info)| type_info ), value })))
+}
+
+pub fn parse_for_expr_no_parentheses(s: &str) -> IResult<&str, Expression> {
+    let (s, (_, _, init, _, _, _, cond, _, _, _, update, _, block)) =
+        tuple((tag("for"), multispace1,
+            parse_initial_variable, multispace0, char(';'), multispace0,
+            parse_expression, multispace0, char(';'), multispace0,
+            alt((parse_substitute_to_statement, parse_expression_to_statement)), multispace0, parse_block))(s)?;
+    Ok((s, Expression::ForExpr(Box::new(ForExpr { init, cond, update, block }))))
+}
+
+
+pub fn parse_for_expr(s: &str) -> IResult<&str, Expression> {
+    alt((parse_for_expr_paren, parse_for_expr_no_parentheses))(s)
+}
+
 #[test]
-fn parse_if_expr_test() {
-    println!("{:?}", parse_if_expr("if a == b { c } else { d }").ok());
+fn parse_for_expr_test() {
+    println!("{:?}", parse_for_expr("for(let mut i = 0; i < 5; i = i + 1) {}").unwrap());
+    println!("{:?}", parse_for_expr("for i = 0; i < 5; i = i + 1 {}").unwrap());
 }

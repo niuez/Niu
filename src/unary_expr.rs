@@ -173,7 +173,7 @@ pub fn parse_parentheses(s: &str) -> IResult<&str, UnaryExpr> {
 }
 
 pub fn parse_bracket_block(s: &str) -> IResult<&str, UnaryExpr> {
-    let(s, (_, _, block, _, _)) = tuple((char('{'), multispace0, parse_block, multispace0, char('}')))(s)?;
+    let(s, block) = parse_block(s)?;
     Ok((s, UnaryExpr::Block(block)))
 }
 
