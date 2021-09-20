@@ -40,3 +40,7 @@ impl Rem<i64> for i64 {
   type Output = i64;
   fn rem(a: Self, b: i64) -> i64 $${a % b}$$
 }
+impl Neg for i64 {
+  type Output = i64;
+  fn neg(a: Self) -> i64 $${-a}$$
+}
