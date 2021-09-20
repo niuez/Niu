@@ -1,0 +1,12 @@
+import "std/bool.niu"
+
+fn main() -> void {
+  let x = 1i64;
+  let y = 2i64;
+  if !(x == y) {
+    x;
+  }
+  else {
+    y;
+  }
+}

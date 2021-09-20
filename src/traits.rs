@@ -32,8 +32,8 @@ pub const BINARY_OPERATOR_TRAITS : [(&'static str, (&'static str, &'static str))
             ("Shl", ("operator<<", "<<")), ("Shr", ("operator>>", ">>")), ("Add", ("operator+", "+")),
             ("Sub", ("operator-", "-")), ("Mul", ("operator*", "*")), ("Div", ("operator/", "/")), ("Rem", ("operator%", "%"))
         ];
-pub const UNARY_OPERATOR_TRAITS : [(&'static str, (&'static str, &'static str)); 1] = [
-            ("Neg", ("operator-", "-")),
+pub const UNARY_OPERATOR_TRAITS : [(&'static str, (&'static str, &'static str)); 2] = [
+            ("Neg", ("operator-", "-")), ("Not", ("operator!", "!")),
         ];
 pub enum ResultFindOperator {
     Binary((&'static str, &'static str)),

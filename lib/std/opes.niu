@@ -3,6 +3,11 @@ trait Neg {
   fn neg(a: Self) -> Self#Neg::Output;
 }
 
+trait Not {
+  type Output;
+  fn not(a: Self) -> Self#Not::Output;
+}
+
 trait BitOr<Arg> {
   type Output;
   fn bit_or(a: Self, b: Arg) -> Self#BitOr<Arg>::Output;

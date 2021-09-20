@@ -842,6 +842,7 @@ pub enum ExpUnaryOpe {
     MutRef(Box<ExpUnaryOpe>),
     Deref(Box<ExpUnaryOpe>, Tag),
     Neg(Box<ExpUnaryOpe>, Tag),
+    Not(Box<ExpUnaryOpe>, Tag),
 }
 
 impl GenType for ExpUnaryOpe {
@@ -865,6 +866,15 @@ impl GenType for ExpUnaryOpe {
                     tag: tag.clone(),
                 }))
             }
+            Self::Not(ref exp, ref tag) => {
+                Ok(Type::CallEquation( CallEquation {
+                    caller_type: None,
+                    trait_gen: Some(TraitGenerics { trait_id: TraitId { id: Identifier::from_str("Not") } , generics: Vec::new() }),
+                    func_id: Identifier::from_str("operator!"),
+                    args: vec![exp.gen_type(equs, trs)?],
+                    tag: tag.clone(),
+                }))
+            }
         }
     }
 }
@@ -877,6 +887,7 @@ impl Transpile for ExpUnaryOpe {
             Self::MutRef(ref exp) => format!("&{}", exp.as_ref().transpile(ta)),
             Self::Deref(ref exp, _) => format!("*{}", exp.as_ref().transpile(ta)),
             Self::Neg(ref exp, _) => format!("-{}", exp.as_ref().transpile(ta)),
+            Self::Not(ref exp, _) => format!("!{}", exp.as_ref().transpile(ta)),
         }
     }
 }
@@ -907,6 +918,10 @@ impl MutCheck for ExpUnaryOpe {
                 exp.mut_check(ta, vars)?;
                 Ok(MutResult::NotMut)
             }
+            Self::Not(ref exp, _) => {
+                exp.mut_check(ta, vars)?;
+                Ok(MutResult::NotMut)
+            }
         }
     }
 }
@@ -930,13 +945,18 @@ pub fn parse_exp_unary_ope_neg(s: &str) -> IResult<&str, ExpUnaryOpe> {
     Ok((s, ExpUnaryOpe::Neg(Box::new(exp), Tag::new())))
 }
 
+pub fn parse_exp_unary_ope_not(s: &str) -> IResult<&str, ExpUnaryOpe> {
+    let (s, (_, _, exp)) = tuple((char('!'), multispace0, parse_exp_unary_ope))(s)?;
+    Ok((s, ExpUnaryOpe::Not(Box::new(exp), Tag::new())))
+}
+
 pub fn parse_exp_unary_ope_unary_exp(s: &str) -> IResult<&str, ExpUnaryOpe> {
     let (s, exp) = parse_unary_expr(s)?;
     Ok((s, ExpUnaryOpe::UnaryExpr(exp)))
 }
 
 pub fn parse_exp_unary_ope(s: &str) -> IResult<&str, ExpUnaryOpe> {
-    alt((parse_exp_unary_ope_mutref, parse_exp_unary_ope_ref, parse_exp_unary_ope_deref, parse_exp_unary_ope_neg, parse_exp_unary_ope_unary_exp))(s)
+    alt((parse_exp_unary_ope_mutref, parse_exp_unary_ope_ref, parse_exp_unary_ope_deref, parse_exp_unary_ope_neg, parse_exp_unary_ope_not, parse_exp_unary_ope_unary_exp))(s)
 }
 
 
