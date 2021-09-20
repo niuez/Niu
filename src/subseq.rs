@@ -209,7 +209,7 @@ pub fn subseq_mut_check(uexpr: &UnaryExpr, subseq: &Subseq, ta: &TypeAnnotation,
     match *subseq {
         Subseq::Call(ref call) => {
             match uexpr {
-                UnaryExpr::Subseq(mem_caller, Subseq::Member(mem)) => {
+                UnaryExpr::Subseq(mem_caller, Subseq::Member(_mem)) => {
                     for arg in call.args.iter() {
                         arg.mut_check(ta, vars)?;
                     }
@@ -227,7 +227,7 @@ pub fn subseq_mut_check(uexpr: &UnaryExpr, subseq: &Subseq, ta: &TypeAnnotation,
                         _ => unreachable!("it is not AutoRef"),
                     }
                 }
-                UnaryExpr::TraitMethod(spec, trait_op, func_id) => {
+                UnaryExpr::TraitMethod(_spec, _trait_op, _func_id) => {
                     for arg in call.args.iter() {
                         arg.mut_check(ta, vars)?;
                     }

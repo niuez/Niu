@@ -47,7 +47,7 @@ impl Transpile for LetDeclaration {
 }
 
 impl MutCheck for LetDeclaration {
-    fn mut_check(&self, ta: &TypeAnnotation, vars: &mut VariablesInfo) -> Result<MutResult, String> {
+    fn mut_check(&self, _ta: &TypeAnnotation, vars: &mut VariablesInfo) -> Result<MutResult, String> {
         vars.regist_variable(&self.id, self.is_mut);
         Ok(MutResult::NoType)
     }

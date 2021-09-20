@@ -48,7 +48,7 @@ impl Transpile for Literal {
 }
 
 impl MutCheck for Literal {
-    fn mut_check(&self, ta: &TypeAnnotation, vars: &mut VariablesInfo) -> Result<MutResult, String> {
+    fn mut_check(&self, _ta: &TypeAnnotation, _vars: &mut VariablesInfo) -> Result<MutResult, String> {
         Ok(MutResult::NotMut)
     }
 }

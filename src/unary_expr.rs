@@ -82,10 +82,10 @@ impl MutCheck for UnaryExpr {
             UnaryExpr::Block(ref b) => b.mut_check(ta, vars),
             UnaryExpr::Subseq(ref expr, ref s) => subseq_mut_check(expr.as_ref(), s, ta, vars),
             UnaryExpr::StructInst(ref inst) => inst.mut_check(ta, vars),
-            UnaryExpr::TraitMethod(ref spec, Some(ref trait_id), ref method_id) => {
+            UnaryExpr::TraitMethod(ref _spec, Some(ref _trait_id), ref _method_id) => {
                 Ok(MutResult::NotMut)
             }
-            UnaryExpr::TraitMethod(ref spec, _, ref method_id) => {
+            UnaryExpr::TraitMethod(ref _spec, _, ref _method_id) => {
                 Ok(MutResult::NotMut)
             }
         }
@@ -134,7 +134,7 @@ impl Transpile for Variable {
 }
 
 impl MutCheck for Variable {
-    fn mut_check(&self, ta: &TypeAnnotation, vars: &mut VariablesInfo) -> Result<MutResult, String> {
+    fn mut_check(&self, _ta: &TypeAnnotation, vars: &mut VariablesInfo) -> Result<MutResult, String> {
         Ok(vars.find_variable(&self.id).unwrap_or(MutResult::NotMut))
     }
 }
