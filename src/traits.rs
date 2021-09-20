@@ -32,11 +32,30 @@ pub const BINARY_OPERATOR_TRAITS : [(&'static str, (&'static str, &'static str))
             ("Shl", ("operator<<", "<<")), ("Shr", ("operator>>", ">>")), ("Add", ("operator+", "+")),
             ("Sub", ("operator-", "-")), ("Mul", ("operator*", "*")), ("Div", ("operator/", "/")), ("Rem", ("operator%", "%"))
         ];
-pub fn find_binary_operator(tr: &str) -> Option<(&'static str, &'static str)> {
+pub const UNARY_OPERATOR_TRAITS : [(&'static str, (&'static str, &'static str)); 2] = [
+            ("Neg", ("operator-", "-")), ("Not", ("operator!", "!")),
+        ];
+pub enum ResultFindOperator {
+    Binary((&'static str, &'static str)),
+    Unary((&'static str, &'static str)),
+}
+
+/* pub fn find_binary_operator(tr: &str) -> Option<(&'static str, &'static str)> {
     BINARY_OPERATOR_TRAITS.iter().find_map(|(tr_id, val)|
         if *tr_id == tr { Some(*val) }
         else { None }
     )
+} */
+
+pub fn find_operator(tr: &str) -> Option<ResultFindOperator> {
+    BINARY_OPERATOR_TRAITS.iter().map(|(tr, val)| (tr, ResultFindOperator::Binary(*val)))
+        .chain(
+            UNARY_OPERATOR_TRAITS.iter().map(|(tr, val)| (tr, ResultFindOperator::Unary(*val)))
+        )
+        .find_map(|(tr_id, val)|
+                  if *tr_id == tr { Some(val) }
+                  else { None }
+        )
 }
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
@@ -128,7 +147,7 @@ impl TraitDefinition {
 
 impl Transpile for TraitDefinition {
     fn transpile(&self, ta: &TypeAnnotation) -> String {
-        match find_binary_operator(self.trait_id.id.into_string().as_str()) {
+        match find_operator(self.trait_id.id.into_string().as_str()) {
             None => {
                 let generics = self.generics.iter().map(|g| format!(", class {}", g.transpile(ta))).collect::<Vec<_>>().join("");
                 format!("template<class Self{}, class = void> struct {}: std::false_type {{ }};\n", generics, self.trait_id.transpile(ta))
@@ -150,11 +169,11 @@ pub fn parse_trait_definition(s: &str) -> IResult<&str, TraitDefinition> {
             multispace0, char('}')))(s)?;
     let asso_ids = many_types.into_iter().map(|(_, _, id, _, _, _)| id).collect();
     //let required_methods = many_methods.into_iter().map(|(info, _, _, _)| (TraitMethodIdentifier { id: info.func_id.clone() }, info)).collect();
-    let required_methods = match find_binary_operator(trait_id.id.into_string().as_str()) {
+    let required_methods = match find_operator(trait_id.id.into_string().as_str()) {
         None => {
             many_methods.into_iter().map(|(func, _, _, _)| (TraitMethodIdentifier { id: func.func_id.clone() }, func)).collect()
         }
-        Some((_, ope)) => {
+        Some(ResultFindOperator::Unary((_, ope))) | Some(ResultFindOperator::Binary((_, ope))) => {
             many_methods.into_iter().map(|(mut func, _, _, _)| {
                 func.func_id = Identifier::from_str(format!("operator{}", ope).as_str());
                 (TraitMethodIdentifier { id: func.func_id.clone() }, func)

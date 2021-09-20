@@ -72,3 +72,16 @@ impl<M> Div<Modint<M>> for Modint<M> where M: Mod {
     self * right.inv()
   }
 }
+
+impl<M> Neg for Modint<M> where M: Mod {
+  type Output = Self;
+  fn neg(mut self: Self) -> Self {
+    if self.a == 0 {
+      self
+    }
+    else {
+      self.a = M::m() - self.a;
+      self
+    }
+  }
+}

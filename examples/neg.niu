@@ -1,0 +1,17 @@
+import "std/i64.niu"
+
+struct Hoge {
+  a: i64,
+} {}
+
+impl Neg for Hoge {
+  type Output = i64;
+  fn neg(a: Self) -> i64 {
+    -a.a
+  }
+}
+
+fn main() -> void {
+  let a = -16i64;
+  let b: i64 = -Hoge { a: 91i64 };
+}

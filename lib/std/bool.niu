@@ -1,0 +1,6 @@
+import "std/opes.niu"
+
+impl Not for bool {
+  type Output = bool;
+  fn not(a: Self) -> bool $${!a}$$
+}

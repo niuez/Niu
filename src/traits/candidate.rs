@@ -168,7 +168,7 @@ impl ImplDefinition {
         Ok(())
     }
     pub fn transpile_functions(&self, ta: &TypeAnnotation) -> String {
-        match find_binary_operator(self.trait_spec.trait_id.id.into_string().as_str()) {
+        match find_operator(self.trait_spec.trait_id.id.into_string().as_str()) {
             None => {
                 let generics = self.generics.iter().map(|id| format!("class {}", id.transpile(ta))).collect::<Vec<_>>().join(", ");
                 let templates = if generics == "" { format!("") } else { format!("template<{}> ", generics) };
@@ -181,7 +181,7 @@ impl ImplDefinition {
                 }).collect::<Vec<_>>().join("\n");
                 require_methods
             }
-            Some((func, _)) => {
+            Some(ResultFindOperator::Unary((func, _))) | Some(ResultFindOperator::Binary((func, _))) => {
                 
                 let generics = self.generics.iter().map(|id| format!("class {}", id.transpile(ta)))
                     .chain(std::iter::once(format!("class")))
@@ -223,11 +223,11 @@ pub fn parse_impl_definition(s: &str) -> IResult<&str, ImplDefinition> {
             many0(tuple((parse_func_definition, multispace0))),
             multispace0, char('}')))(s)?;
     let asso_defs = many_types.into_iter().map(|(_, _, id, _, _, _, ty, _, _, _)| (id, ty)).collect();
-    let require_methods = match find_binary_operator(trait_spec.trait_id.id.into_string().as_str()) {
+    let require_methods = match find_operator(trait_spec.trait_id.id.into_string().as_str()) {
         None => {
             many_methods.into_iter().map(|(func, _)| (TraitMethodIdentifier { id: func.func_id.clone() }, func)).collect()
         }
-        Some((_, ope)) => {
+        Some(ResultFindOperator::Unary((_, ope))) | Some(ResultFindOperator::Binary((_, ope))) => {
             many_methods.into_iter().map(|(mut func, _)| {
                 func.func_id = Identifier::from_str(format!("operator{}", ope).as_str());
                 (TraitMethodIdentifier { id: func.func_id.clone() }, func)
@@ -240,7 +240,7 @@ pub fn parse_impl_definition(s: &str) -> IResult<&str, ImplDefinition> {
 impl Transpile for ImplDefinition {
     fn transpile(&self, ta: &TypeAnnotation) -> String {
 
-        match find_binary_operator(self.trait_spec.trait_id.id.into_string().as_str()) {
+        match find_operator(self.trait_spec.trait_id.id.into_string().as_str()) {
             None => {
                 let generics = self.generics.iter().map(|id| format!("class {}", id.transpile(ta))).collect::<Vec<_>>().join(", ");
                 let where_str = self.where_sec.transpile(ta);
@@ -262,7 +262,7 @@ impl Transpile for ImplDefinition {
                 }).collect::<Vec<_>>().join("\n");
                 format!("{} {{\n{}\n{}\n}};\n", impl_def, asso_defs, require_methods)
             }
-            Some((func, _)) => {
+            Some(ResultFindOperator::Unary((func, _))) | Some(ResultFindOperator::Binary((func, _))) => {
                 if let FuncBlock::CppInline(_) = self.require_methods[&TraitMethodIdentifier { id: Identifier::from_str(func) }].block {
                     format!("")
                 }
