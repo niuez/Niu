@@ -6,7 +6,7 @@ jobs:
   test:
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [macos-latest]
 
     runs-on: ${{ matrix.os }}
     defaults:
@@ -26,6 +26,8 @@ jobs:
 
     - name: Run tests for library
       run: |
+        mkdir bits
+        curl https://gist.githubusercontent.com/frankchen0130/9ac562b55fa7e03689bca30d0e52b0e5/raw/247d699694b9d4d4468f094f06f2b41cb1226582/stdc++.h -o bits/stdc++.h
         for file in `find lib -name **.niu`; do
-        echo $file && NIU_IMPORT_PATH="./lib/;" cargo run $file >| 1.cpp && g++ -std=c++17 1.cpp -c
+        echo $file && NIU_IMPORT_PATH="./lib/;" cargo run $file >| 1.cpp && g++ -std=c++17 -I./ 1.cpp -c
         done
