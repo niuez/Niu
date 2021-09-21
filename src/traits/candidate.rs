@@ -181,7 +181,7 @@ impl ImplDefinition {
                 }).collect::<Vec<_>>().join("\n");
                 require_methods
             }
-            Some(ResultFindOperator::Unary((func, _))) | Some(ResultFindOperator::Binary((func, _))) => {
+            Some(ResultFindOperator::Unary((_func, _))) | Some(ResultFindOperator::Binary((_func, _))) => {
                 
                 let generics = self.generics.iter().map(|id| format!("class {}", id.transpile(ta)))
                     .chain(std::iter::once(format!("class")))

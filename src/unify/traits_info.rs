@@ -30,7 +30,7 @@ pub struct TraitsInfo<'a> {
 pub fn select_impls_by_priority<I: Iterator<Item=usize>>(priorities: I, len: usize) -> Option<usize> {
     let idx = priorities.into_iter().enumerate().max_by_key(|(_, x)| *x);
     match idx {
-        Some((idx, pri)) if pri == 0 && len > 1 => None,
+        Some((_idx, pri)) if pri == 0 && len > 1 => None,
         Some((idx, _)) => Some(idx),
         None => None,
     }
@@ -531,7 +531,7 @@ impl<'a> TraitsInfo<'a> {
                     Err(UnifyErr::Deficiency(_)) => {
                         unify_res.push((gen_equ, cand));
                     }
-                    Err(UnifyErr::Contradiction(st)) => {}
+                    Err(UnifyErr::Contradiction(_st)) => {}
                 }
             }
         }

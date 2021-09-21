@@ -92,7 +92,7 @@ impl StructDefinition {
         }
     }
     pub fn transpile(&self, ta: &TypeAnnotation, opes: Vec<String>) -> String {
-        let binary_operators = BINARY_OPERATOR_TRAITS.iter().cloned().collect::<HashMap<_, _>>();
+        let _binary_operators = BINARY_OPERATOR_TRAITS.iter().cloned().collect::<HashMap<_, _>>();
         match self.member_def.member {
             StructMember::MemberInfo(MemberInfo { ref members_order, ref members }) => {
                 let template = if self.member_def.generics.len() > 0 {
