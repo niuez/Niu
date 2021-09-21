@@ -1,3 +1,4 @@
+#include <vector>
 import "std/opes.niu"
 
 struct Vec<T> $${std::vector<$ty(T)>}$$ {

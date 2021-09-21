@@ -22,6 +22,7 @@ pub struct FullContent {
     pub traits: Vec<TraitDefinition>,
     pub impls: Vec<ImplDefinition>,
     pub funcs: Vec<FuncDefinition>,
+    pub includes: Vec<String>,
 }
 
 impl FullContent {
@@ -98,7 +99,11 @@ impl FullContent {
         Ok(())
     }
     pub fn transpile(&self, ta: &mut TypeAnnotation) -> String {
-        let mut res = "#include <bits/stdc++.h>\n\n".to_string();
+        let mut res = String::new();
+        for include in self.includes.iter() {
+            res.push_str(&format!("#include <{}>\n", include));
+        }
+        res.push_str("\n");
         let mut operators = HashMap::new();
         let opes_str = ["Index", "IndexMut", "BitOr", "BitXor", "BitAnd", "Shl", "Shr", "Add", "Sub", "Mul", "Div", "Rem"];
         for ope in opes_str {
@@ -171,6 +176,7 @@ enum ContentElement {
     Trait(TraitDefinition),
     ImplTrait(ImplDefinition),
     Import(String),
+    Include(String),
 }
 
 fn parse_element_struct(s: &str) -> IResult<&str, ContentElement> {
@@ -198,9 +204,14 @@ fn parse_element_import(s: &str) -> IResult<&str, ContentElement> {
     Ok((s, ContentElement::Import(path.to_string())))
 }
 
+fn parse_element_include(s: &str) -> IResult<&str, ContentElement> {
+    let (s, (_, _, _, _, path, _, _)) = tuple((multispace0, tag("#include"), multispace0, char('<'), is_not(">"), char('>'), multispace0))(s)?;
+    Ok((s, ContentElement::Include(path.to_string())))
+}
+
 
 fn parse_content_element(s: &str) -> IResult<&str, ContentElement> {
-    alt((parse_element_import, parse_element_struct, parse_element_func, parse_element_trait, parse_element_impl_trait))(s)
+    alt((parse_element_include, parse_element_import, parse_element_struct, parse_element_func, parse_element_trait, parse_element_impl_trait))(s)
 }
 
 pub fn parse_full_content(s: &str) -> IResult<&str, (Vec<String>, FullContent)> {
@@ -211,6 +222,7 @@ pub fn parse_full_content(s: &str) -> IResult<&str, (Vec<String>, FullContent)> 
     let mut traits = Vec::new();
     let mut impls = Vec::new();
     let mut imports = Vec::new();
+    let mut includes = Vec::new();
     for (e, _) in elems {
         match e {
             ContentElement::Struct(s) => structs.push(s),
@@ -218,9 +230,10 @@ pub fn parse_full_content(s: &str) -> IResult<&str, (Vec<String>, FullContent)> 
             ContentElement::Trait(t) => traits.push(t),
             ContentElement::ImplTrait(it) => impls.push(it),
             ContentElement::Import(path) => imports.push(path),
+            ContentElement::Include(path) => includes.push(path),
         }
     }
-    Ok((s, (imports, FullContent { structs, funcs, traits, impls, })))
+    Ok((s, (imports, FullContent { structs, funcs, traits, impls, includes, })))
 }
 
 pub fn parse_full_content_from_file(filename: &str, import_path: &[PathBuf]) -> Result<FullContent, String> {
@@ -228,6 +241,7 @@ pub fn parse_full_content_from_file(filename: &str, import_path: &[PathBuf]) -> 
     let mut funcs = Vec::new();
     let mut traits = Vec::new();
     let mut impls = Vec::new();
+    let mut includes = Vec::new();
 
     let mut que = Vec::new();
     let mut read = HashSet::new();
@@ -277,9 +291,12 @@ pub fn parse_full_content_from_file(filename: &str, import_path: &[PathBuf]) -> 
         funcs.append(&mut full.funcs);
         traits.append(&mut full.traits);
         impls.append(&mut full.impls);
+        includes.append(&mut full.includes);
     }
-
-    Ok(FullContent { structs, funcs, traits, impls })
+    includes.push("type_traits".to_string());
+    includes.sort();
+    includes.dedup();
+    Ok(FullContent { structs, funcs, traits, impls, includes })
 }
 /*
 #[test]
