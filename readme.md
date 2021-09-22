@@ -2,6 +2,9 @@
 
 Niu言語は, 競技プログラミングにおけるライブラリ制作のための言語です. 開発段階なので注意してください.
 
+## Playground
+
+[Niu Playground](https://niuez.github.io/NiuPlayground/)
 
 ## 背景
 
