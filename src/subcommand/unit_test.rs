@@ -1,7 +1,7 @@
 use serde::Deserialize;
 use std::path::*;
 use std::process::{ Stdio, Command };
-use std::os::unix::io::{FromRawFd, IntoRawFd};
+//use std::os::unix::io::{FromRawFd, IntoRawFd};
 
 #[derive(Deserialize)]
 struct TestConfig {
@@ -84,8 +84,8 @@ pub fn test_cppfiles(libraries_dir: &Path) -> Result<(), String> {
                     .current_dir(libraries_dir.join(".test").as_os_str())
                     //.stdin(Stdio::piped())
                     //.stdout(Stdio::piped())
-                    .stdin(unsafe { Stdio::from_raw_fd(input_file.into_raw_fd()) })
-                    .stdout(unsafe { Stdio::from_raw_fd(output_file.into_raw_fd()) })
+                    .stdin(Stdio::from(input_file))
+                    .stdout(Stdio::from(output_file))
                     .spawn()
                     .map_err(|e| format!("failure to execute a.out, {:?}", e))?;
                 /*{
