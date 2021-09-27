@@ -33,6 +33,8 @@ pub mod cpp_inline;
 
 pub mod mut_checker;
 
+pub mod subcommand;
+
 use std::path::*;
 
 //use crate::trans::Transpile;
@@ -79,10 +81,19 @@ fn main() {
                          .required(true)
                          .index(1)
                     ))
+        .subcommand(SubCommand::with_name("test")
+                    .about("test .niu programs")
+                    )
         .get_matches();
     if let Some(matches) = matches.subcommand_matches("trans") {
         match type_check(matches.value_of("FILE").unwrap()) {
             Ok(prog) => println!("{}", prog),
+            Err(err) => log::error!("{}", err),
+        }
+    }
+    else if let Some(_matches) = matches.subcommand_matches("test") {
+        match subcommand::unit_test::test_cppfiles(Path::new(".")) {
+            Ok(_) => log::info!("test finished"),
             Err(err) => log::error!("{}", err),
         }
     }
