@@ -27,5 +27,5 @@ jobs:
     - name: Run tests for library
       run: |
         for file in `find lib -name **.niu`; do
-        echo $file && NIU_IMPORT_PATH="./lib/;" cargo run $file >| 1.cpp && g++ -std=c++17 1.cpp -c
+        echo $file && NIU_IMPORT_PATH="./lib/;" cargo run trans $file >| 1.cpp && g++ -std=c++17 1.cpp -c
         done

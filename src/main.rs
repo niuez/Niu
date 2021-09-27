@@ -1,5 +1,6 @@
 extern crate nom;
 extern crate log;
+extern crate clap;
 
 pub mod literal;
 pub mod expression;
@@ -42,6 +43,8 @@ use nom::character::complete::*;
 use nom::sequence::*;
 use nom::multi::*;
 
+use clap::{ Arg, App, SubCommand };
+
 fn get_import_path() -> Result<Vec<PathBuf>, String> {
     let paths = std::env::var("NIU_IMPORT_PATH").unwrap_or(format!(""));
     let parse: IResult<&str, Vec<_>> = many0(tuple((is_not(";"), char(';'))))(paths.as_str());
@@ -54,9 +57,7 @@ fn get_import_path() -> Result<Vec<PathBuf>, String> {
     }
 }
 
-fn type_check() -> Result<String, String> {
-    let args = std::env::args().collect::<Vec<_>>();
-    let filename = args.get(1).ok_or("no filepath")?;
+fn type_check(filename: &str) -> Result<String, String> {
     let import_path = get_import_path()?;
     let mut t = crate::full_content::parse_full_content_from_file(&filename, &import_path).map_err(|e| format!("{:?}", e))?;
     //log::debug!("{:?}", t);
@@ -67,8 +68,22 @@ fn type_check() -> Result<String, String> {
 
 fn main() {
     env_logger::init();
-    match type_check() {
-        Ok(prog) => println!("{}", prog),
-        Err(err) => log::error!("{}", err),
+
+    let matches = App::new("Niu transpiler")
+        .version("0.6.1")
+        .author("niuez")
+        .subcommand(SubCommand::with_name("trans")
+                    .about("transpile .niu program")
+                    .arg(Arg::with_name("FILE")
+                         .help("input .niu file")
+                         .required(true)
+                         .index(1)
+                    ))
+        .get_matches();
+    if let Some(matches) = matches.subcommand_matches("trans") {
+        match type_check(matches.value_of("FILE").unwrap()) {
+            Ok(prog) => println!("{}", prog),
+            Err(err) => log::error!("{}", err),
+        }
     }
 }
