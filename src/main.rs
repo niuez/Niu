@@ -108,12 +108,33 @@ fn main() {
         }
     }
     else if let Some(_matches) = matches.subcommand_matches("gen") {
+        match subcommand::create_test_directory(Path::new(".")) {
+            Ok(_) => log::info!("created .test directory"),
+            Err(err) => {
+                log::error!("{}", err);
+                return;
+            }
+        }
         match subcommand::generate::generate_headers(Path::new(".")) {
             Ok(_) => log::info!("generate finished"),
             Err(err) => log::error!("{}", err),
         }
     }
     else if let Some(_matches) = matches.subcommand_matches("test") {
+        match subcommand::create_test_directory(Path::new(".")) {
+            Ok(_) => log::info!("created .test directory"),
+            Err(err) => {
+                log::error!("{}", err);
+                return;
+            }
+        }
+        match subcommand::tester::download_testers(Path::new(".")) {
+            Ok(_) => log::info!("download finished"),
+            Err(err) => {
+                log::error!("{}", err);
+                return;
+            }
+        }
         match subcommand::unit_test::test_cppfiles(Path::new(".")) {
             Ok(_) => log::info!("test finished"),
             Err(err) => log::error!("{}", err),

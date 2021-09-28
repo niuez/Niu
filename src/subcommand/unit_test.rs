@@ -5,23 +5,24 @@ use std::process::{ Stdio, Command };
 
 #[derive(Clone, Deserialize, Serialize)]
 pub struct TestConfig {
-    compiler: String,
-    compile_options: Vec<String>,
-    testers: Vec<Testers>,
-    tests: Vec<Tests>,
+    pub compiler: String,
+    pub compile_options: Vec<String>,
+    pub testers: Vec<Testers>,
+    pub tests: Vec<Tests>,
 }
 
 #[derive(Clone, Deserialize, Serialize)]
 pub struct LibraryConfig {
-    compiler: String,
-    compile_options: Vec<String>,
-    testers: Vec<Testers>,
+    pub compiler: String,
+    pub compile_options: Vec<String>,
+    pub testers: Vec<Testers>,
 }
 
 #[derive(Clone, Deserialize, Serialize)]
 pub struct Testers {
-    name: String,
-    generator: String,
+    pub name: String,
+    pub repo: String,
+    pub generator: String,
 }
 
 
