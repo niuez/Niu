@@ -96,7 +96,11 @@ fn main() {
                     ))
         .subcommand(SubCommand::with_name("test")
                     .about("test .niu programs")
-                    )
+                    .arg(
+                        Arg::with_name("nogen")
+                        .long("nogen")
+                        .help("no generate before test")
+                    ))
         .subcommand(SubCommand::with_name("gen")
                     .about("generate headers and tests")
                     )
@@ -120,12 +124,18 @@ fn main() {
             Err(err) => log::error!("{}", err),
         }
     }
-    else if let Some(_matches) = matches.subcommand_matches("test") {
+    else if let Some(matches) = matches.subcommand_matches("test") {
         match subcommand::create_test_directory(Path::new(".")) {
             Ok(_) => log::info!("created .test directory"),
             Err(err) => {
                 log::error!("{}", err);
                 return;
+            }
+        }
+        if matches.occurrences_of("nogen") == 0 {
+            match subcommand::generate::generate_headers(Path::new(".")) {
+                Ok(_) => log::info!("generate finished"),
+                Err(err) => log::error!("{}", err),
             }
         }
         match subcommand::tester::download_testers(Path::new(".")) {
