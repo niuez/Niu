@@ -39,6 +39,7 @@ pub mod subcommand;
 use std::path::*;
 
 //use crate::trans::Transpile;
+use crate::unit_test::*;
 
 use nom::IResult;
 use nom::bytes::complete::*;
@@ -69,6 +70,17 @@ fn type_check(filename: &str) -> Result<String, String> {
     Ok(t.transpile(&mut ta))
 }
 
+pub fn type_check_with_tests(filename: &str) -> Result<(String, Vec<UnitTestTranspiled>), String> {
+    let import_path = get_import_path()?;
+    let mut t = crate::full_content::parse_full_content_from_file(&filename, &import_path).map_err(|e| format!("{:?}", e))?;
+    //log::debug!("{:?}", t);
+    let mut ta = t.type_check()?;
+    t.mut_check(&ta)?;
+    let main_prog = t.transpile(&mut ta);
+    let unit_tests = t.transpile_tests(&ta);
+    Ok((main_prog, unit_tests))
+}
+
 fn main() {
     env_logger::init();
 
@@ -85,10 +97,19 @@ fn main() {
         .subcommand(SubCommand::with_name("test")
                     .about("test .niu programs")
                     )
+        .subcommand(SubCommand::with_name("gen")
+                    .about("generate headers and tests")
+                    )
         .get_matches();
     if let Some(matches) = matches.subcommand_matches("trans") {
         match type_check(matches.value_of("FILE").unwrap()) {
             Ok(prog) => println!("{}", prog),
+            Err(err) => log::error!("{}", err),
+        }
+    }
+    else if let Some(_matches) = matches.subcommand_matches("gen") {
+        match subcommand::generate::generate_headers(Path::new(".")) {
+            Ok(_) => log::info!("generate finished"),
             Err(err) => log::error!("{}", err),
         }
     }

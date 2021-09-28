@@ -15,6 +15,7 @@ use crate::unify::*;
 use crate::trans::*;
 use crate::mut_checker::*;
 use crate::structs::*;
+use crate::unit_test::*;
 
 #[derive(Debug)]
 pub struct FullContent {
@@ -23,6 +24,7 @@ pub struct FullContent {
     pub impls: Vec<ImplDefinition>,
     pub funcs: Vec<FuncDefinition>,
     pub includes: Vec<String>,
+    unit_tests: Vec<UnitTestFunc>,
 }
 
 impl FullContent {
@@ -166,6 +168,10 @@ impl FullContent {
         }
         res
     }
+
+    pub fn transpile_tests(&self, ta: &TypeAnnotation) -> Vec<UnitTestTranspiled> {
+        self.unit_tests.iter().map(|unit_test| unit_test.transpile(ta)).collect()
+    }
 }
 
 
@@ -177,6 +183,7 @@ enum ContentElement {
     ImplTrait(ImplDefinition),
     Import(String),
     Include(String),
+    UnitTest(UnitTestFunc),
 }
 
 fn parse_element_struct(s: &str) -> IResult<&str, ContentElement> {
@@ -209,9 +216,14 @@ fn parse_element_include(s: &str) -> IResult<&str, ContentElement> {
     Ok((s, ContentElement::Include(path.to_string())))
 }
 
+fn parse_element_unit_test(s: &str) -> IResult<&str, ContentElement> {
+    let (s, (_, unit_test, _)) = tuple((multispace0, parse_unit_test_func, multispace0))(s)?;
+    Ok((s, ContentElement::UnitTest(unit_test)))
+}
+
 
 fn parse_content_element(s: &str) -> IResult<&str, ContentElement> {
-    alt((parse_element_include, parse_element_import, parse_element_struct, parse_element_func, parse_element_trait, parse_element_impl_trait))(s)
+    alt((parse_element_include, parse_element_import, parse_element_struct, parse_element_func, parse_element_trait, parse_element_impl_trait, parse_element_unit_test))(s)
 }
 
 pub fn parse_full_content(s: &str) -> IResult<&str, (Vec<String>, FullContent)> {
@@ -223,6 +235,7 @@ pub fn parse_full_content(s: &str) -> IResult<&str, (Vec<String>, FullContent)> 
     let mut impls = Vec::new();
     let mut imports = Vec::new();
     let mut includes = Vec::new();
+    let mut unit_tests = Vec::new();
     for (e, _) in elems {
         match e {
             ContentElement::Struct(s) => structs.push(s),
@@ -231,9 +244,10 @@ pub fn parse_full_content(s: &str) -> IResult<&str, (Vec<String>, FullContent)> 
             ContentElement::ImplTrait(it) => impls.push(it),
             ContentElement::Import(path) => imports.push(path),
             ContentElement::Include(path) => includes.push(path),
+            ContentElement::UnitTest(unit_test) => unit_tests.push(unit_test),
         }
     }
-    Ok((s, (imports, FullContent { structs, funcs, traits, impls, includes, })))
+    Ok((s, (imports, FullContent { structs, funcs, traits, impls, includes, unit_tests, })))
 }
 
 pub fn parse_full_content_from_file(filename: &str, import_path: &[PathBuf]) -> Result<FullContent, String> {
@@ -242,13 +256,14 @@ pub fn parse_full_content_from_file(filename: &str, import_path: &[PathBuf]) -> 
     let mut traits = Vec::new();
     let mut impls = Vec::new();
     let mut includes = Vec::new();
+    let mut unit_tests = Vec::new();
 
     let mut que = Vec::new();
     let mut read = HashSet::new();
     {
         let path = Path::new(filename).canonicalize().map_err(|e| format!("{:?}", e))?.to_path_buf();
         if path.is_file() {
-            que.push(path.clone());
+            que.push((path.clone(), true));
             read.insert(path);
         }
         else {
@@ -256,7 +271,7 @@ pub fn parse_full_content_from_file(filename: &str, import_path: &[PathBuf]) -> 
         }
     }
     
-    while let Some(path) = que.pop() {
+    while let Some((path, first_file)) = que.pop() {
         let program = std::fs::read_to_string(path.as_path()).map_err(|_| format!("cant open {}", filename))?;
         let (s, (imports, mut full)) = crate::full_content::parse_full_content(&program).map_err(|e| format!("{:?}", e))?;
         if s != "" {
@@ -271,7 +286,7 @@ pub fn parse_full_content_from_file(filename: &str, import_path: &[PathBuf]) -> 
                     log::debug!("path {:?}", path);
                     if read.insert(path.clone()) {
                         if path.is_file() {
-                            que.push(path);
+                            que.push((path, false));
                             ok = true;
                             break;
                         }
@@ -292,11 +307,14 @@ pub fn parse_full_content_from_file(filename: &str, import_path: &[PathBuf]) -> 
         traits.append(&mut full.traits);
         impls.append(&mut full.impls);
         includes.append(&mut full.includes);
+        if first_file {
+            unit_tests.append(&mut full.unit_tests);
+        }
     }
     includes.push("type_traits".to_string());
     includes.sort();
     includes.dedup();
-    Ok(FullContent { structs, funcs, traits, impls, includes })
+    Ok(FullContent { structs, funcs, traits, impls, includes, unit_tests })
 }
 /*
 #[test]

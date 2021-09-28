@@ -1,28 +1,46 @@
-use serde::Deserialize;
+use serde::{ Serialize, Deserialize };
 use std::path::*;
 use std::process::{ Stdio, Command };
 //use std::os::unix::io::{FromRawFd, IntoRawFd};
 
-#[derive(Deserialize)]
-struct TestConfig {
+#[derive(Clone, Deserialize, Serialize)]
+pub struct TestConfig {
     compiler: String,
     compile_options: Vec<String>,
     testers: Vec<Testers>,
     tests: Vec<Tests>,
 }
 
-#[derive(Deserialize)]
-struct Testers {
+#[derive(Clone, Deserialize, Serialize)]
+pub struct LibraryConfig {
+    compiler: String,
+    compile_options: Vec<String>,
+    testers: Vec<Testers>,
+}
+
+#[derive(Clone, Deserialize, Serialize)]
+pub struct Testers {
     name: String,
     generator: String,
 }
 
 
-#[derive(Deserialize)]
-struct Tests {
-    program: String,
-    tester: String,
-    problem: String,
+#[derive(Clone, Deserialize, Serialize)]
+pub struct Tests {
+    pub program_file: String,
+    pub tester: String,
+    pub problem: String,
+}
+
+impl TestConfig {
+    pub fn generate(lib_conf: &LibraryConfig, tests: &Vec<Tests>) -> Self {
+        TestConfig {
+            compiler: lib_conf.compiler.clone(),
+            compile_options: lib_conf.compile_options.clone(),
+            testers: lib_conf.testers.clone(),
+            tests: tests.clone(),
+        }
+    }
 }
 
 fn find_input_names(problem_dir: &Path) -> std::io::Result<Vec<std::ffi::OsString>> {
@@ -36,14 +54,22 @@ fn find_input_names(problem_dir: &Path) -> std::io::Result<Vec<std::ffi::OsStrin
     Ok(names)
 }
 
+pub fn load_library_config(libraries_dir: &Path) -> Result<LibraryConfig, String> {
+    let library_config = std::fs::read_to_string(libraries_dir.join("library.toml"))
+        .map_err(|e| format!("cant open library.toml, {:?}", e))?;
+    toml::from_str(&library_config)
+        .map_err(|e| format!("cant parse library.toml, {:?}", e))
+}
+
+
 pub fn test_cppfiles(libraries_dir: &Path) -> Result<(), String> {
     let test_config = std::fs::read_to_string(libraries_dir.join(".test/tests.toml"))
         .map_err(|e| format!("cant open tests.toml, {:?}", e))?;
     let test_config: TestConfig = toml::from_str(&test_config)
         .map_err(|e| format!("cant parse tests.toml, {:?}", e))?;
     let TestConfig { compiler, compile_options, testers, tests } = test_config;
-    for Tests { program, tester, problem } in tests.into_iter() {
-        log::info!("start test {}", program);
+    for Tests { program_file, tester, problem } in tests.into_iter() {
+        log::info!("start test {}", program_file);
         let Testers { generator, .. } = testers.iter().find(|Testers { ref name, .. }| tester == *name).ok_or(format!("not found tester {:?}", tester))?;
 
         log::info!("generate test {}:{}", tester, problem);
@@ -56,16 +82,16 @@ pub fn test_cppfiles(libraries_dir: &Path) -> Result<(), String> {
             return Err(format!("failure to generate {}:{}", tester, problem));
         }
 
-        log::info!("compile program {}", program);
+        log::info!("compile program_file {}", program_file);
         let mut command = Command::new(&compiler)
             .current_dir(libraries_dir.join(".test").as_os_str())
-            .arg(&program)
+            .arg(&program_file)
             .args(compile_options.clone())
             .spawn()
             .map_err(|e| format!("command build error, {:?}", e))?;
         if !command.wait().map_err(|e| format!("command run error, {:?}", e))?.success() {
-            log::error!("failure to compile {}", program);
-            return Err(format!("failure to compile {}", program));
+            log::error!("failure to compile {}", program_file);
+            return Err(format!("failure to compile {}", program_file));
         }
 
         log::info!("search input file");
@@ -112,12 +138,11 @@ pub fn test_cppfiles(libraries_dir: &Path) -> Result<(), String> {
             }
             else {
                 log::error!("failure {:?}", input);
-                return Err(format!("failure test {:?} in {}", input, program));
+                return Err(format!("failure test {:?} in {}", input, program_file));
             }
             
         }
     }
     Ok(())
 }
-
 

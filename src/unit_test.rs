@@ -10,6 +10,14 @@ use nom::character::complete::*;
 use nom::sequence::*;
 
 #[derive(Debug)]
+pub struct UnitTestTranspiled {
+    pub tester: String,
+    pub problem: String,
+    pub test_name: Identifier,
+    pub program: String,
+}
+
+#[derive(Debug)]
 pub struct UnitTestFunc {
     pub tester: String,
     pub problem: String,
@@ -18,8 +26,13 @@ pub struct UnitTestFunc {
 }
 
 impl UnitTestFunc {
-    pub fn transpile(&self, ta: &TypeAnnotation) -> String {
-        self.block.transpile(ta, &HashMap::new())
+    pub fn transpile(&self, ta: &TypeAnnotation) -> UnitTestTranspiled {
+        UnitTestTranspiled {
+            tester: self.tester.clone(),
+            problem: self.problem.clone(),
+            test_name: self.test_name.clone(),
+            program: self.block.transpile(ta, &HashMap::new())
+        }
     }
 }
 
