@@ -1,0 +1,7 @@
+compiler="g++"
+compile_options=["-std=c++17"]
+
+[[testers]]
+name="library-checker-problems"
+repo="https://github.com/yosupo06/library-checker-problems"
+generator="generate.py"

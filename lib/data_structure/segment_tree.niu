@@ -7,18 +7,13 @@ trait Monoid {
   fn ope(self: &Self, right: &Self) -> Self;
 }
 
-impl Monoid for i64 {
-  fn ide() -> i64 { 0i64 }
-  fn ope(self: &i64, right: &i64) -> i64 { *self + *right }
-}
-
 struct SegmentTree<T> where T: Monoid {
   node: Vec<T>,
   n: u64,
 } {
   fn init(arr: &Vec<T>) -> Self {
     let mut n = 1;
-    for n = 1; n < arr.len(); n = n * 2 {}
+    for i = 1; n < arr.len(); n = n * 2 {}
     let mut node = Vec::init(2 * n, T#Monoid::ide());
     for i = 0; i < arr.len(); i = i + 1 {
       node[i + n] = arr[i];

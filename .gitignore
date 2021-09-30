@@ -2,3 +2,5 @@
 Cargo.lock
 .DS_Store
 unit_test
+lib/transpile
+lib/.test
