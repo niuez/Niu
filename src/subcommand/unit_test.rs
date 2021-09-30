@@ -76,6 +76,7 @@ pub fn test_cppfiles(libraries_dir: &Path) -> Result<(), String> {
         log::info!("generate test {}:{}", tester, problem);
         let mut command = Command::new(libraries_dir.join(".test").join(&tester).join(&generator).as_os_str())
             .arg(libraries_dir.join(".test").join(&tester).join(&problem).join("info.toml").as_os_str())
+            .current_dir(libraries_dir)
             .spawn()
             .map_err(|e| format!("command build error, {:?}", e))?;
         if !command.wait().map_err(|e| format!("command run error, {:?}", e))?.success() {
