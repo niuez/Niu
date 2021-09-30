@@ -143,7 +143,7 @@ impl FullContent {
             res.push_str(";\n");
         }
         // structs implementation
-        for t in self.structs.iter() {
+        for t in self.structs.iter().rev() {
             ta.self_type = Some(t.transpile_self_type());
             let st_id = t.get_id();
             let opes = operators.iter()
