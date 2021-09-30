@@ -1,12 +1,6 @@
 /target
 Cargo.lock
 .DS_Store
-<<<<<<< HEAD
-unit_test
-lib/transpile
-lib/.test
-=======
 lib/.test
 lib/transpile
 unit_test
->>>>>>> master
