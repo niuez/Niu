@@ -30,5 +30,7 @@ jobs:
         echo $file && NIU_IMPORT_PATH="./lib/;" cargo run trans $file >| 1.cpp && g++ -std=c++17 1.cpp -c
         done
     - name: Run unit tests
-      run: RUST_LOG=info NIU_IMPORT_PATH="./;" cargo run test
+      run: |
+        pip3 install toml Markdown colorlog jinja2
+        RUST_LOG=info NIU_IMPORT_PATH="./;" cargo run test
       working-directory: ./lib
