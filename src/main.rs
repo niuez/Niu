@@ -81,7 +81,7 @@ pub fn type_check_with_tests(filename: &str) -> Result<(String, Vec<UnitTestTran
     Ok((main_prog, unit_tests))
 }
 
-fn main() {
+fn app() -> Result<(), String> {
     env_logger::init();
 
     let matches = App::new("Niu transpiler")
@@ -107,47 +107,46 @@ fn main() {
         .get_matches();
     if let Some(matches) = matches.subcommand_matches("trans") {
         match type_check(matches.value_of("FILE").unwrap()) {
-            Ok(prog) => println!("{}", prog),
-            Err(err) => log::error!("{}", err),
+            Ok(prog) => {
+                println!("{}", prog);
+                Ok(())
+            }
+            Err(err) => Err(err),
         }
     }
     else if let Some(_matches) = matches.subcommand_matches("gen") {
-        match subcommand::create_test_directory(Path::new(".")) {
-            Ok(_) => log::info!("created .test directory"),
-            Err(err) => {
-                log::error!("{}", err);
-                return;
-            }
-        }
-        match subcommand::generate::generate_headers(Path::new(".")) {
-            Ok(_) => log::info!("generate finished"),
-            Err(err) => log::error!("{}", err),
-        }
+        let library_dir = subcommand::unit_test::get_library_dir(Path::new("."))?;
+        subcommand::create_test_directory(&library_dir)?;
+        log::info!("created .test directory");
+        subcommand::generate::generate_headers(&library_dir)?;
+        log::info!("generate finished");
+        Ok(())
     }
     else if let Some(matches) = matches.subcommand_matches("test") {
-        match subcommand::create_test_directory(Path::new(".")) {
-            Ok(_) => log::info!("created .test directory"),
-            Err(err) => {
-                log::error!("{}", err);
-                return;
-            }
-        }
+        let library_dir = subcommand::unit_test::get_library_dir(Path::new("."))?;
+        subcommand::create_test_directory(&library_dir)?;
+        log::info!("created .test directory");
         if matches.occurrences_of("nogen") == 0 {
-            match subcommand::generate::generate_headers(Path::new(".")) {
-                Ok(_) => log::info!("generate finished"),
-                Err(err) => log::error!("{}", err),
-            }
+            subcommand::generate::generate_headers(&library_dir)?;
+            log::info!("generate finished");
         }
-        match subcommand::tester::download_testers(Path::new(".")) {
-            Ok(_) => log::info!("download finished"),
-            Err(err) => {
-                log::error!("{}", err);
-                return;
-            }
-        }
-        match subcommand::unit_test::test_cppfiles(Path::new(".")) {
-            Ok(_) => log::info!("test finished"),
-            Err(err) => log::error!("{}", err),
-        }
+        subcommand::tester::download_testers(&library_dir)?;
+        log::info!("download finished");
+        subcommand::unit_test::test_cppfiles(&library_dir)?;
+        log::info!("test finished");
+        Ok(())
     }
+    else {
+        Ok(())
+    }
+}
+
+fn main() {
+    std::process::exit( match app() {
+        Ok(_) => 0,
+        Err(err) => {
+            log::error!("{}", err);
+            1
+        }
+    });
 }

@@ -70,7 +70,7 @@ fn transpile_target(library_dir: &Path, target: &Path) -> Result<Vec<Tests>, Str
 }
 
 pub fn generate_headers(library_dir: &Path) -> Result<(), String> {
-    let lib_conf = super::unit_test::load_library_config(Path::new("."))?;
+    let lib_conf = super::unit_test::load_library_config(library_dir)?;
     let list = get_targets_list(library_dir)?;
     let mut tests = Vec::new();
     for target in list.into_iter() {

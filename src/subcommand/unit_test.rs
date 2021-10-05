@@ -55,6 +55,23 @@ fn find_input_names(problem_dir: &Path) -> std::io::Result<Vec<std::ffi::OsStrin
     Ok(names)
 }
 
+pub fn get_library_dir(current_dir: &Path) -> Result<PathBuf, String> {
+    let mut path = current_dir.canonicalize().map_err(|e| format!("cant canonicalize, {:?}", e))?;
+    loop {
+        let toml_path = path.join("library.toml");
+        if toml_path.exists() {
+            log::info!("library.toml found at {:?}", path);
+            break Ok(path)
+        }
+        if let Some(par) = path.parent() {
+            path = par.to_path_buf()
+        }
+        else {
+            break Err(format!("not found library.toml"))
+        }
+    }
+}
+
 pub fn load_library_config(libraries_dir: &Path) -> Result<LibraryConfig, String> {
     let library_config = std::fs::read_to_string(libraries_dir.join("library.toml"))
         .map_err(|e| format!("cant open library.toml, {:?}", e))?;
