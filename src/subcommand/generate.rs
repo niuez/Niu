@@ -81,9 +81,9 @@ pub fn generate_headers(library_dir: &Path) -> Result<(), String> {
         log::info!("generate tests.toml");
         let tests_conf = TestConfig::generate(&lib_conf, &tests);
         let mut tests_conf_file = std::fs::File::create(library_dir.join(".test").join("tests.toml"))
-            .map_err(|e| format!("failure to create test.toml {:?}", e))?;
+            .map_err(|e| format!("failure to create tests.toml {:?}", e))?;
         tests_conf_file.write_all(toml::to_string(&tests_conf).map_err(|e| format!("serialize toml error {:?}", e))?.as_bytes())
-            .map_err(|e| format!("failure to write to test.toml {:?}", e))?;
+            .map_err(|e| format!("failure to write to tests.toml {:?}", e))?;
     }
     else {
         log::info!("test not found, generating tests.toml was skipped");

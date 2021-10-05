@@ -81,7 +81,7 @@ pub fn load_library_config(libraries_dir: &Path) -> Result<LibraryConfig, String
 
 
 pub fn test_cppfiles(libraries_dir: &Path) -> Result<(), String> {
-    let test_config = std::fs::read_to_string(libraries_dir.join(".test/tests.toml"))
+    let test_config = std::fs::read_to_string(libraries_dir.join(".test").join("tests.toml"))
         .map_err(|e| format!("cant open tests.toml, {:?}", e))?;
     let test_config: TestConfig = toml::from_str(&test_config)
         .map_err(|e| format!("cant parse tests.toml, {:?}", e))?;
