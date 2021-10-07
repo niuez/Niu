@@ -181,8 +181,11 @@ impl FuncDefinition {
 
     pub fn mut_check(&self, ta: &TypeAnnotation, vars: &mut VariablesInfo) -> Result<(), String> {
         vars.into_scope();
-        for (id, _, is_mutable) in self.args.iter() {
+        for (id, ty, is_mutable) in self.args.iter() {
             vars.regist_variable(id, *is_mutable);
+            if ty.is_reference() && *is_mutable {
+                return Err(format!("Reference cant be mutable, {:?}", id));
+            }
         }
         if let FuncBlock::Block(ref block) = self.block {
             block.mut_check(ta, vars)?;
@@ -218,7 +221,7 @@ impl FuncDefinition {
         let static_str = if is_static { "static " } else { "" };
         let func_str = self.func_id.into_string();
         let arg_str = self.args.iter().map(|(id, ty, is_mutable)| {
-            if *is_mutable {
+            if *is_mutable || ty.is_reference() {
                 format!("{} {}", ty.transpile(ta), id.into_string())
             }
             else {
@@ -257,7 +260,7 @@ impl FuncDefinition {
         let static_str = if is_static { "static " } else { "" };
         let func_str = self.func_id.into_string();
         let arg_str = self.args.iter().map(|(id, ty, is_mutable)| {
-            if *is_mutable {
+            if *is_mutable | ty.is_reference() {
                 format!("{} {}", ty.transpile(ta), id.into_string())
             }
             else {

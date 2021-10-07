@@ -47,9 +47,14 @@ impl Transpile for LetDeclaration {
 }
 
 impl MutCheck for LetDeclaration {
-    fn mut_check(&self, _ta: &TypeAnnotation, vars: &mut VariablesInfo) -> Result<MutResult, String> {
+    fn mut_check(&self, ta: &TypeAnnotation, vars: &mut VariablesInfo) -> Result<MutResult, String> {
         vars.regist_variable(&self.id, self.is_mut);
-        Ok(MutResult::NoType)
+        if ta.annotation(self.id.get_tag_number(), "LetType", 0).is_reference() && self.is_mut {
+            Err(format!("Reference cant be mutable, {:?}", self.id))
+        }
+        else {
+            Ok(MutResult::NoType)
+        }
     }
 }
 

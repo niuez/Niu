@@ -44,15 +44,15 @@ testfn(library-checker-problems:datastructure/point_add_range_sum) segmenttree_p
     a[i] = Am::init(v);
   }
   using Seg = SegmentTree<Am>;
-  auto seg = Seg::init(&a);
+  auto seg = Seg::init(a);
   while(Q--) {
     int t, a, b;
     std::cin >> t >> a >> b;
     if(t == 0) {
-      Seg::update(&seg, a, Am::init(Seg::get(&seg, a)->v + b));
+      Seg::update(seg, a, Am::init(Seg::get(seg, a).v + b));
     }
     else {
-      std::cout << Seg::sum(&seg, a, b).v << '\n';
+      std::cout << Seg::sum(seg, a, b).v << '\n';
     }
   }
 }$$
@@ -68,15 +68,15 @@ testfn(library-checker-problems:datastructure/point_set_range_composite) segment
     a[i] = Fm::init(v, w);
   }
   using Seg = SegmentTree<Fm>;
-  auto seg = Seg::init(&a);
+  auto seg = Seg::init(a);
   while(Q--) {
     int t, a, b, c;
     std::cin >> t >> a >> b >> c;
     if(t == 0) {
-      Seg::update(&seg, a, Fm::init(b, c));
+      Seg::update(seg, a, Fm::init(b, c));
     }
     else {
-      Fm ans = Seg::sum(&seg, a, b);
+      Fm ans = Seg::sum(seg, a, b);
       std::cout << (ans.a * Modint<M9982>(c) + ans.b).a << '\n';
     }
   }

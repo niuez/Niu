@@ -210,6 +210,26 @@ impl Type {
             }
         }
     }
+
+    pub fn is_reference(&self) -> bool {
+        match *self {
+            Type::Ref(_) | Type::MutRef(_) => true,
+            _ => false,
+        }
+    }
+    fn double_reference_check(&self) -> Result<(), UnifyErr> {
+        match *self {
+            Type::Ref(ref ty) | Type::MutRef(ref ty) => {
+                if ty.is_reference() {
+                    Err(UnifyErr::Contradiction(format!("double reference is not allowed, {:?}", self)))
+                }
+                else {
+                    Ok(())
+                }
+            }
+            _ => Ok(()),
+        }
+    }
 }
 
 impl Transpile for Type {
@@ -234,7 +254,10 @@ impl Transpile for Type {
                 }
             }
             Type::Ref(ref ty) => {
-                format!("{}*", ty.as_ref().transpile(ta))
+                format!("{} const&", ty.as_ref().transpile(ta))
+            }
+            Type::Deref(ref ty) => {
+                format!("{}&", ty.as_ref().transpile(ta))
             }
             Type::Generics(ref ty_id, ref gens) => {
                 if let Some((ids, cppinline)) = ta.is_inline_struct(ty_id) {
@@ -813,6 +836,8 @@ impl TypeEquations {
                     }
                 }
                 TypeEquation::Equal(left, right, before_changed) => {
+                    left.double_reference_check()?;
+                    right.double_reference_check()?;
                     //log::info!("\n{:?} = {:?}", left, right);
                     self.change_cnt -= before_changed.cnt();
                     let (left, left_changed) = self.solve_relations(left, trs)?;

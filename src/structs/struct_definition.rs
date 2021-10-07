@@ -139,10 +139,10 @@ impl StructDefinition {
                 let methods = self.impl_self.require_methods.iter().map(|(_, func)| format!("{}", func.transpile(ta, true))).collect::<Vec<_>>().join("\n");
                 let operators = opes.into_iter().map(|ope| match ope.as_str() {
                     "Index" => {
-                        format!("typename std::enable_if<Index<{0}>::value, const typename Index<{0}>::Output&>::type operator[](typename Index<{0}>::Arg k) const {{ return *Index<{0}>::index(this, k); }}\n", self_type)
+                        format!("typename std::enable_if<Index<{0}>::value, const typename Index<{0}>::Output&>::type operator[](typename Index<{0}>::Arg k) const {{ return Index<{0}>::index(this, k); }}\n", self_type)
                     }
                     "IndexMut" => {
-                        format!("typename std::enable_if<IndexMut<{0}>::value, typename Index<{0}>::Output&>::type operator[](typename Index<{0}>::Arg k) {{ return *IndexMut<{0}>::index_mut(this, k); }}\n", self_type)
+                        format!("typename std::enable_if<IndexMut<{0}>::value, typename Index<{0}>::Output&>::type operator[](typename Index<{0}>::Arg k) {{ return IndexMut<{0}>::index_mut(this, k); }}\n", self_type)
                     }
                     /* bin_ope if binary_operators.contains_key(bin_ope) => {
                         let method = binary_operators[&bin_ope];
