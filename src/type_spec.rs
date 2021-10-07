@@ -236,6 +236,12 @@ impl TypeSpec {
     pub fn from_id(id: &TypeId) -> Self {
         TypeSpec::TypeSign(TypeSign { id: id.clone(), gens: Vec::new() })
     }
+    pub fn is_reference(&self) -> bool {
+        match *self {
+            TypeSpec::Pointer(_) | TypeSpec::MutPointer(_) => true,
+            _ => false,
+        }
+    }
 }
 
 fn parse_type_spec_subseq(s: &str, prev: TypeSpec) -> IResult<&str, TypeSpec> {
@@ -290,10 +296,10 @@ impl Transpile for TypeSpec {
         match *self {
             TypeSpec::TypeSign(ref sign) => sign.transpile(ta),
             TypeSpec::Pointer(ref spec) => {
-                format!("const {}*", spec.transpile(ta))
+                format!("{} const&", spec.transpile(ta))
             }
             TypeSpec::MutPointer(ref spec) => {
-                format!("{}*", spec.transpile(ta))
+                format!("{}&", spec.transpile(ta))
             }
             TypeSpec::Associated(ref spec, AssociatedType { ref trait_spec, ref type_id } ) => {
                 match BINARY_OPERATOR_TRAITS.iter().find_map(|(tr_id, (_, ope))| {

@@ -218,7 +218,7 @@ impl FuncDefinition {
         let static_str = if is_static { "static " } else { "" };
         let func_str = self.func_id.into_string();
         let arg_str = self.args.iter().map(|(id, ty, is_mutable)| {
-            if *is_mutable {
+            if *is_mutable || ty.is_reference() {
                 format!("{} {}", ty.transpile(ta), id.into_string())
             }
             else {
@@ -257,7 +257,7 @@ impl FuncDefinition {
         let static_str = if is_static { "static " } else { "" };
         let func_str = self.func_id.into_string();
         let arg_str = self.args.iter().map(|(id, ty, is_mutable)| {
-            if *is_mutable {
+            if *is_mutable | ty.is_reference() {
                 format!("{} {}", ty.transpile(ta), id.into_string())
             }
             else {

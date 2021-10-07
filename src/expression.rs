@@ -883,9 +883,9 @@ impl Transpile for ExpUnaryOpe {
     fn transpile(&self, ta: &TypeAnnotation) -> String {
         match self {
             Self::UnaryExpr(ref exp) => exp.transpile(ta),
-            Self::Ref(ref exp) => format!("&{}", exp.as_ref().transpile(ta)),
-            Self::MutRef(ref exp) => format!("&{}", exp.as_ref().transpile(ta)),
-            Self::Deref(ref exp, _) => format!("*{}", exp.as_ref().transpile(ta)),
+            Self::Ref(ref exp) => format!("{}", exp.as_ref().transpile(ta)),
+            Self::MutRef(ref exp) => format!("{}", exp.as_ref().transpile(ta)),
+            Self::Deref(ref exp, _) => format!("{}", exp.as_ref().transpile(ta)),
             Self::Neg(ref exp, _) => format!("-{}", exp.as_ref().transpile(ta)),
             Self::Not(ref exp, _) => format!("!{}", exp.as_ref().transpile(ta)),
         }

@@ -100,8 +100,8 @@ pub fn subseq_transpile(uexpr: &UnaryExpr, subseq: &Subseq, ta: &TypeAnnotation)
             if let UnaryExpr::Subseq(mem_caller, Subseq::Member(mem)) = uexpr {
                 let caller_trans = match ta.annotation(call.tag.get_num(), "AutoRefType", 0) {
                     Type::AutoRef(_, AutoRefTag::Nothing) => format!("{}", mem_caller.transpile(ta)),
-                    Type::AutoRef(_, AutoRefTag::Ref) => format!("(&{})", mem_caller.transpile(ta)),
-                    Type::AutoRef(_, AutoRefTag::MutRef) => format!("(&{})", mem_caller.transpile(ta)),
+                    Type::AutoRef(_, AutoRefTag::Ref) => format!("{}", mem_caller.transpile(ta)),
+                    Type::AutoRef(_, AutoRefTag::MutRef) => format!("{}", mem_caller.transpile(ta)),
                     _ => unreachable!("it is not AutoRef"),
                 };
                 let ty = ta.annotation(call.tag.get_num(), "FuncTypeInfo", 0);
@@ -188,8 +188,8 @@ pub fn subseq_transpile(uexpr: &UnaryExpr, subseq: &Subseq, ta: &TypeAnnotation)
         Subseq::Member(ref mem) => {
             let caller = uexpr.transpile(ta);
             match ta.annotation(mem.mem_id.get_tag_number(), "StructType", 0) {
-                Type::Ref(_) => format!("{}->{}", caller, mem.mem_id.into_string()),
-                Type::MutRef(_) => format!("{}->{}", caller, mem.mem_id.into_string()),
+                Type::Ref(_) => format!("{}.{}", caller, mem.mem_id.into_string()),
+                Type::MutRef(_) => format!("{}.{}", caller, mem.mem_id.into_string()),
                 _ => format!("{}.{}", caller, mem.mem_id.into_string())
             }
         }
@@ -197,8 +197,8 @@ pub fn subseq_transpile(uexpr: &UnaryExpr, subseq: &Subseq, ta: &TypeAnnotation)
             let caller = uexpr.transpile(ta);
             let arg = index.arg.as_ref().transpile(ta);
             match ta.annotation(index.tag.get_num(), "IndexCallerType", 0) {
-                Type::Ref(_) => format!("(*{})[{}]", caller, arg),
-                Type::MutRef(_) => format!("(*{})[{}]", caller, arg),
+                Type::Ref(_) => format!("{}[{}]", caller, arg),
+                Type::MutRef(_) => format!("{}[{}]", caller, arg),
                 _ => format!("{}[{}]", caller, arg)
             }
         }
