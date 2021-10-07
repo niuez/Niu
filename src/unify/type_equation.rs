@@ -213,7 +213,7 @@ impl Type {
 
     pub fn is_reference(&self) -> bool {
         match *self {
-            Type::Ref(_) | Type::Deref(_) => true,
+            Type::Ref(_) | Type::MutRef(_) => true,
             _ => false,
         }
     }
