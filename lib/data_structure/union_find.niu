@@ -47,3 +47,20 @@ struct UnionFind {
     }
   }
 }
+
+testfn(library-checker-problems:datastructure/unionfind) unionfind_test $${
+  std::cin.tie(nullptr);
+  int N, Q;
+  std::cin >> N >> Q;
+  UnionFind uf = UnionFind::init(N);
+  while(Q--) {
+    int t, a, b;
+    std::cin >> t >> a >> b;
+    if(t == 0) {
+      UnionFind::unite(uf, a, b);
+    }
+    else {
+      std::cout << (UnionFind::root(uf, a) == UnionFind::root(uf, b)) << "\n";
+    }
+  }
+}$$
