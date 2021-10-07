@@ -210,6 +210,13 @@ impl Type {
             }
         }
     }
+
+    pub fn is_reference(&self) -> bool {
+        match *self {
+            Type::Ref(_) | Type::Deref(_) => true,
+            _ => false,
+        }
+    }
 }
 
 impl Transpile for Type {
@@ -234,7 +241,10 @@ impl Transpile for Type {
                 }
             }
             Type::Ref(ref ty) => {
-                format!("{}*", ty.as_ref().transpile(ta))
+                format!("{} const&", ty.as_ref().transpile(ta))
+            }
+            Type::Deref(ref ty) => {
+                format!("{}&", ty.as_ref().transpile(ta))
             }
             Type::Generics(ref ty_id, ref gens) => {
                 if let Some((ids, cppinline)) = ta.is_inline_struct(ty_id) {
