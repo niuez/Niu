@@ -41,7 +41,7 @@ testfn(library-checker-problems:sample/aplusb) aplusb_test $${
 }$$
 ```
 
-`testfn([テストの名前(name)]:[問題のディレクトリ]) [テスト名] $${ [C++のコード] }$$`
+`testfn([テストの名前(name)]:[問題のディレクトリ]) [テスト名] $${ [C++のコード] }$$` C++のコードの内容が`int main()`に展開され, テストされます.
 
 ## テストの実行
 
