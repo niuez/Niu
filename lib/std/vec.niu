@@ -4,7 +4,7 @@ import "std/opes.niu"
 struct Vec<T> $${std::vector<$ty(T)>}$$ {
   fn new() -> Self $${std::vector<$ty(T)>()}$$
   fn init(N: u64, t: T) -> Self $${std::vector<$ty(T)>($arg(N), $arg(t))}$$
-  fn push(self: &mut Self, t: T) -> void $${$arg(self)->push_back($arg(t))}$$
+  fn push(self: &mut Self, t: T) -> void $${$arg(self).push_back($arg(t))}$$
   fn len(self: &Self) -> u64 $${$arg(self).size()}$$
   fn pop(self: &mut Self) -> void $${$arg(self).pop_back()}$$
 }

@@ -9,7 +9,7 @@ struct UnionFind {
   fn init(N: u64) -> Self {
     let mut par = Vec::new();
     let mut sz = Vec::new();
-    for(let mut i = 0; i < N; i = i + 1) {
+    for i = 0; i < N; i = i + 1 {
       par.push(N);
       sz.push(1);
     }
