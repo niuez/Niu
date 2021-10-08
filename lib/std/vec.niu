@@ -18,3 +18,7 @@ impl<T> Index for Vec<T> {
 impl<T> IndexMut for Vec<T> {
   fn index_mut(self: &mut Self, i: u64) -> &mut T $${$arg(self).at($arg(i))}$$
 }
+
+impl<T> Eq for Vec<T> where T: Eq {
+  fn eq(self: &Self, right: &Self) -> bool $${self==right}$$
+}
