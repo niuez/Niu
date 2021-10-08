@@ -261,6 +261,15 @@ pub struct ExpOrd {
 impl GenType for ExpOrd {
     fn gen_type(&self, equs: &mut TypeEquations, trs: &TraitsInfo) -> TResult {
         match self.ope {
+            Some(OperatorOrd::Equal) | Some(OperatorOrd::NotEq) => {
+                let t0 = self.terms[0].gen_type(equs, trs)?;
+                let t1 = self.terms[1].gen_type(equs, trs)?;
+                equs.add_has_trait(t0, TraitGenerics {
+                    trait_id: TraitId { id: Identifier::from_str("Eq") },
+                    generics: vec![t1],
+                });
+                Ok(Type::from_str("bool"))
+            }
             Some(_) => {
                 let t0 = self.terms[0].gen_type(equs, trs)?;
                 let t1 = self.terms[1].gen_type(equs, trs)?;

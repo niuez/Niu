@@ -198,6 +198,26 @@ impl ImplDefinition {
                 }).collect::<Vec<_>>().join("");
                 require_methods
             }
+            Some(ResultFindOperator::Eq) => {
+                let generics = self.generics.iter().map(|id| format!("class {}", id.transpile(ta)))
+                    .chain(std::iter::once(format!("class")))
+                    .collect::<Vec<_>>().join(", ");
+                let templates = format!("template<{}> ", generics);
+                let require_methods = self.require_methods.iter().map(|(_, def)| {
+                    let func = def.transpile(ta, false);
+                    if func == "" {
+                        format!("")
+                    }
+                    else {
+                        let impl_type = self.impl_ty.transpile(ta);
+                        let right_type = self.trait_spec.generics[0].transpile(ta);
+                        let not_eq = format!("{} bool operator!=({} const& left, {} const& right) {{ return !(left == right); }}\n", templates, impl_type, right_type);
+                        format!("{}{}\n{}", templates, func, not_eq)
+                    }
+                })
+                .collect::<Vec<_>>().join("");
+                require_methods
+            }
         }
     }
 }
@@ -230,6 +250,12 @@ pub fn parse_impl_definition(s: &str) -> IResult<&str, ImplDefinition> {
         Some(ResultFindOperator::Unary((_, ope))) | Some(ResultFindOperator::Binary((_, ope))) => {
             many_methods.into_iter().map(|(mut func, _)| {
                 func.func_id = Identifier::from_str(format!("operator{}", ope).as_str());
+                (TraitMethodIdentifier { id: func.func_id.clone() }, func)
+            }).collect()
+        }
+        Some(ResultFindOperator::Eq) => {
+            many_methods.into_iter().map(|(mut func, _)| {
+                func.func_id = Identifier::from_str("operator==");
                 (TraitMethodIdentifier { id: func.func_id.clone() }, func)
             }).collect()
         }
@@ -280,6 +306,34 @@ impl Transpile for ImplDefinition {
                             format!("{}{};\n", templates, func)
                         }
                     }).collect::<Vec<_>>().join("");
+                    require_methods
+                }
+            }
+            Some(ResultFindOperator::Eq) => {
+                if let FuncBlock::CppInline(_) = self.require_methods[&TraitMethodIdentifier { id: Identifier::from_str("operator==") }].block {
+                    format!("")
+                }
+                else {
+                    let generics = self.generics.iter().map(|id| format!("class {}", id.transpile(ta)))
+                        .chain(std::iter::once(format!("class = {}", self.where_sec.transpile(ta))))
+                        .collect::<Vec<_>>().join(", ");
+                    let templates = format!("template<{}> ", generics);
+                    let require_methods = self.require_methods.iter().map(|(_, def)| {
+                        let func = def.transpile_definition_only(ta, "", false);
+                        if func == "" {
+                            format!("")
+                        }
+                        else {
+                            format!("{}{};\n", templates, func)
+                        }
+                    })
+                    .chain(std::iter::once( {
+                        let impl_type = self.impl_ty.transpile(ta);
+                        let right_type = self.trait_spec.generics[0].transpile(ta);
+                        //format!("{} bool operator!=({} const& left, {} const& right) {{ return !(left == right); }}\n", templates, impl_type, right_type)
+                        format!("{} bool operator!=({} const& left, {} const& right);\n", templates, impl_type, right_type)
+                    } ))
+                    .collect::<Vec<_>>().join("");
                     require_methods
                 }
             }
