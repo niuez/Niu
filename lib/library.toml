@@ -1,5 +1,5 @@
 compiler="g++"
-compile_options=["-std=c++17"]
+compile_options=["-std=c++17", "-O2"]
 
 [[testers]]
 name="library-checker-problems"
