@@ -1,22 +1,22 @@
 import "std/opes.niu"
 
-impl Eq<u64> for u64 {
+impl Eq for u64 {
   fn eq(self: &Self, right: &Self) -> bool $${self == right}$$
 }
 
-struct Hoge {
-  v: u64,
+struct Hoge<T> {
+  v: T,
 } {}
 
-impl Eq<u64> for Hoge {
-  fn eq(self: &Self, right: &u64) -> bool {
-    self.v == *right
+impl<T> Eq for Hoge<T> where T: Eq {
+  fn eq(self: &Self, right: &Self) -> bool {
+    self.v == right.v
   }
 }
 
 fn main() -> void {
   let a = Hoge { v: 3 };
-  let b = 4;
+  let b = Hoge { v: 4 };
   let ans = a == b;
   let ans2 = a != b;
 }

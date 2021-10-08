@@ -210,7 +210,7 @@ impl ImplDefinition {
                     }
                     else {
                         let impl_type = self.impl_ty.transpile(ta);
-                        let right_type = self.trait_spec.generics[0].transpile(ta);
+                        let right_type = impl_type.clone();
                         let not_eq = format!("{} bool operator!=({} const& left, {} const& right) {{ return !(left == right); }}\n", templates, impl_type, right_type);
                         format!("{}{}\n{}", templates, func, not_eq)
                     }
@@ -329,7 +329,7 @@ impl Transpile for ImplDefinition {
                     })
                     .chain(std::iter::once( {
                         let impl_type = self.impl_ty.transpile(ta);
-                        let right_type = self.trait_spec.generics[0].transpile(ta);
+                        let right_type = impl_type.clone();
                         //format!("{} bool operator!=({} const& left, {} const& right) {{ return !(left == right); }}\n", templates, impl_type, right_type)
                         format!("{} bool operator!=({} const& left, {} const& right);\n", templates, impl_type, right_type)
                     } ))
