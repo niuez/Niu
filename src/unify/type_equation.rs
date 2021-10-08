@@ -78,6 +78,9 @@ impl TraitGenerics {
         let generics = generics.into_iter().map(|(g, _)| g).collect();
         Ok((TraitGenerics { trait_id: self.trait_id, generics, }, solve_change))
     }
+    fn is_solved_type(&self) -> bool {
+        self.generics.iter().map(|g| g.is_solved_type()).all(|b| b)
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -245,6 +248,9 @@ impl Transpile for Type {
                     Some(ResultFindOperator::Unary((_, ope))) => {
                         let left = ty.transpile(ta);
                         format!("decltype({}std::declval<{}>())", ope, left)
+                    }
+                    Some(ResultFindOperator::Eq) => {
+                        unreachable!("trait Eq have no associated type");
                     }
                     None => {
 
@@ -558,8 +564,9 @@ impl TypeEquations {
                     *changed &= right.subst(theta);
                     self.change_cnt += changed.cnt();
                 }
-                TypeEquation::HasTrait(ref mut ty, _, ref mut changed) => {
+                TypeEquation::HasTrait(ref mut ty, ref mut tr, ref mut changed) => {
                     *changed &= ty.subst(theta);
+                    *changed &= tr.subst(theta);
                     self.change_cnt += changed.cnt();
                 }
                 /* TypeEquation::Call(ref mut call) => {
@@ -821,7 +828,9 @@ impl TypeEquations {
                 TypeEquation::HasTrait(left, tr, before_changed) => {
                     self.change_cnt -= before_changed.cnt();
                     let (left, left_changed) = self.solve_relations(left, trs)?;
-                    if left.is_solved_type() {
+                    let (tr, tr_changed) = tr.solve(self, trs)?;
+                    let changed = left_changed & tr_changed;
+                    if left.is_solved_type() && tr.is_solved_type() {
                         let solve_cnt = self.solve_has_trait(&left, &tr, trs);
                         if solve_cnt == 0 {
                             Err(UnifyErr::Contradiction(format!("type {:?} is not implemented trait {:?}", left, tr)))?;
@@ -831,8 +840,8 @@ impl TypeEquations {
                         }
                     }
                     else {
-                        self.equs.push_back(TypeEquation::HasTrait(left, tr, left_changed));
-                        self.change_cnt += left_changed.cnt();
+                        self.equs.push_back(TypeEquation::HasTrait(left, tr, changed));
+                        self.change_cnt += changed.cnt();
                     }
                 }
                 TypeEquation::Equal(left, right, before_changed) => {
