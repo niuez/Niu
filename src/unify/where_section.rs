@@ -78,10 +78,10 @@ impl WhereSection {
 
     pub fn transpile(&self, ta: &TypeAnnotation) -> String {
         let mut conds = Vec::new();
-        let bin_opes = BINARY_OPERATOR_TRAITS.iter().cloned().collect::<HashMap<_, _>>();
+        //let bin_opes = BINARY_OPERATOR_TRAITS.iter().cloned().collect::<HashMap<_, _>>();
         for (ty, _, tr, assos) in self.has_traits.iter() {
-            match bin_opes.get(tr.trait_id.id.into_string().as_str()) {
-                Some((_, ope)) => {
+            match find_operator(tr.trait_id.id.into_string().as_str()) {
+                Some(ResultFindOperator::Binary((_, ope))) => {
                     let assos = assos.iter().map(|(id, asso_ty)| (id.id.into_string(), asso_ty.clone())).collect::<HashMap<_, _>>();
                     let arg_ty = tr.generics[0].transpile(ta);
                     let output_ty = assos.get("Output").cloned();
@@ -95,6 +95,26 @@ impl WhereSection {
                                 ty.transpile(ta), ope, arg_ty));
                         }
                     }
+                }
+                Some(ResultFindOperator::Unary((_, ope))) => {
+                    let assos = assos.iter().map(|(id, asso_ty)| (id.id.into_string(), asso_ty.clone())).collect::<HashMap<_, _>>();
+                    let output_ty = assos.get("Output").cloned();
+                    match output_ty {
+                        Some(output_ty) => {
+                            conds.push(format!("std::is_same<decltype({}std::declval<{}>()), {}>",
+                                ope, ty.transpile(ta), output_ty.transpile(ta)));
+                        }
+                        None => {
+                            conds.push(format!("decltype({}std::declval<{}>(), std::true_type())",
+                                ope, ty.transpile(ta)));
+                        }
+                    }
+                }
+                Some(ResultFindOperator::Eq) => {
+                    conds.push(format!("decltype(std::declval<{0}>() == std::declval<{0}>(), std::true_type())", ty.transpile(ta)))
+                }
+                Some(ResultFindOperator::Ord) => {
+                    conds.push(format!("decltype(std::declval<{0}>() < std::declval<{0}>(), std::true_type())", ty.transpile(ta)))
                 }
                 None => {
                     let generics = std::iter::once(ty.transpile(ta)).chain(tr.generics.iter().map(|g| g.transpile(ta))).collect::<Vec<_>>().join(", ");

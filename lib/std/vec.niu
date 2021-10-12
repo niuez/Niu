@@ -1,4 +1,5 @@
 #include <vector>
+#include <algorithm>
 import "std/opes.niu"
 
 struct Vec<T> $${std::vector<$ty(T)>}$$ {
@@ -7,6 +8,7 @@ struct Vec<T> $${std::vector<$ty(T)>}$$ {
   fn push(self: &mut Self, t: T) -> void $${$arg(self).push_back($arg(t))}$$
   fn len(self: &Self) -> u64 $${$arg(self).size()}$$
   fn pop(self: &mut Self) -> void $${$arg(self).pop_back()}$$
+  fn sort(self: &mut Self) -> void where T: Ord $${std::sort($arg(self).begin(), $arg(self).end())}$$
 }
 
 impl<T> Index for Vec<T> {

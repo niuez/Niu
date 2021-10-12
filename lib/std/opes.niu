@@ -71,3 +71,7 @@ trait IndexMut where Self: Index {
 trait Eq {
   fn eq(self: &Self, right: &Self) -> bool;
 }
+
+trait Ord where Self: Eq {
+  fn le(self: &Self, right: &Self) -> bool;
+}
