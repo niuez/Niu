@@ -47,3 +47,6 @@ impl Neg for i64 {
 impl Eq for i64 {
   fn eq(a: &i64, b: &i64) -> bool $${a == b}$$
 }
+impl Ord for i64 {
+  fn le(a: &i64, b: &i64) -> bool $${a < b}$$
+}
