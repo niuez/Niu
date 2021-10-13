@@ -78,6 +78,9 @@ impl TraitGenerics {
         let generics = generics.into_iter().map(|(g, _)| g).collect();
         Ok((TraitGenerics { trait_id: self.trait_id, generics, }, solve_change))
     }
+    fn is_solved_type(&self) -> bool {
+        self.generics.iter().map(|g| g.is_solved_type()).all(|b| b)
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -210,6 +213,26 @@ impl Type {
             }
         }
     }
+
+    pub fn is_reference(&self) -> bool {
+        match *self {
+            Type::Ref(_) | Type::MutRef(_) => true,
+            _ => false,
+        }
+    }
+    fn double_reference_check(&self) -> Result<(), UnifyErr> {
+        match *self {
+            Type::Ref(ref ty) | Type::MutRef(ref ty) => {
+                if ty.is_reference() {
+                    Err(UnifyErr::Contradiction(format!("double reference is not allowed, {:?}", self)))
+                }
+                else {
+                    Ok(())
+                }
+            }
+            _ => Ok(()),
+        }
+    }
 }
 
 impl Transpile for Type {
@@ -226,6 +249,12 @@ impl Transpile for Type {
                         let left = ty.transpile(ta);
                         format!("decltype({}std::declval<{}>())", ope, left)
                     }
+                    Some(ResultFindOperator::Eq) => {
+                        unreachable!("trait Eq have no associated type");
+                    }
+                    Some(ResultFindOperator::Ord) => {
+                        unreachable!("trait Eq have no associated type");
+                    }
                     None => {
 
                         let generics = std::iter::once(ty.transpile(ta)).chain(tr.generics.iter().map(|g| g.transpile(ta))).collect::<Vec<_>>().join(", ");
@@ -234,7 +263,10 @@ impl Transpile for Type {
                 }
             }
             Type::Ref(ref ty) => {
-                format!("{}*", ty.as_ref().transpile(ta))
+                format!("{} const&", ty.as_ref().transpile(ta))
+            }
+            Type::Deref(ref ty) => {
+                format!("{}&", ty.as_ref().transpile(ta))
             }
             Type::Generics(ref ty_id, ref gens) => {
                 if let Some((ids, cppinline)) = ta.is_inline_struct(ty_id) {
@@ -535,8 +567,9 @@ impl TypeEquations {
                     *changed &= right.subst(theta);
                     self.change_cnt += changed.cnt();
                 }
-                TypeEquation::HasTrait(ref mut ty, _, ref mut changed) => {
+                TypeEquation::HasTrait(ref mut ty, ref mut tr, ref mut changed) => {
                     *changed &= ty.subst(theta);
+                    *changed &= tr.subst(theta);
                     self.change_cnt += changed.cnt();
                 }
                 /* TypeEquation::Call(ref mut call) => {
@@ -798,7 +831,9 @@ impl TypeEquations {
                 TypeEquation::HasTrait(left, tr, before_changed) => {
                     self.change_cnt -= before_changed.cnt();
                     let (left, left_changed) = self.solve_relations(left, trs)?;
-                    if left.is_solved_type() {
+                    let (tr, tr_changed) = tr.solve(self, trs)?;
+                    let changed = left_changed & tr_changed;
+                    if left.is_solved_type() && tr.is_solved_type() {
                         let solve_cnt = self.solve_has_trait(&left, &tr, trs);
                         if solve_cnt == 0 {
                             Err(UnifyErr::Contradiction(format!("type {:?} is not implemented trait {:?}", left, tr)))?;
@@ -808,11 +843,13 @@ impl TypeEquations {
                         }
                     }
                     else {
-                        self.equs.push_back(TypeEquation::HasTrait(left, tr, left_changed));
-                        self.change_cnt += left_changed.cnt();
+                        self.equs.push_back(TypeEquation::HasTrait(left, tr, changed));
+                        self.change_cnt += changed.cnt();
                     }
                 }
                 TypeEquation::Equal(left, right, before_changed) => {
+                    left.double_reference_check()?;
+                    right.double_reference_check()?;
                     //log::info!("\n{:?} = {:?}", left, right);
                     self.change_cnt -= before_changed.cnt();
                     let (left, left_changed) = self.solve_relations(left, trs)?;

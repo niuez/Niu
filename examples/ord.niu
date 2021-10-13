@@ -1,0 +1,29 @@
+import "std/opes.niu"
+import "std/u64.niu"
+import "std/vec.niu"
+
+struct Hoge<T> {
+  v: T,
+} {}
+
+impl<T> Eq for Hoge<T> where T: Eq {
+  fn eq(a: &Self, b: &Self) -> bool {
+    a.v == b.v
+  }
+}
+
+impl<T> Ord for Hoge<T> where T: Ord {
+  fn le(a: &Self, b: &Self) -> bool {
+    a.v < b.v
+  }
+}
+
+fn main() -> void {
+  let a = Hoge { v: 3 };
+  let b = Hoge { v: 2 };
+  let ans = a < b;
+  let mut vec = Vec::new();
+  vec.push(a);
+  vec.push(b);
+  vec.sort();
+}

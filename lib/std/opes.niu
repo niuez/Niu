@@ -67,3 +67,11 @@ trait Index {
 trait IndexMut where Self: Index {
   fn index_mut(self: &mut Self, i: Self#Index::Arg) -> &mut Self#Index::Output;
 }
+
+trait Eq {
+  fn eq(self: &Self, right: &Self) -> bool;
+}
+
+trait Ord where Self: Eq {
+  fn le(self: &Self, right: &Self) -> bool;
+}

@@ -34,11 +34,29 @@ Niu言語は, 競技プログラミングにおけるライブラリ制作のた
 
 が目標です.
 
-## 遊び方
+## インストール
 
+```sh
+git clone https://github.com/niuez/Niu
+cd Niu
+cargo install --path .
+niu help
 ```
-cargo run test.niu
+
+## トランスパイル
+
+```sh
+niu trans main.niu
+# ライブラリのインポート先のディレクトリを指定
+NIU_IMPORT_PATH="path/to/library;path/to/another/library/;" niu trans main.niu 
 ```
+
+環境変数`NIU_IMPORT_PATH`でインポートするライブラリのディレクトリを設定できます. このリポジトリの`lib/`を指定すると良いです.
+
+## ユニットテスト
+
+[library-checker-problems](https://github.com/yosupo06/library-checker-problems)を利用してユニットテストができます. [ユニットテスト](./doc/test.md)を参考にしてください.
+
 
 ## 言語仕様
 

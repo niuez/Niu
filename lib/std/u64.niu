@@ -40,3 +40,9 @@ impl Rem<u64> for u64 {
   type Output = u64;
   fn rem(a: Self, b: u64) -> u64 $${a % b}$$
 }
+impl Eq for u64 {
+  fn eq(a: &u64, b: &u64) -> bool $${a == b}$$
+}
+impl Ord for u64 {
+  fn le(a: &u64, b: &u64) -> bool $${a < b}$$
+}

@@ -44,3 +44,9 @@ impl Neg for i64 {
   type Output = i64;
   fn neg(a: Self) -> i64 $${-a}$$
 }
+impl Eq for i64 {
+  fn eq(a: &i64, b: &i64) -> bool $${a == b}$$
+}
+impl Ord for i64 {
+  fn le(a: &i64, b: &i64) -> bool $${a < b}$$
+}

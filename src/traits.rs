@@ -38,6 +38,8 @@ pub const UNARY_OPERATOR_TRAITS : [(&'static str, (&'static str, &'static str));
 pub enum ResultFindOperator {
     Binary((&'static str, &'static str)),
     Unary((&'static str, &'static str)),
+    Eq,
+    Ord,
 }
 
 /* pub fn find_binary_operator(tr: &str) -> Option<(&'static str, &'static str)> {
@@ -52,6 +54,12 @@ pub fn find_operator(tr: &str) -> Option<ResultFindOperator> {
         .chain(
             UNARY_OPERATOR_TRAITS.iter().map(|(tr, val)| (tr, ResultFindOperator::Unary(*val)))
         )
+        .chain(std::iter::once(
+            (&"Eq", ResultFindOperator::Eq)
+        ))
+        .chain(std::iter::once(
+            (&"Ord", ResultFindOperator::Ord)
+        ))
         .find_map(|(tr_id, val)|
                   if *tr_id == tr { Some(val) }
                   else { None }
@@ -176,6 +184,18 @@ pub fn parse_trait_definition(s: &str) -> IResult<&str, TraitDefinition> {
         Some(ResultFindOperator::Unary((_, ope))) | Some(ResultFindOperator::Binary((_, ope))) => {
             many_methods.into_iter().map(|(mut func, _, _, _)| {
                 func.func_id = Identifier::from_str(format!("operator{}", ope).as_str());
+                (TraitMethodIdentifier { id: func.func_id.clone() }, func)
+            }).collect()
+        }
+        Some(ResultFindOperator::Eq) => {
+            many_methods.into_iter().map(|(mut func, _, _, _)| {
+                func.func_id = Identifier::from_str("operator==");
+                (TraitMethodIdentifier { id: func.func_id.clone() }, func)
+            }).collect()
+        }
+        Some(ResultFindOperator::Ord) => {
+            many_methods.into_iter().map(|(mut func, _, _, _)| {
+                func.func_id = Identifier::from_str("operator<");
                 (TraitMethodIdentifier { id: func.func_id.clone() }, func)
             }).collect()
         }

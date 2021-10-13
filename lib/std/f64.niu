@@ -16,3 +16,9 @@ impl Div<f64> for f64 {
   type Output = f64;
   fn div(a: Self, b: f64) -> f64 $${a / b}$$
 }
+impl Eq for f64 {
+  fn eq(a: &f64, b: &f64) -> bool $${a == b}$$
+}
+impl Ord for f64 {
+  fn le(a: &f64, b: &f64) -> bool $${a < b}$$
+}

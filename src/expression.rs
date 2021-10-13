@@ -261,9 +261,23 @@ pub struct ExpOrd {
 impl GenType for ExpOrd {
     fn gen_type(&self, equs: &mut TypeEquations, trs: &TraitsInfo) -> TResult {
         match self.ope {
+            Some(OperatorOrd::Equal) | Some(OperatorOrd::NotEq) => {
+                let t0 = self.terms[0].gen_type(equs, trs)?;
+                let t1 = self.terms[1].gen_type(equs, trs)?;
+                equs.add_has_trait(t0.clone(), TraitGenerics {
+                    trait_id: TraitId { id: Identifier::from_str("Eq") },
+                    generics: Vec::new(),
+                });
+                equs.add_equation(t0, t1);
+                Ok(Type::from_str("bool"))
+            }
             Some(_) => {
                 let t0 = self.terms[0].gen_type(equs, trs)?;
                 let t1 = self.terms[1].gen_type(equs, trs)?;
+                equs.add_has_trait(t0.clone(), TraitGenerics {
+                    trait_id: TraitId { id: Identifier::from_str("Ord") },
+                    generics: Vec::new(),
+                });
                 equs.add_equation(t0, t1);
                 Ok(Type::from_str("bool"))
             }
@@ -883,9 +897,9 @@ impl Transpile for ExpUnaryOpe {
     fn transpile(&self, ta: &TypeAnnotation) -> String {
         match self {
             Self::UnaryExpr(ref exp) => exp.transpile(ta),
-            Self::Ref(ref exp) => format!("&{}", exp.as_ref().transpile(ta)),
-            Self::MutRef(ref exp) => format!("&{}", exp.as_ref().transpile(ta)),
-            Self::Deref(ref exp, _) => format!("*{}", exp.as_ref().transpile(ta)),
+            Self::Ref(ref exp) => format!("{}", exp.as_ref().transpile(ta)),
+            Self::MutRef(ref exp) => format!("{}", exp.as_ref().transpile(ta)),
+            Self::Deref(ref exp, _) => format!("{}", exp.as_ref().transpile(ta)),
             Self::Neg(ref exp, _) => format!("-{}", exp.as_ref().transpile(ta)),
             Self::Not(ref exp, _) => format!("!{}", exp.as_ref().transpile(ta)),
         }
