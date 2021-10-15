@@ -11,6 +11,7 @@ use crate::unary_expr::Variable;
 use crate::unify::*;
 use crate::trans::*;
 use crate::mut_checker::*;
+use crate::move_checker::*;
 use crate::type_spec::*;
 
 #[derive(Debug)]
@@ -55,6 +56,15 @@ impl MutCheck for LetDeclaration {
         else {
             Ok(MutResult::NoType)
         }
+    }
+}
+
+impl MoveCheck for LetDeclaration {
+    fn move_check(&self, mc: &mut VariablesMoveChecker, trs: &TraitsInfo) -> Result<MoveResult, String> {
+        let res = self.value.move_check(mc, trs)?;
+        mc.move_result(&res)?;
+        mc.regist_var(&self.id);
+        Ok(MoveResult::Right)
     }
 }
 

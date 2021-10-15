@@ -8,6 +8,7 @@ use crate::expression::{ Expression, parse_expression };
 use crate::unify::*;
 use crate::trans::*;
 use crate::mut_checker::*;
+use crate::move_checker::*;
 
 #[derive(Debug)]
 pub struct Substitute {
@@ -43,6 +44,21 @@ impl MutCheck for Substitute {
         else {
             Err(format!("{:?} is not mutable", self.into_expr))
         }
+    }
+}
+
+impl MoveCheck for Substitute {
+    fn move_check(&self, mc: &mut VariablesMoveChecker, trs: &TraitsInfo) -> Result<MoveResult, String> {
+        let left_res = self.into_expr.move_check(mc, trs)?;
+        let right_res = self.value.move_check(mc, trs)?;
+        mc.move_result(&right_res)?;
+        match left_res {
+            MoveResult::Dead(id) | MoveResult::Movable(id) => {
+                mc.regist_var(id);
+            }
+            _ => {}
+        }
+        Ok(MoveResult::Right)
     }
 }
 

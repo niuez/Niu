@@ -15,6 +15,7 @@ use crate::traits::*;
 use crate::unify::*;
 use crate::trans::*;
 use crate::mut_checker::*;
+use crate::move_checker::*;
 
 pub use if_expr::*;
 pub use for_expr::*;
@@ -74,6 +75,12 @@ impl MutCheck for Expression {
             Expression::IfExpr(ref ifexpr) => ifexpr.as_ref().mut_check(ta, vars),
             Expression::ForExpr(ref forexpr) => forexpr.as_ref().mut_check(ta, vars),
         }
+    }
+}
+
+impl MoveCheck for Expression {
+    fn move_check(&self, mc: &mut VariablesMoveChecker, trs: &TraitsInfo) -> Result<MoveResult, String> {
+        unimplemented!()
     }
 }
 

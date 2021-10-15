@@ -32,10 +32,10 @@ pub mod structs;
 pub mod cpp_inline;
 
 pub mod mut_checker;
-pub mod move_checker;
 pub mod unit_test;
 
 pub mod subcommand;
+pub mod move_checker;
 
 use std::path::*;
 

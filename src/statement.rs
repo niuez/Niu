@@ -8,9 +8,11 @@ use crate::let_declaration::{ LetDeclaration, parse_let_declaration };
 use crate::mut_checker::MutCheck;
 use crate::mut_checker::MutResult;
 use crate::mut_checker::VariablesInfo;
+use crate::move_checker::*;
 use crate::substitute::*;
 use crate::unify::*;
 use crate::trans::*;
+
 
 #[derive(Debug)]
 pub enum Statement {
@@ -62,6 +64,18 @@ impl MutCheck for Statement {
             Statement::Substitute(ref s) => s.mut_check(ta, vars),
             Statement::Break => Ok(MutResult::NoType),
             Statement::Continue => Ok(MutResult::NoType),
+        }
+    }
+}
+
+impl MoveCheck for Statement {
+    fn move_check(&self, mc: &mut VariablesMoveChecker, trs: &TraitsInfo) -> Result<MoveResult, String> {
+        match *self {
+            Statement::Expression(ref e, _) => e.move_check(mc, trs),
+            Statement::LetDeclaration(ref l) => l.move_check(mc, trs),
+            Statement::Substitute(ref s) => s.move_check(mc, trs),
+            Statement::Break => Ok(MoveResult::Right),
+            Statement::Continue => Ok(MoveResult::Right),
         }
     }
 }

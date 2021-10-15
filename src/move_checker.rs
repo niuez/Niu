@@ -1,8 +1,8 @@
 use std::collections::HashMap;
-
+use crate::unify::TraitsInfo;
 use crate::identifier::*;
 
-pub struct VariablesMoveChecker<> {
+pub struct VariablesMoveChecker {
     vars: HashMap<Identifier, Tag>,
     moved: HashMap<Identifier, Tag>,
     lazy: HashMap<Identifier, Tag>,
@@ -18,6 +18,14 @@ impl VariablesMoveChecker {
     }
     pub fn regist_var(&mut self, var: &Identifier) {
         self.vars.insert(var.clone(), var.tag.clone());
+    }
+    pub fn get_move_result<'a>(&self, var: &'a Identifier) -> MoveResult<'a> {
+        if self.moved.contains_key(var) || self.lazy.contains_key(var) {
+            MoveResult::Dead(var)
+        }
+        else {
+            MoveResult::Movable(var)
+        }
     }
     pub fn move_var(&mut self, var: &Identifier) -> Result<(), String> {
         if let Some((i, _)) = self.vars.remove_entry(var) {
@@ -35,6 +43,13 @@ impl VariablesMoveChecker {
             Ok(())
         }
     }
+    pub fn move_result(&mut self, res: &MoveResult) -> Result<(), String> {
+        match res {
+            &MoveResult::Movable(ref var) => self.move_var(var),
+            &MoveResult::Dead(ref var) => Err(format!("{:?} is moved", var)),
+            _ => Ok(())
+        }
+    }
     pub fn parallel_merge(&mut self, right: Self) {
         self.moved.extend(right.moved.into_iter());
         self.lazy.extend(right.lazy.into_iter());
@@ -48,11 +63,12 @@ impl VariablesMoveChecker {
     }
 }
 
-pub enum MoveResult {
-    Movable(Identifier),
+pub enum MoveResult<'a> {
+    Movable(&'a Identifier),
+    Dead(&'a Identifier),
     Right,
 }
 
-trait MoveCheck {
-    fn move_check(&self, mc: &mut VariablesMoveChecker) -> Result<MoveResult, String>;
+pub trait MoveCheck {
+    fn move_check(&self, mc: &mut VariablesMoveChecker, trs: &TraitsInfo) -> Result<MoveResult, String>;
 }

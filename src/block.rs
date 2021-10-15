@@ -12,6 +12,7 @@ use crate::expression::*;
 use crate::unify::*;
 use crate::trans::*;
 use crate::mut_checker::*;
+use crate::move_checker::*;
 use crate::identifier::Tag;
 
 #[derive(Debug)]
@@ -54,6 +55,21 @@ impl MutCheck for Block {
         self.return_exp.as_ref().map_or(Ok(MutResult::NotMut), |exp| exp.mut_check(ta, vars))?;
         vars.out_scope();
         Ok(MutResult::NotMut)
+    }
+}
+
+impl MoveCheck for Block {
+    fn move_check(&self, top_mc: &mut VariablesMoveChecker, trs: &TraitsInfo) -> Result<MoveResult, String> {
+        let mut mc = VariablesMoveChecker::new();
+        for statement in self.statements.iter() {
+            statement.move_check(&mut mc, trs)?;
+        }
+        if let Some(ref expr) = self.return_exp {
+            let res = expr.move_check(&mut mc, trs)?;
+            mc.move_result(&res)?;
+        }
+        top_mc.solve_lazys(mc)?;
+        Ok(MoveResult::Right)
     }
 }
 
