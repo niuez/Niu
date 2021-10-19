@@ -66,7 +66,7 @@ impl MoveCheck for Block {
         }
         if let Some(ref expr) = self.return_exp {
             let res = expr.move_check(&mut mc, trs)?;
-            mc.move_result(&res)?;
+            mc.move_result(res)?;
         }
         top_mc.solve_lazys(mc)?;
         Ok(MoveResult::Right)

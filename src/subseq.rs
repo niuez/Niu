@@ -14,6 +14,7 @@ use crate::unify::*;
 use crate::type_spec::*;
 use crate::trans::*;
 use crate::mut_checker::*;
+use crate::move_checker::*;
 use crate::identifier::*;
 
 #[derive(Debug)]
@@ -256,6 +257,33 @@ pub fn subseq_mut_check(uexpr: &UnaryExpr, subseq: &Subseq, ta: &TypeAnnotation,
             Ok(uexpr)
         }
     }
+}
+
+pub fn subseq_move_check(uexpr: &UnaryExpr, subseq: &Subseq, mc: &mut VariablesMoveChecker, trs: &TraitsInfo) -> Result<MoveResult, String> {
+    unimplemented!()
+    /*match *subseq {
+        Subseq::Call(ref call) => {
+            for arg in call.args.iter() {
+                let res = arg.move_check(mc, trs)?;
+            }
+            Ok(MutResult::Right)
+        }
+        Subseq::Member(ref mem) => {
+            let uexpr = uexpr.move_check(mc, trs)?;
+            match (uexpr, ta.annotation(mem.mem_id.get_tag_number(), "StructType", 0)) {
+                (MoveResult::Movable(id), _) => MoveResult::Movable(id),
+                (MoveResult::Right, Type::Ref(_)) | (MoveResult::Right, Type::MutRef(_)) => MoveResult::Deref,
+                (MoveResult::Right, _) => MoveResult::Right,
+                (MoveResult::Deref, _) => MoveResult::Deref,
+                (MoveResult::Dead(id), _) => Err(format!("{:?} {:?} is dead", uexpr, id))
+            }
+        }
+        Subseq::Index(ref index) => {
+            let uexpr = uexpr.mut_check(ta, vars)?;
+            let _arg = index.arg.as_ref().mut_check(ta, vars)?;
+            Ok(uexpr)
+        }
+    }*/
 }
 
 

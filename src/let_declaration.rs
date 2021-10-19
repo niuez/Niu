@@ -62,7 +62,7 @@ impl MutCheck for LetDeclaration {
 impl MoveCheck for LetDeclaration {
     fn move_check(&self, mc: &mut VariablesMoveChecker, trs: &TraitsInfo) -> Result<MoveResult, String> {
         let res = self.value.move_check(mc, trs)?;
-        mc.move_result(&res)?;
+        mc.move_result(res)?;
         mc.regist_var(&self.id);
         Ok(MoveResult::Right)
     }

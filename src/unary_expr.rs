@@ -15,6 +15,7 @@ use crate::structs::*;
 use crate::unify::*;
 use crate::trans::*;
 use crate::mut_checker::*;
+use crate::move_checker::*;
 use crate::type_spec::*;
 use crate::traits::*;
 
@@ -92,6 +93,25 @@ impl MutCheck for UnaryExpr {
     }
 }
 
+impl MoveCheck for UnaryExpr {
+    fn move_check(&self, mc: &mut VariablesMoveChecker, trs: &TraitsInfo) -> Result<MoveResult, String> {
+        match *self {
+            UnaryExpr::Variable(ref v) => v.move_check(mc, trs),
+            UnaryExpr::Literal(ref l) => l.move_check(mc, trs),
+            UnaryExpr::Parentheses(ref p) => p.move_check(mc, trs),
+            UnaryExpr::Block(ref b) => b.move_check(mc, trs),
+            UnaryExpr::Subseq(ref expr, ref s) => subseq_move_check(expr.as_ref(), s, mc, trs),
+            UnaryExpr::StructInst(ref inst) => inst.move_check(mc, trs),
+            UnaryExpr::TraitMethod(ref _spec, Some(ref _trait_id), ref _method_id) => {
+                Ok(MoveResult::Right)
+            }
+            UnaryExpr::TraitMethod(ref _spec, _, ref _method_id) => {
+                Ok(MoveResult::Right)
+            }
+        }
+    }
+}
+
 pub fn parse_unary_expr(s: &str) -> IResult<&str, UnaryExpr> {
     let (s, x) = alt((
             parse_unary_trait_method,
@@ -139,6 +159,12 @@ impl MutCheck for Variable {
     }
 }
 
+impl MoveCheck for Variable {
+    fn move_check(&self, mc: &mut VariablesMoveChecker, trs: &TraitsInfo) -> Result<MoveResult, String> {
+        Ok(mc.get_move_result(self.id))
+    }
+}
+
 pub fn parse_variable(s: &str) -> IResult<&str, UnaryExpr> {
     let(s, id) = parse_identifier(s)?;
     Ok((s, UnaryExpr::Variable(Variable { id })))
@@ -164,6 +190,12 @@ impl Transpile for Parentheses {
 impl MutCheck for Parentheses {
     fn mut_check(&self, ta: &TypeAnnotation, vars: &mut VariablesInfo) -> Result<MutResult, String> {
         self.expr.mut_check(ta, vars)
+    }
+}
+
+impl MoveCheck for Parentheses {
+    fn move_check(&self, mc: &mut VariablesMoveChecker, trs: &TraitsInfo) -> Result<MoveResult, String> {
+        self.expr.move_check(mc, trs)
     }
 }
 

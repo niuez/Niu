@@ -14,6 +14,7 @@ use crate::unary_expr::UnaryExpr;
 use crate::unify::*;
 use crate::trans::*;
 use crate::mut_checker::*;
+use crate::move_checker::*;
 
 #[derive(Debug)]
 pub enum Literal {
@@ -50,6 +51,12 @@ impl Transpile for Literal {
 impl MutCheck for Literal {
     fn mut_check(&self, _ta: &TypeAnnotation, _vars: &mut VariablesInfo) -> Result<MutResult, String> {
         Ok(MutResult::NotMut)
+    }
+}
+
+impl MoveCheck for Literal {
+    fn move_check(&self, mc: &mut VariablesMoveChecker, trs: &TraitsInfo) -> Result<MoveResult, String> {
+        Ok(MoveResult::Right)
     }
 }
 
