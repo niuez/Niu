@@ -55,7 +55,7 @@ impl MutCheck for Literal {
 }
 
 impl MoveCheck for Literal {
-    fn move_check(&self, mc: &mut VariablesMoveChecker, trs: &TraitsInfo) -> Result<MoveResult, String> {
+    fn move_check(&self, mc: &mut VariablesMoveChecker, ta: &TypeAnnotation) -> Result<MoveResult, String> {
         Ok(MoveResult::Right)
     }
 }

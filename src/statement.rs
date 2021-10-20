@@ -69,11 +69,11 @@ impl MutCheck for Statement {
 }
 
 impl MoveCheck for Statement {
-    fn move_check(&self, mc: &mut VariablesMoveChecker, trs: &TraitsInfo) -> Result<MoveResult, String> {
+    fn move_check(&self, mc: &mut VariablesMoveChecker, ta: &TypeAnnotation) -> Result<MoveResult, String> {
         match *self {
-            Statement::Expression(ref e, _) => e.move_check(mc, trs),
-            Statement::LetDeclaration(ref l) => l.move_check(mc, trs),
-            Statement::Substitute(ref s) => s.move_check(mc, trs),
+            Statement::Expression(ref e, _) => e.move_check(mc, ta),
+            Statement::LetDeclaration(ref l) => l.move_check(mc, ta),
+            Statement::Substitute(ref s) => s.move_check(mc, ta),
             Statement::Break => Ok(MoveResult::Right),
             Statement::Continue => Ok(MoveResult::Right),
         }

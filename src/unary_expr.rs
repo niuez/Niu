@@ -94,14 +94,14 @@ impl MutCheck for UnaryExpr {
 }
 
 impl MoveCheck for UnaryExpr {
-    fn move_check(&self, mc: &mut VariablesMoveChecker, trs: &TraitsInfo) -> Result<MoveResult, String> {
+    fn move_check(&self, mc: &mut VariablesMoveChecker, ta: &TypeAnnotation) -> Result<MoveResult, String> {
         match *self {
-            UnaryExpr::Variable(ref v) => v.move_check(mc, trs),
-            UnaryExpr::Literal(ref l) => l.move_check(mc, trs),
-            UnaryExpr::Parentheses(ref p) => p.move_check(mc, trs),
-            UnaryExpr::Block(ref b) => b.move_check(mc, trs),
-            UnaryExpr::Subseq(ref expr, ref s) => subseq_move_check(expr.as_ref(), s, mc, trs),
-            UnaryExpr::StructInst(ref inst) => inst.move_check(mc, trs),
+            UnaryExpr::Variable(ref v) => v.move_check(mc, ta),
+            UnaryExpr::Literal(ref l) => l.move_check(mc, ta),
+            UnaryExpr::Parentheses(ref p) => p.move_check(mc, ta),
+            UnaryExpr::Block(ref b) => b.move_check(mc, ta),
+            UnaryExpr::Subseq(ref expr, ref s) => subseq_move_check(expr.as_ref(), s, mc, ta),
+            UnaryExpr::StructInst(ref inst) => inst.move_check(mc, ta),
             UnaryExpr::TraitMethod(ref _spec, Some(ref _trait_id), ref _method_id) => {
                 Ok(MoveResult::Right)
             }
@@ -160,8 +160,8 @@ impl MutCheck for Variable {
 }
 
 impl MoveCheck for Variable {
-    fn move_check(&self, mc: &mut VariablesMoveChecker, trs: &TraitsInfo) -> Result<MoveResult, String> {
-        Ok(mc.get_move_result(self.id))
+    fn move_check(&self, mc: &mut VariablesMoveChecker, ta: &TypeAnnotation) -> Result<MoveResult, String> {
+        Ok(MoveResult::Variable(self.id.clone()))
     }
 }
 
@@ -194,8 +194,8 @@ impl MutCheck for Parentheses {
 }
 
 impl MoveCheck for Parentheses {
-    fn move_check(&self, mc: &mut VariablesMoveChecker, trs: &TraitsInfo) -> Result<MoveResult, String> {
-        self.expr.move_check(mc, trs)
+    fn move_check(&self, mc: &mut VariablesMoveChecker, ta: &TypeAnnotation) -> Result<MoveResult, String> {
+        self.expr.move_check(mc, ta)
     }
 }
 

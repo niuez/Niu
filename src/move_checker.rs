@@ -1,5 +1,5 @@
 use std::collections::{ HashMap, HashSet };
-use crate::unify::TraitsInfo;
+use crate::trans::*;
 use crate::identifier::*;
 
 pub enum MoveResult {
@@ -123,6 +123,41 @@ impl DeadTree {
         }
         self.be_alive_rec(ids)
     }
+    fn parallel_merge(&mut self, source: Self) {
+        for (id, elem) in source.vars.into_iter() {
+            match (self.vars.get_mut(&id), elem) {
+                (None, elem) => {
+                    self.vars.insert(id, elem);
+                }
+                (Some(DeadElem::Tag(_)), _) => {}
+                (Some(elem), DeadElem::Tag(tag)) => {
+                    *elem = DeadElem::Tag(tag);
+                }
+                (Some(DeadElem::Member(tree)), DeadElem::Member(right)) => {
+                    tree.parallel_merge(right);
+                }
+            }
+        }
+    }
+    fn solve_lazy(&mut self, source: Self) -> Result<(), String> {
+        for (id, elem) in source.vars.into_iter() {
+            match (self.vars.get_mut(&id), elem) {
+                (None, elem) => {
+                    self.vars.insert(id, elem);
+                }
+                (Some(DeadElem::Tag(_)), _) => {
+                    return Err(format!("already moved"));
+                }
+                (Some(elem), DeadElem::Tag(tag)) => {
+                    return Err(format!("partial moved"));
+                }
+                (Some(DeadElem::Member(tree)), DeadElem::Member(right)) => {
+                    tree.solve_lazy(right)?;
+                }
+            }
+        }
+        Ok(())
+    }
 }
 
 pub struct VariablesMoveChecker {
@@ -159,14 +194,42 @@ impl VariablesMoveChecker {
             Ok(())
         }
     }
+    pub fn live_result(&mut self, res: MoveResult) -> Result<(), String> {
+        if let Some(id) = res.get_top() {
+            if self.vars.contains_key(id) {
+                self.local.be_alive(res)
+            }
+            else {
+                self.lazy.be_alive(res)
+            }
+        }
+        else {
+            Ok(())
+        }
+    }
     pub fn parallel_merge(&mut self, right: Self) {
         self.moved.extend(right.moved.into_iter());
-        self.lazy.extend(right.lazy.into_iter());
+        self.lazy.parallel_merge(right.lazy);
     }
     pub fn solve_lazys(&mut self, right: Self) -> Result<(), String> {
         self.moved.extend(right.moved.into_iter());
-        for (i, _t) in right.lazy.into_iter() {
-            self.move_var(&i)?;
+
+        for (id, elem) in right.lazy.vars.into_iter() {
+            let tree = if self.vars.contains_key(&id) { &mut self.local } else { &mut self.lazy };
+            match (tree.vars.get_mut(&id), elem) {
+                (None, elem) => {
+                    tree.vars.insert(id, elem);
+                }
+                (Some(DeadElem::Tag(_)), _) => {
+                    return Err(format!("already moved"));
+                }
+                (Some(elem), DeadElem::Tag(tag)) => {
+                    return Err(format!("partial moved"));
+                }
+                (Some(DeadElem::Member(tree)), DeadElem::Member(right)) => {
+                    tree.solve_lazy(right)?;
+                }
+            }
         }
         Ok(())
     }
@@ -174,5 +237,5 @@ impl VariablesMoveChecker {
 
 
 pub trait MoveCheck {
-    fn move_check(&self, mc: &mut VariablesMoveChecker, trs: &TraitsInfo) -> Result<MoveResult, String>;
+    fn move_check(&self, mc: &mut VariablesMoveChecker, ta: &TypeAnnotation) -> Result<MoveResult, String>;
 }

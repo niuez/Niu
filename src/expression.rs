@@ -79,11 +79,11 @@ impl MutCheck for Expression {
 }
 
 impl MoveCheck for Expression {
-    fn move_check(&self, mc: &mut VariablesMoveChecker, trs: &TraitsInfo) -> Result<MoveResult, String> {
+    fn move_check(&self, mc: &mut VariablesMoveChecker, ta: &TypeAnnotation) -> Result<MoveResult, String> {
         match *self {
-            Expression::Expression(ref e) => e.move_check(mc, trs),
-            Expression::IfExpr(ref ifexpr) => ifexpr.as_ref().move_check(mc, trs),
-            Expression::ForExpr(ref forexpr) => forexpr.as_ref().move_check(mc, trs),
+            Expression::Expression(ref e) => e.move_check(mc, ta),
+            Expression::IfExpr(ref ifexpr) => ifexpr.as_ref().move_check(mc, ta),
+            Expression::ForExpr(ref forexpr) => forexpr.as_ref().move_check(mc, ta),
         }
     }
 }
@@ -190,13 +190,13 @@ impl MutCheck for ExpOr {
 }
 
 impl MoveCheck for ExpOr {
-    fn move_check(&self, mc: &mut VariablesMoveChecker, trs: &TraitsInfo) -> Result<MoveResult, String> {
+    fn move_check(&self, mc: &mut VariablesMoveChecker, ta: &TypeAnnotation) -> Result<MoveResult, String> {
         if self.terms.len() == 1 {
-            self.terms.last().unwrap().move_check(mc, trs)
+            self.terms.last().unwrap().move_check(mc, ta)
         }
         else {
             for term in self.terms.iter() {
-                let res = term.move_check(mc, trs)?;
+                let res = term.move_check(mc, ta)?;
                 mc.move_result(res)?;
             }
             Ok(MoveResult::Right)
@@ -279,13 +279,13 @@ impl MutCheck for ExpAnd {
 }
 
 impl MoveCheck for ExpAnd {
-    fn move_check(&self, mc: &mut VariablesMoveChecker, trs: &TraitsInfo) -> Result<MoveResult, String> {
+    fn move_check(&self, mc: &mut VariablesMoveChecker, ta: &TypeAnnotation) -> Result<MoveResult, String> {
         if self.terms.len() == 1 {
-            self.terms.last().unwrap().move_check(mc, trs)
+            self.terms.last().unwrap().move_check(mc, ta)
         }
         else {
             for term in self.terms.iter() {
-                let res = term.move_check(mc, trs)?;
+                let res = term.move_check(mc, ta)?;
                 mc.move_result(res)?;
             }
             Ok(MoveResult::Right)
@@ -418,13 +418,13 @@ impl MutCheck for ExpOrd {
 }
 
 impl MoveCheck for ExpOrd {
-    fn move_check(&self, mc: &mut VariablesMoveChecker, trs: &TraitsInfo) -> Result<MoveResult, String> {
+    fn move_check(&self, mc: &mut VariablesMoveChecker, ta: &TypeAnnotation) -> Result<MoveResult, String> {
         if self.terms.len() == 1 {
-            self.terms.last().unwrap().move_check(mc, trs)
+            self.terms.last().unwrap().move_check(mc, ta)
         }
         else {
             for term in self.terms.iter() {
-                let res = term.move_check(mc, trs)?;
+                let res = term.move_check(mc, ta)?;
                 mc.move_result(res)?;
             }
             Ok(MoveResult::Right)
@@ -506,13 +506,13 @@ impl MutCheck for ExpBitOr {
 }
 
 impl MoveCheck for ExpBitOr {
-    fn move_check(&self, mc: &mut VariablesMoveChecker, trs: &TraitsInfo) -> Result<MoveResult, String> {
+    fn move_check(&self, mc: &mut VariablesMoveChecker, ta: &TypeAnnotation) -> Result<MoveResult, String> {
         if self.terms.len() == 1 {
-            self.terms.last().unwrap().move_check(mc, trs)
+            self.terms.last().unwrap().move_check(mc, ta)
         }
         else {
             for term in self.terms.iter() {
-                let res = term.move_check(mc, trs)?;
+                let res = term.move_check(mc, ta)?;
                 mc.move_result(res)?;
             }
             Ok(MoveResult::Right)
@@ -594,13 +594,13 @@ impl MutCheck for ExpBitXor {
 }
 
 impl MoveCheck for ExpBitXor {
-    fn move_check(&self, mc: &mut VariablesMoveChecker, trs: &TraitsInfo) -> Result<MoveResult, String> {
+    fn move_check(&self, mc: &mut VariablesMoveChecker, ta: &TypeAnnotation) -> Result<MoveResult, String> {
         if self.terms.len() == 1 {
-            self.terms.last().unwrap().move_check(mc, trs)
+            self.terms.last().unwrap().move_check(mc, ta)
         }
         else {
             for term in self.terms.iter() {
-                let res = term.move_check(mc, trs)?;
+                let res = term.move_check(mc, ta)?;
                 mc.move_result(res)?;
             }
             Ok(MoveResult::Right)
@@ -684,13 +684,13 @@ impl MutCheck for ExpBitAnd {
 }
 
 impl MoveCheck for ExpBitAnd {
-    fn move_check(&self, mc: &mut VariablesMoveChecker, trs: &TraitsInfo) -> Result<MoveResult, String> {
+    fn move_check(&self, mc: &mut VariablesMoveChecker, ta: &TypeAnnotation) -> Result<MoveResult, String> {
         if self.terms.len() == 1 {
-            self.terms.last().unwrap().move_check(mc, trs)
+            self.terms.last().unwrap().move_check(mc, ta)
         }
         else {
             for term in self.terms.iter() {
-                let res = term.move_check(mc, trs)?;
+                let res = term.move_check(mc, ta)?;
                 mc.move_result(res)?;
             }
             Ok(MoveResult::Right)
@@ -777,13 +777,13 @@ impl MutCheck for ExpShift {
 }
 
 impl MoveCheck for ExpShift {
-    fn move_check(&self, mc: &mut VariablesMoveChecker, trs: &TraitsInfo) -> Result<MoveResult, String> {
+    fn move_check(&self, mc: &mut VariablesMoveChecker, ta: &TypeAnnotation) -> Result<MoveResult, String> {
         if self.terms.len() == 1 {
-            self.terms.last().unwrap().move_check(mc, trs)
+            self.terms.last().unwrap().move_check(mc, ta)
         }
         else {
             for term in self.terms.iter() {
-                let res = term.move_check(mc, trs)?;
+                let res = term.move_check(mc, ta)?;
                 mc.move_result(res)?;
             }
             Ok(MoveResult::Right)
@@ -870,13 +870,13 @@ impl MutCheck for ExpAddSub {
 }
 
 impl MoveCheck for ExpAddSub {
-    fn move_check(&self, mc: &mut VariablesMoveChecker, trs: &TraitsInfo) -> Result<MoveResult, String> {
+    fn move_check(&self, mc: &mut VariablesMoveChecker, ta: &TypeAnnotation) -> Result<MoveResult, String> {
         if self.terms.len() == 1 {
-            self.terms.last().unwrap().move_check(mc, trs)
+            self.terms.last().unwrap().move_check(mc, ta)
         }
         else {
             for term in self.terms.iter() {
-                let res = term.move_check(mc, trs)?;
+                let res = term.move_check(mc, ta)?;
                 mc.move_result(res)?;
             }
             Ok(MoveResult::Right)
@@ -978,13 +978,13 @@ impl MutCheck for ExpMulDivRem {
 }
 
 impl MoveCheck for ExpMulDivRem {
-    fn move_check(&self, mc: &mut VariablesMoveChecker, trs: &TraitsInfo) -> Result<MoveResult, String> {
+    fn move_check(&self, mc: &mut VariablesMoveChecker, ta: &TypeAnnotation) -> Result<MoveResult, String> {
         if self.unary_exprs.len() == 1 {
-            self.unary_exprs.last().unwrap().move_check(mc, trs)
+            self.unary_exprs.last().unwrap().move_check(mc, ta)
         }
         else {
             for term in self.unary_exprs.iter() {
-                let res = term.move_check(mc, trs)?;
+                let res = term.move_check(mc, ta)?;
                 mc.move_result(res)?;
             }
             Ok(MoveResult::Right)
@@ -1084,27 +1084,27 @@ impl MutCheck for ExpUnaryOpe {
 }
 
 impl MoveCheck for ExpUnaryOpe {
-    fn move_check(&self, mc: &mut VariablesMoveChecker, trs: &TraitsInfo) -> Result<MoveResult, String> {
+    fn move_check(&self, mc: &mut VariablesMoveChecker, ta: &TypeAnnotation) -> Result<MoveResult, String> {
         match self {
-            Self::UnaryExpr(ref exp) => exp.move_check(mc, trs),
+            Self::UnaryExpr(ref exp) => exp.move_check(mc, ta),
             Self::Ref(ref exp) => {
-                exp.move_check(mc, trs)?;
+                exp.move_check(mc, ta)?;
                 Ok(MoveResult::Right)
             }
             Self::MutRef(ref exp) => {
-                exp.move_check(mc, trs)?;
+                exp.move_check(mc, ta)?;
                 Ok(MoveResult::Right)
             }
             Self::Deref(ref exp, ref tag) => {
-                exp.move_check(mc, trs)?;
+                exp.move_check(mc, ta)?;
                 Ok(MoveResult::Deref)
             }
             Self::Neg(ref exp, _) => {
-                exp.move_check(mc, trs)?;
+                exp.move_check(mc, ta)?;
                 Ok(MoveResult::Right)
             }
             Self::Not(ref exp, _) => {
-                exp.move_check(mc, trs)?;
+                exp.move_check(mc, ta)?;
                 Ok(MoveResult::Right)
             }
         }

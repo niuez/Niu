@@ -80,9 +80,9 @@ impl MutCheck for StructInstantiation {
 }
 
 impl MoveCheck for StructInstantiation {
-    fn move_check(&self, mc: &mut VariablesMoveChecker, trs: &TraitsInfo) -> Result<MoveResult, String> {
+    fn move_check(&self, mc: &mut VariablesMoveChecker, ta: &TypeAnnotation) -> Result<MoveResult, String> {
         for (_, expr) in self.members.iter() {
-            let res = expr.move_check(mc, trs)?;
+            let res = expr.move_check(mc, ta)?;
             mc.move_result(res)?;
         }
         Ok(MoveResult::Right)

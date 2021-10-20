@@ -59,13 +59,13 @@ impl MutCheck for Block {
 }
 
 impl MoveCheck for Block {
-    fn move_check(&self, top_mc: &mut VariablesMoveChecker, trs: &TraitsInfo) -> Result<MoveResult, String> {
+    fn move_check(&self, top_mc: &mut VariablesMoveChecker, ta: &TypeAnnotation) -> Result<MoveResult, String> {
         let mut mc = VariablesMoveChecker::new();
         for statement in self.statements.iter() {
-            statement.move_check(&mut mc, trs)?;
+            statement.move_check(&mut mc, ta)?;
         }
         if let Some(ref expr) = self.return_exp {
-            let res = expr.move_check(&mut mc, trs)?;
+            let res = expr.move_check(&mut mc, ta)?;
             mc.move_result(res)?;
         }
         top_mc.solve_lazys(mc)?;

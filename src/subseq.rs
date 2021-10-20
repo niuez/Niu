@@ -259,7 +259,7 @@ pub fn subseq_mut_check(uexpr: &UnaryExpr, subseq: &Subseq, ta: &TypeAnnotation,
     }
 }
 
-pub fn subseq_move_check(uexpr: &UnaryExpr, subseq: &Subseq, mc: &mut VariablesMoveChecker, trs: &TraitsInfo) -> Result<MoveResult, String> {
+pub fn subseq_move_check(uexpr: &UnaryExpr, subseq: &Subseq, mc: &mut VariablesMoveChecker, ta: &TypeAnnotation) -> Result<MoveResult, String> {
     unimplemented!()
     /*match *subseq {
         Subseq::Call(ref call) => {
