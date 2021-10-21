@@ -327,6 +327,7 @@ impl std::ops::BitAndAssign for SolveChange {
 
 #[derive(Debug)]
 pub enum TypeEquation {
+    CopyTrait(Tag, Type, SolveChange),
     HasTrait(Type, TraitGenerics, SolveChange),
     Equal(Type, Type, SolveChange),
 }
@@ -399,6 +400,7 @@ pub struct TypeEquations {
     want_solve: HashSet<TypeVariable>,
     not_void_vars: HashSet<TypeVariable>,
     substs: Vec<TypeSubst>,
+    pub copyable: HashSet<Tag>,
     self_type: Option<Type>,
 }
 
@@ -465,6 +467,7 @@ impl TypeEquations {
             want_solve: HashSet::new(),
             not_void_vars: HashSet::new(),
             substs: Vec::new(),
+            copyable: HashSet::new(),
             self_type: None,
         }
     }
@@ -528,6 +531,10 @@ impl TypeEquations {
         self.equs.push_back(TypeEquation::Equal(left, right, SolveChange::Changed));
         self.change_cnt += 1;
     }
+    pub fn regist_check_copyable(&mut self, tag: Tag, ty: Type) {
+        self.equs.push_back(TypeEquation::CopyTrait(tag, ty, SolveChange::Changed));
+        self.change_cnt += 1;
+    }
     pub fn into_scope(&mut self) {
         self.variables.push(HashMap::new());
     }
@@ -570,6 +577,10 @@ impl TypeEquations {
                 TypeEquation::HasTrait(ref mut ty, ref mut tr, ref mut changed) => {
                     *changed &= ty.subst(theta);
                     *changed &= tr.subst(theta);
+                    self.change_cnt += changed.cnt();
+                }
+                TypeEquation::CopyTrait(_, ref mut ty, ref mut changed) => {
+                    *changed &= ty.subst(theta);
                     self.change_cnt += changed.cnt();
                 }
                 /* TypeEquation::Call(ref mut call) => {
@@ -845,6 +856,20 @@ impl TypeEquations {
                     else {
                         self.equs.push_back(TypeEquation::HasTrait(left, tr, changed));
                         self.change_cnt += changed.cnt();
+                    }
+                }
+                TypeEquation::CopyTrait(tag, ty, before_changed) => {
+                    self.change_cnt -= before_changed.cnt();
+                    let (ty, ty_changed) = self.solve_relations(ty, trs)?;
+                    if ty.is_solved_type() {
+                        let solve_cnt = self.solve_has_trait(&ty, &TraitGenerics { trait_id: TraitId { id: Identifier::from_str("Copy") }, generics: Vec::new() }, trs);
+                        if solve_cnt == 1 {
+                            self.copyable.insert(tag);
+                        }
+                    }
+                    else {
+                        self.equs.push_back(TypeEquation::CopyTrait(tag, ty, ty_changed));
+                        self.change_cnt += ty_changed.cnt();
                     }
                 }
                 TypeEquation::Equal(left, right, before_changed) => {

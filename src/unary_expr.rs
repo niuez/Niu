@@ -151,7 +151,9 @@ impl Variable {
 
 impl GenType for Variable {
     fn gen_type(&self, equs: &mut TypeEquations, trs: &TraitsInfo) -> TResult {
-        equs.get_type_from_variable(trs, self)
+        let ty = equs.get_type_from_variable(trs, self)?;
+        equs.regist_check_copyable(self.id.tag.clone(), ty.clone());
+        Ok(ty)
     }
 }
 
@@ -169,7 +171,12 @@ impl MutCheck for Variable {
 
 impl MoveCheck for Variable {
     fn move_check(&self, mc: &mut VariablesMoveChecker, ta: &TypeAnnotation) -> Result<MoveResult, String> {
-        Ok(MoveResult::Variable(self.id.clone()))
+        if ta.is_copyable(&self.id.tag) {
+            Ok(MoveResult::Right)
+        }
+        else {
+            Ok(MoveResult::Variable(self.id.clone()))
+        }
     }
 }
 

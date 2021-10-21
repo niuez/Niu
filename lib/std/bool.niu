@@ -4,3 +4,4 @@ impl Not for bool {
   type Output = bool;
   fn not(a: Self) -> bool $${!a}$$
 }
+impl Copy for bool {}

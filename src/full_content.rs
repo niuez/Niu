@@ -83,6 +83,7 @@ impl FullContent {
             ta.insert(tv, t);
 
         }
+        ta.regist_copyable(equs.copyable);
         Ok(ta)
     }
 

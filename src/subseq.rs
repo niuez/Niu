@@ -73,6 +73,7 @@ pub fn subseq_gen_type(uexpr: &UnaryExpr, subseq: &Subseq, equs: &mut TypeEquati
             equs.add_equation(st_type.clone(), st);
             let alpha = mem.mem_id.generate_type_variable("MemberType", 0, equs);
             equs.add_equation(alpha.clone(), Type::Member(Box::new(st_type.clone()), mem.mem_id.clone()));
+            equs.regist_check_copyable(mem.mem_id.tag.clone(), alpha);
             Ok(Type::Member(Box::new(st_type), mem.mem_id.clone()))
         }
         Subseq::Index(ref index) => {
@@ -193,7 +194,10 @@ pub fn subseq_transpile(uexpr: &UnaryExpr, subseq: &Subseq, ta: &TypeAnnotation)
                 Type::MutRef(_) => format!("{}.{}", caller, mem.mem_id.into_string()),
                 _ => format!("{}.{}", caller, mem.mem_id.into_string())
             };
-            if ta.is_moved(&mem.mem_id.tag) {
+            if ta.is_copyable(&mem.mem_id.tag) {
+                trans
+            }
+            else if ta.is_moved(&mem.mem_id.tag) {
                 format!("std::move({})", trans)
             }
             else {

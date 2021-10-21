@@ -9,15 +9,6 @@ struct Hoge {
 }
 
 fn main() -> void {
-  let mut a = 5;
-  if a == 5 {
-    let b = a;
-  }
-  else { let c = a;
-  }
-  a = 6;
-  let d = a;
-
   let mut hoge = Hoge { s: 9, t: 1 };
   let b = hoge.s;
   let c = hoge.t;

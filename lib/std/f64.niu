@@ -22,3 +22,4 @@ impl Eq for f64 {
 impl Ord for f64 {
   fn le(a: &f64, b: &f64) -> bool $${a < b}$$
 }
+impl Copy for f64 {}
