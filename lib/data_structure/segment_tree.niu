@@ -7,7 +7,7 @@ trait Monoid {
   fn ope(self: &Self, right: &Self) -> Self;
 }
 
-struct SegmentTree<T> where T: Monoid {
+struct SegmentTree<T> where T: Monoid, T: Copy {
   node: Vec<T>,
   n: u64,
 } {

@@ -85,3 +85,4 @@ impl<M> Neg for Modint<M> where M: Mod {
     }
   }
 }
+impl<M> Copy for Modint<M> where M: Mod {}

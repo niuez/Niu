@@ -82,7 +82,8 @@ pub fn subseq_gen_type(uexpr: &UnaryExpr, subseq: &Subseq, equs: &mut TypeEquati
             equs.add_equation(caller.clone(), caller_type);
             let arg0 = Type::AutoRef(Box::new(caller.clone()), AutoRefTag::Tag(index.tag.clone()));
             let arg1 = index.arg.as_ref().gen_type(equs, trs)?;
-            Ok(Type::Deref(Box::new(
+            let alpha = index.tag.generate_type_variable("IndexResult", 0, equs);
+            equs.add_equation(alpha.clone(), Type::Deref(Box::new(
                         Type::CallEquation(CallEquation {
                             caller_type: None,
                             trait_gen: Some(TraitGenerics { trait_id: TraitId { id: Identifier::from_str("Index") }, generics: Vec::new() }),
@@ -90,7 +91,9 @@ pub fn subseq_gen_type(uexpr: &UnaryExpr, subseq: &Subseq, equs: &mut TypeEquati
                             args: vec![arg0, arg1],
                             tag: index.tag.clone(),
                         }
-            ))))
+            ))));
+            equs.regist_check_copyable(index.tag.clone(), alpha.clone());
+            Ok(alpha)
         }
     }
 
@@ -322,17 +325,27 @@ pub fn subseq_move_check(uexpr: &UnaryExpr, subseq: &Subseq, mc: &mut VariablesM
         }
         Subseq::Member(ref mem) => {
             let uexpr = uexpr.move_check(mc, ta)?;
-            match (uexpr, ta.annotation(mem.mem_id.get_tag_number(), "StructType", 0)) {
-                (_, Type::Ref(_)) | (MoveResult::Right, Type::MutRef(_)) => Ok(MoveResult::Deref),
-                (MoveResult::Deref, _) => Ok(MoveResult::Deref),
-                (uexpr, _) => Ok(MoveResult::Member(Box::new(uexpr), mem.mem_id.clone())),
+            if ta.is_copyable(&mem.mem_id.tag) {
+                Ok(MoveResult::Right)
+            }
+            else {
+                match (uexpr, ta.annotation(mem.mem_id.get_tag_number(), "StructType", 0)) {
+                    (_, Type::Ref(_)) | (MoveResult::Right, Type::MutRef(_)) => Ok(MoveResult::Deref),
+                    (MoveResult::Deref, _) => Ok(MoveResult::Deref),
+                    (uexpr, _) => Ok(MoveResult::Member(Box::new(uexpr), mem.mem_id.clone())),
+                }
             }
         }
         Subseq::Index(ref index) => {
-            uexpr.move_check(mc, ta)?;
+            let uexpr = uexpr.move_check(mc, ta)?;
             let arg = index.arg.as_ref().move_check(mc, ta)?;
             mc.move_result(arg)?;
-            Ok(MoveResult::Deref)
+            if ta.is_copyable(&index.tag) {
+                Ok(MoveResult::Right)
+            }
+            else {
+                Ok(MoveResult::Deref)
+            }
         }
     }
 }

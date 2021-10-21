@@ -72,7 +72,7 @@ impl MoveCheck for ForExpr {
             Ok(MoveResult::Right)
         }
         else {
-            Err(format!("for move error"))
+            Err(format!("for loop move error, {:?}", for_loop_mc.print_lazy()))
         }
     }
 }

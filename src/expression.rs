@@ -1011,6 +1011,7 @@ impl GenType for ExpUnaryOpe {
                 let alpha = tag.generate_not_void_type_variable("DerefType", 0, equs);
                 let right = exp.as_ref().gen_type(equs, trs)?;
                 equs.add_equation(alpha.clone(), right);
+                equs.regist_check_copyable(tag.clone(), Type::Deref(Box::new(alpha.clone())));
                 Ok(Type::Deref(Box::new(alpha)))
             }
             Self::Neg(ref exp, ref tag) => {
@@ -1096,7 +1097,12 @@ impl MoveCheck for ExpUnaryOpe {
             }
             Self::Deref(ref exp, ref tag) => {
                 exp.move_check(mc, ta)?;
-                Ok(MoveResult::Deref)
+                if ta.is_copyable(tag) {
+                    Ok(MoveResult::Right)
+                }
+                else {
+                    Ok(MoveResult::Deref)
+                }
             }
             Self::Neg(ref exp, _) => {
                 exp.move_check(mc, ta)?;

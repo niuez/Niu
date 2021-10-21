@@ -11,6 +11,14 @@ pub enum MoveResult {
 }
 
 impl MoveResult {
+    fn is_deref_value(&self) -> bool {
+        match self {
+            MoveResult::Deref => true,
+            MoveResult::Right => false,
+            MoveResult::Variable(_) => false,
+            MoveResult::Member(res, _) => res.as_ref().is_deref_value(),
+        }
+    }
     fn get_top(&self) -> Option<&Identifier> {
         match self {
             MoveResult::Right | MoveResult::Deref => None,
@@ -63,7 +71,7 @@ impl DeadTree {
                 }
                 Some(DeadElem::Member(ref mut t)) => {
                     if ids.is_empty() {
-                        return Err(format!("is partial moved"));
+                        return Err(format!("{:?} is partial moved", top));
                     }
                     else {
                         t.move_result_rec(ids)?;
@@ -162,10 +170,10 @@ impl DeadTree {
                     self.vars.insert(id, elem);
                 }
                 (Some(DeadElem::Tag(_)), _) => {
-                    return Err(format!("already moved"));
+                    return Err(format!("already moved, {:?}", id));
                 }
                 (Some(_elem), DeadElem::Tag(_tag)) => {
-                    return Err(format!("partial moved"));
+                    return Err(format!("partial moved, {:?}", id));
                 }
                 (Some(DeadElem::Member(tree)), DeadElem::Member(right)) => {
                     tree.solve_lazy(right)?;
@@ -197,7 +205,10 @@ impl VariablesMoveChecker {
         self.vars.insert(var.clone(), var.tag.clone());
     }
     pub fn move_result(&mut self, res: MoveResult) -> Result<(), String> {
-        if let Some(id) = res.get_top() {
+        if res.is_deref_value() {
+            Err(format!("Deref value ({:?}) cannot move", res))
+        }
+        else if let Some(id) = res.get_top() {
             let tag = res.get_tag().unwrap();
             self.moved.insert(tag);
             if self.vars.contains_key(id) {
@@ -255,6 +266,9 @@ impl VariablesMoveChecker {
     }
     pub fn get_moved(self) -> HashSet<Tag> {
         self.moved
+    }
+    pub fn print_lazy(&self) -> String {
+        format!("{:?}", self.lazy)
     }
 }
 

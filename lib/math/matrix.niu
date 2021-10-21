@@ -36,8 +36,11 @@ struct Matrix<F> where F: Field
       w: h,
     }
   }
+  fn clone(self: &Self) -> Self {
+    Matrix { a: self.a.clone(), h: h, w: w }
+  }
   fn pow(self: &Self, p: u64) -> Self {
-    let mut now = *self;
+    let mut now = self.clone();
     let mut ans = Matrix::one(self.h);
     for(let mut exp = p; exp > 0; exp = exp >> 1) {
       if exp & 1 == 1 {

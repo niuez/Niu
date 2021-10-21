@@ -265,7 +265,7 @@ impl Transpile for Type {
             Type::Ref(ref ty) => {
                 format!("{} const&", ty.as_ref().transpile(ta))
             }
-            Type::Deref(ref ty) => {
+            Type::MutRef(ref ty) => {
                 format!("{}&", ty.as_ref().transpile(ta))
             }
             Type::Generics(ref ty_id, ref gens) => {
@@ -652,6 +652,16 @@ impl TypeEquations {
             Err(i) => i,
         }
     }
+    fn solve_copy_trait(&mut self, ty: &Type, trs: &TraitsInfo) -> usize {
+        match *ty {
+            Type::Ref(_) | Type::MutRef(_) => {
+                1
+            }
+            ref ty => {
+                self.solve_has_trait(&ty, &TraitGenerics { trait_id: TraitId { id: Identifier::from_str("Copy") }, generics: Vec::new() }, trs)
+            }
+        }
+    }
 
     fn solve_trait_method(&mut self, ty: Type, trs: &TraitsInfo) -> Result<(Type, SolveChange), UnifyErr> {
         //if let Type::TraitMethod(inner_ty, tr_method) = ty {
@@ -862,9 +872,13 @@ impl TypeEquations {
                     self.change_cnt -= before_changed.cnt();
                     let (ty, ty_changed) = self.solve_relations(ty, trs)?;
                     if ty.is_solved_type() {
-                        let solve_cnt = self.solve_has_trait(&ty, &TraitGenerics { trait_id: TraitId { id: Identifier::from_str("Copy") }, generics: Vec::new() }, trs);
+                        let solve_cnt = self.solve_copy_trait(&ty, trs);
                         if solve_cnt == 1 {
+                            log::info!("{:?} is copyable", ty);
                             self.copyable.insert(tag);
+                        }
+                        else {
+                            log::info!("{:?} is not copyable", ty);
                         }
                     }
                     else {
