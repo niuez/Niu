@@ -9,6 +9,8 @@ struct Am {
   }
 }
 
+impl Copy for Am {}
+
 impl Monoid for Am {
   fn ide() -> Am { Am::init(0i64) }
   fn ope(self: &Am, right: &Am) -> Am {
@@ -31,6 +33,8 @@ impl Monoid for Fm {
     Fm { a: a.a * b.a, b: a.b * b.a + b.b }
   }
 }
+
+impl Copy for Fm {}
 
 
 testfn(library-checker-problems:datastructure/point_add_range_sum) segmenttree_point_add_range_sum $${
