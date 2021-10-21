@@ -14,6 +14,7 @@ use crate::traits::*;
 use crate::unify::*;
 use crate::trans::*;
 use crate::mut_checker::*;
+use crate::move_checker::*;
 use crate::structs::*;
 use crate::unit_test::*;
 
@@ -98,6 +99,14 @@ impl FullContent {
         for f in self.funcs.iter() {
             f.mut_check(ta, &mut vars)?;
         }
+        Ok(())
+    }
+    pub fn move_check(&self, ta: &TypeAnnotation) -> Result<(), String> {
+        let mut mc = VariablesMoveChecker::new();
+        for f in self.funcs.iter() {
+            f.move_check(&mut mc, ta)?;
+        }
+        log::info!("{:?}", mc);
         Ok(())
     }
     pub fn transpile(&self, ta: &mut TypeAnnotation) -> String {

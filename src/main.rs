@@ -68,6 +68,7 @@ fn type_check(filename: &str) -> Result<String, String> {
     //log::debug!("{:?}", t);
     let mut ta = t.type_check()?;
     t.mut_check(&ta)?;
+    t.move_check(&ta)?;
     Ok(t.transpile(&mut ta))
 }
 

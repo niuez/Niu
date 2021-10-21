@@ -424,8 +424,7 @@ impl MoveCheck for ExpOrd {
         }
         else {
             for term in self.terms.iter() {
-                let res = term.move_check(mc, ta)?;
-                mc.move_result(res)?;
+                let _ = term.move_check(mc, ta)?;
             }
             Ok(MoveResult::Right)
         }

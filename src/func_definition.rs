@@ -295,13 +295,13 @@ impl FuncDefinition {
             format!("")
         }
     }
-    pub fn move_checker(&self, top_mc: &mut VariablesMoveChecker, trs: &TraitsInfo) -> Result<(), String> {
+    pub fn move_check(&self, top_mc: &mut VariablesMoveChecker, ta: &TypeAnnotation) -> Result<(), String> {
         let mut mc = VariablesMoveChecker::new();
         for (id, _, _) in self.args.iter() {
             mc.regist_var(id);
         }
         if let FuncBlock::Block(ref block) = self.block {
-            block.move_check(&mut mc, trs)?;
+            block.move_check(&mut mc, ta)?;
         }
         top_mc.solve_lazys(mc)?;
         Ok(())

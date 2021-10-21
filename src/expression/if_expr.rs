@@ -11,6 +11,7 @@ use crate::block::{ Block, parse_block };
 use crate::unify::*;
 use crate::trans::*;
 use crate::mut_checker::*;
+use crate::move_checker::*;
 
 #[derive(Debug)]
 struct IfPair {
@@ -80,6 +81,32 @@ impl MutCheck for IfExpr {
         Ok(MutResult::NotMut)
     }
 }
+
+impl MoveCheck for IfExpr {
+    fn move_check(&self, mc: &mut VariablesMoveChecker, ta: &TypeAnnotation) -> Result<MoveResult, String> {
+        self.ifp.cond.move_check(mc, ta)?;
+        let mut base_mc = VariablesMoveChecker::new();
+        {
+            let mut ifp_mc = VariablesMoveChecker::new();
+            self.ifp.block.move_check(&mut ifp_mc, ta)?;
+            base_mc.parallel_merge(ifp_mc);
+        }
+        for IfPair { cond, block } in self.elifp.iter() {
+            cond.move_check(mc, ta)?;
+            let mut ifp_mc = VariablesMoveChecker::new();
+            block.move_check(&mut ifp_mc, ta)?;
+            base_mc.parallel_merge(ifp_mc);
+        }
+        {
+            let mut ifp_mc = VariablesMoveChecker::new();
+            self.el_block.move_check(&mut ifp_mc, ta)?;
+            base_mc.parallel_merge(ifp_mc);
+        }
+        mc.solve_lazys(base_mc)?;
+        Ok(MoveResult::Right)
+    }
+}
+
 
 pub fn parse_if_expr(s: &str) -> IResult<&str, Expression> {
     let (s, (_, _, if_cond, _, if_block, _, many, _, _, el_block, _)) = tuple((tag("if"), multispace1, parse_expression, multispace0, parse_block, multispace0,

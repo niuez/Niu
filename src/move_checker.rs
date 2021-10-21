@@ -2,6 +2,7 @@ use std::collections::{ HashMap, HashSet };
 use crate::trans::*;
 use crate::identifier::*;
 
+#[derive(Debug)]
 pub enum MoveResult {
     Variable(Identifier),
     Member(Box<MoveResult>, Identifier),
@@ -26,11 +27,13 @@ impl MoveResult {
     }
 }
 
+#[derive(Debug)]
 enum DeadElem {
     Tag(Tag),
     Member(DeadTree),
 }
 
+#[derive(Debug)]
 struct DeadTree {
     vars: HashMap<Identifier, DeadElem>,
 }
@@ -41,6 +44,41 @@ impl DeadTree {
     }
     fn is_empty(&self) -> bool {
         self.vars.is_empty()
+    }
+    fn move_result_rec(&mut self, mut ids: Vec<Identifier>) -> Result<(), String> {
+        if let Some(top) = ids.pop() {
+            let result = match self.vars.get_mut(&top) {
+                None => {
+                    if ids.is_empty() {
+                        Some(DeadElem::Tag(top.tag.clone()))
+                    }
+                    else {
+                        let mut t = Self::new();
+                        t.move_result_rec(ids)?;
+                        Some(DeadElem::Member(t))
+                    }
+                }
+                Some(DeadElem::Tag(tag)) => {
+                    return Err(format!("{:?} is daed by {:?}", top, tag))
+                }
+                Some(DeadElem::Member(ref mut t)) => {
+                    if ids.is_empty() {
+                        return Err(format!("is partial moved"));
+                    }
+                    else {
+                        t.move_result_rec(ids)?;
+                        None
+                    }
+                }
+            };
+            if let Some(elem) = result {
+                self.vars.insert(top, elem);
+            }
+            Ok(())
+        }
+        else {
+            unreachable!()
+        }
     }
     fn move_result(&mut self, res: MoveResult) -> Result<(), String> {
         let mut top = res;
@@ -55,33 +93,11 @@ impl DeadTree {
             MoveResult::Variable(id) => {
                 ids.push(id);
             }
-            MoveResult::Member(par, id) => unreachable!(),
+            MoveResult::Member(_par, _id) => unreachable!(),
         }
-        let mut tree = self;
-        while let Some(top) = ids.pop() {
-            match tree.vars.get_mut(&top) {
-                None => {
-                    if ids.is_empty() {
-                        tree.vars.insert(top, DeadElem::Tag(top.tag.clone()));
-                        break
-                    }
-                    else {
-                        let elem = tree.vars.entry(top).or_insert(DeadElem::Member(Self::new()));
-                        if let DeadElem::Member(t) = elem { tree = t; }
-                        else { unreachable!() }
-                    }
-                }
-                Some(DeadElem::Tag(tag)) => {
-                    return Err(format!("{:?} is dead by {:?}", top, tag));
-                }
-                Some(DeadElem::Member(ref mut t)) => {
-                    tree = t;
-                }
-            }
-        }
-        Ok(())
+        self.move_result_rec(ids)
     }
-    fn be_alive_rec(&mut self, ids: Vec<Identifier>) -> Result<(), String> {
+    fn be_alive_rec(&mut self, mut ids: Vec<Identifier>) -> Result<(), String> {
         if let Some(top) = ids.pop() {
             let remove = if ids.is_empty() {
                 true
@@ -89,7 +105,7 @@ impl DeadTree {
                 match self.vars.get_mut(&top) {
                     None => false,
                     Some(DeadElem::Tag(tag)) => {
-                        return Err(format!("cannot partial alive"));
+                        return Err(format!("cannot partial alive {:?}", tag));
                     }
                     Some(DeadElem::Member(ref mut tree)) => {
                         tree.be_alive_rec(ids)?;
@@ -119,7 +135,7 @@ impl DeadTree {
             MoveResult::Variable(id) => {
                 ids.push(id);
             }
-            MoveResult::Member(par, id) => unreachable!(),
+            MoveResult::Member(_par, _id) => unreachable!(),
         }
         self.be_alive_rec(ids)
     }
@@ -148,7 +164,7 @@ impl DeadTree {
                 (Some(DeadElem::Tag(_)), _) => {
                     return Err(format!("already moved"));
                 }
-                (Some(elem), DeadElem::Tag(tag)) => {
+                (Some(_elem), DeadElem::Tag(_tag)) => {
                     return Err(format!("partial moved"));
                 }
                 (Some(DeadElem::Member(tree)), DeadElem::Member(right)) => {
@@ -160,6 +176,7 @@ impl DeadTree {
     }
 }
 
+#[derive(Debug)]
 pub struct VariablesMoveChecker {
     vars: HashMap<Identifier, Tag>,
     local: DeadTree,
@@ -223,7 +240,7 @@ impl VariablesMoveChecker {
                 (Some(DeadElem::Tag(_)), _) => {
                     return Err(format!("already moved"));
                 }
-                (Some(elem), DeadElem::Tag(tag)) => {
+                (Some(_elem), DeadElem::Tag(_tag)) => {
                     return Err(format!("partial moved"));
                 }
                 (Some(DeadElem::Member(tree)), DeadElem::Member(right)) => {
@@ -232,6 +249,9 @@ impl VariablesMoveChecker {
             }
         }
         Ok(())
+    }
+    pub fn is_lazy_empty(&self) -> bool {
+        self.lazy.is_empty()
     }
 }
 

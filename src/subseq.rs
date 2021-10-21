@@ -260,7 +260,6 @@ pub fn subseq_mut_check(uexpr: &UnaryExpr, subseq: &Subseq, ta: &TypeAnnotation,
 }
 
 pub fn subseq_move_check(uexpr: &UnaryExpr, subseq: &Subseq, mc: &mut VariablesMoveChecker, ta: &TypeAnnotation) -> Result<MoveResult, String> {
-    unimplemented!()
     /*match *subseq {
         Subseq::Call(ref call) => {
             for arg in call.args.iter() {
@@ -284,6 +283,48 @@ pub fn subseq_move_check(uexpr: &UnaryExpr, subseq: &Subseq, mc: &mut VariablesM
             Ok(uexpr)
         }
     }*/
+    match *subseq {
+        Subseq::Call(ref call) => {
+            match uexpr {
+                UnaryExpr::Subseq(mem_caller, Subseq::Member(mem)) => {
+                    let mem_res = mem_caller.move_check(mc, ta)?;
+                    match ta.annotation(call.tag.get_num(), "AutoRefType", 0) {
+                        Type::AutoRef(_, AutoRefTag::MutRef) | Type::AutoRef(_, AutoRefTag::Ref) => {}
+                        Type::AutoRef(_, AutoRefTag::Nothing) => {
+                            mc.move_result(mem_res)?;
+                        }
+                        _ => return Err(format!("it is not AutoRef"))
+                    }
+                    for arg in call.args.iter() {
+                        let res = arg.move_check(mc, ta)?;
+                        mc.move_result(res)?;
+                    }
+                    Ok(MoveResult::Right)
+                }
+                uexpr => {
+                    for arg in call.args.iter() {
+                        let res = arg.move_check(mc, ta)?;
+                        mc.move_result(res)?;
+                    }
+                    Ok(MoveResult::Right)
+                }
+            }
+        }
+        Subseq::Member(ref mem) => {
+            let uexpr = uexpr.move_check(mc, ta)?;
+            match (uexpr, ta.annotation(mem.mem_id.get_tag_number(), "StructType", 0)) {
+                (_, Type::Ref(_)) | (MoveResult::Right, Type::MutRef(_)) => Ok(MoveResult::Deref),
+                (MoveResult::Deref, _) => Ok(MoveResult::Deref),
+                (uexpr, _) => Ok(MoveResult::Member(Box::new(uexpr), mem.mem_id.clone())),
+            }
+        }
+        Subseq::Index(ref index) => {
+            uexpr.move_check(mc, ta)?;
+            let arg = index.arg.as_ref().move_check(mc, ta)?;
+            mc.move_result(arg)?;
+            Ok(MoveResult::Deref)
+        }
+    }
 }
 
 
