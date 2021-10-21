@@ -14,6 +14,7 @@ use crate::unify::*;
 //use crate::unary_expr::Variable;
 use crate::trans::*;
 use crate::mut_checker::*;
+use crate::move_checker::*;
 use crate::traits::*;
 use crate::func_definition::*;
 use crate::structs::*;
@@ -241,6 +242,12 @@ impl ImplDefinition {
                 require_methods
             }
         }
+    }
+    pub fn move_check(&self, mc: &mut VariablesMoveChecker, ta: &TypeAnnotation) -> Result<(), String> {
+        for (_, func) in self.require_methods.iter() {
+            func.move_check(mc, ta)?;
+        }
+        Ok(())
     }
 }
 

@@ -20,6 +20,7 @@ use crate::unify::*;
 
 use crate::trans::*;
 use crate::mut_checker::*;
+use crate::move_checker::*;
 
 #[derive(Debug, Clone)]
 pub struct MemberInfo {
@@ -155,6 +156,12 @@ impl StructDefinition {
             }
             _ => format!(""),
         }
+    }
+    pub fn move_check(&self, mc: &mut VariablesMoveChecker, ta: &TypeAnnotation) -> Result<(), String> {
+        for (_, func) in self.impl_self.require_methods.iter() {
+            func.move_check(mc, ta)?;
+        }
+        Ok(())
     }
 }
 

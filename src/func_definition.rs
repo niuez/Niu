@@ -296,6 +296,7 @@ impl FuncDefinition {
         }
     }
     pub fn move_check(&self, top_mc: &mut VariablesMoveChecker, ta: &TypeAnnotation) -> Result<(), String> {
+        log::info!("move check {:?}", self.func_id);
         let mut mc = VariablesMoveChecker::new();
         for (id, _, _) in self.args.iter() {
             mc.regist_var(id);

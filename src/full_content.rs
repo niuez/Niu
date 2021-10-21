@@ -101,13 +101,19 @@ impl FullContent {
         }
         Ok(())
     }
-    pub fn move_check(&self, ta: &TypeAnnotation) -> Result<(), String> {
+    pub fn move_check(&self, ta: &TypeAnnotation) -> Result<VariablesMoveChecker, String> {
         let mut mc = VariablesMoveChecker::new();
+        for st in self.structs.iter() {
+            st.move_check(&mut mc, ta)?;
+        }
+
+        for im in self.impls.iter() {
+            im.move_check(&mut mc, ta)?;
+        }
         for f in self.funcs.iter() {
             f.move_check(&mut mc, ta)?;
         }
-        log::info!("{:?}", mc);
-        Ok(())
+        Ok(mc)
     }
     pub fn transpile(&self, ta: &mut TypeAnnotation) -> String {
         let mut res = String::new();
