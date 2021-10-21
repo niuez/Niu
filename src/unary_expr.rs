@@ -58,7 +58,15 @@ impl GenType for UnaryExpr {
 impl Transpile for UnaryExpr {
     fn transpile(&self, ta: &TypeAnnotation) -> String {
         match *self {
-            UnaryExpr::Variable(ref v) => v.transpile(ta),
+            UnaryExpr::Variable(ref v) => {
+                let trans = v.transpile(ta);
+                if ta.is_moved(&v.id.tag) {
+                    format!("std::move({})", trans)
+                }
+                else {
+                    trans
+                }
+            }
             UnaryExpr::Literal(ref l) => l.transpile(ta),
             UnaryExpr::Parentheses(ref p) => p.transpile(ta),
             UnaryExpr::Block(ref b) => format!("[&](){{ {} }}()", b.transpile(ta)),

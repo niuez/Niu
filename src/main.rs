@@ -68,7 +68,8 @@ fn type_check(filename: &str) -> Result<String, String> {
     //log::debug!("{:?}", t);
     let mut ta = t.type_check()?;
     t.mut_check(&ta)?;
-    t.move_check(&ta)?;
+    let mc = t.move_check(&ta)?;
+    ta.regist_moved(mc.get_moved());
     Ok(t.transpile(&mut ta))
 }
 
@@ -78,6 +79,8 @@ pub fn type_check_with_tests(filename: &str) -> Result<(String, Vec<UnitTestTran
     //log::debug!("{:?}", t);
     let mut ta = t.type_check()?;
     t.mut_check(&ta)?;
+    let mc = t.move_check(&ta)?;
+    ta.regist_moved(mc.get_moved());
     let main_prog = t.transpile(&mut ta);
     let unit_tests = t.transpile_tests(&ta);
     Ok((main_prog, unit_tests))

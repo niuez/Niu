@@ -253,6 +253,9 @@ impl VariablesMoveChecker {
     pub fn is_lazy_empty(&self) -> bool {
         self.lazy.is_empty()
     }
+    pub fn get_moved(self) -> HashSet<Tag> {
+        self.moved
+    }
 }
 
 

@@ -5,6 +5,7 @@ struct Hoge {
   t: u64,
 } {
   fn print(self: &Self) -> void {}
+  fn move_hoge(self: Self) -> void {}
 }
 
 fn main() -> void {
@@ -12,8 +13,7 @@ fn main() -> void {
   if a == 5 {
     let b = a;
   }
-  else {
-    let c = a;
+  else { let c = a;
   }
   a = 6;
   let d = a;
@@ -25,6 +25,7 @@ fn main() -> void {
   hoge.t = 19;
   hoge.print();
   let huga = hoge;
+  huga.move_hoge();
 
   let mut v = 100;
   for i = 0; i < 5; i = i + 1 {

@@ -188,10 +188,16 @@ pub fn subseq_transpile(uexpr: &UnaryExpr, subseq: &Subseq, ta: &TypeAnnotation)
         }
         Subseq::Member(ref mem) => {
             let caller = uexpr.transpile(ta);
-            match ta.annotation(mem.mem_id.get_tag_number(), "StructType", 0) {
+            let trans = match ta.annotation(mem.mem_id.get_tag_number(), "StructType", 0) {
                 Type::Ref(_) => format!("{}.{}", caller, mem.mem_id.into_string()),
                 Type::MutRef(_) => format!("{}.{}", caller, mem.mem_id.into_string()),
                 _ => format!("{}.{}", caller, mem.mem_id.into_string())
+            };
+            if ta.is_moved(&mem.mem_id.tag) {
+                format!("std::move({})", trans)
+            }
+            else {
+                trans
             }
         }
         Subseq::Index(ref index) => { 
