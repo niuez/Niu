@@ -6,7 +6,8 @@ import "std/u64.niu"
 trait Field where
   Self: Add<Self>(Output=Self),
   Self: Sub<Self>(Output=Self),
-  Self: Mul<Self>(Output=Self) {
+  Self: Mul<Self>(Output=Self),
+  Self: Copy {
   fn zero() -> Self;
   fn one() -> Self;
 }
@@ -37,17 +38,17 @@ struct Matrix<F> where F: Field
     }
   }
   fn clone(self: &Self) -> Self {
-    Matrix { a: self.a.clone(), h: h, w: w }
+    Matrix { a: self.a.clone(), h: self.h, w: self.w }
   }
   fn pow(self: &Self, p: u64) -> Self {
     let mut now = self.clone();
     let mut ans = Matrix::one(self.h);
     for(let mut exp = p; exp > 0; exp = exp >> 1) {
       if exp & 1 == 1 {
-        ans = ans * now;
+        ans = ans * now.clone();
       }
       else {}
-      now = now * now;
+      now = now.clone() * now;
     }
     ans
   }

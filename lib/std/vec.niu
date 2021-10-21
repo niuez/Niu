@@ -9,6 +9,7 @@ struct Vec<T> $${std::vector<$ty(T)>}$$ {
   fn len(self: &Self) -> u64 $${$arg(self).size()}$$
   fn pop(self: &mut Self) -> void $${$arg(self).pop_back()}$$
   fn sort(self: &mut Self) -> void where T: Ord $${std::sort($arg(self).begin(), $arg(self).end())}$$
+  fn clone(self: &Self) -> Self $${($arg(self))}$$
 }
 
 impl<T> Index for Vec<T> {
