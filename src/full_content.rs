@@ -123,7 +123,7 @@ impl FullContent {
         }
         res.push_str("\n");
         let mut operators = HashMap::new();
-        let opes_str = ["Index", "IndexMut", "BitOr", "BitXor", "BitAnd", "Shl", "Shr", "Add", "Sub", "Mul", "Div", "Rem"];
+        let opes_str = ["Index", "IndexMut", "Clone"];
         for ope in opes_str {
             operators.insert(ope.to_string(), HashSet::new());
         }

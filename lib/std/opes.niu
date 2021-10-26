@@ -76,4 +76,7 @@ trait Ord where Self: Eq {
   fn le(self: &Self, right: &Self) -> bool;
 }
 
-trait Copy {}
+trait Clone {
+  fn clone(self: &Self) -> Self;
+}
+trait Copy where Self: Clone {}

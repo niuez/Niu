@@ -137,13 +137,20 @@ impl StructDefinition {
                         .map(|(mem, ty)| format!("{} {}", ty.transpile(ta), mem.into_string())).collect::<Vec<_>>().join(", "),
                     constructor_member_init
                 );
+                let move_constructor = format!("{}({}&& right) = default;", self.member_def.struct_id.transpile(ta), impl_type.clone());
+                let move_assign = format!("{0}& operator=({0}&& right) = default;", impl_type.clone());
                 let methods = self.impl_self.require_methods.iter().map(|(_, func)| format!("{}", func.transpile(ta, true))).collect::<Vec<_>>().join("\n");
                 let operators = opes.into_iter().map(|ope| match ope.as_str() {
                     "Index" => {
-                        format!("typename std::enable_if<Index<{0}>::value, const typename Index<{0}>::Output&>::type operator[](typename Index<{0}>::Arg k) const {{ return Index<{0}>::index(this, k); }}\n", self_type)
+                        format!("typename std::enable_if<Index<{0}>::value, const typename Index<{0}>::Output&>::type operator[](typename Index<{0}>::Arg k) const {{ return Index<{0}>::index(*this, k); }}\n", self_type)
                     }
                     "IndexMut" => {
-                        format!("typename std::enable_if<IndexMut<{0}>::value, typename Index<{0}>::Output&>::type operator[](typename Index<{0}>::Arg k) {{ return IndexMut<{0}>::index_mut(this, k); }}\n", self_type)
+                        format!("typename std::enable_if<IndexMut<{0}>::value, typename Index<{0}>::Output&>::type operator[](typename Index<{0}>::Arg k) {{ return IndexMut<{0}>::index_mut(*this, k); }}\n", self_type)
+                    }
+                    "Clone" => {
+                        let copy_constructor = format!("{}(const {}& right) {{ *this = Clone<{1}>::clone(right); }}", self.member_def.struct_id.transpile(ta), impl_type.clone());
+                        let copy_assign = format!("{0}& operator=(const {0}& right) {{ return *this = Clone<{0}>::clone(right); }}", impl_type.clone());
+                        format!("{}\n{}\n", copy_constructor, copy_assign)
                     }
                     /* bin_ope if binary_operators.contains_key(bin_ope) => {
                         let method = binary_operators[&bin_ope];
@@ -152,7 +159,7 @@ impl StructDefinition {
                     _ => "".to_string(),
                 }).collect::<Vec<_>>().join("");
 
-                format!("{}struct {} {{\n{}\n{}\n{}{}}} ;\n", template, impl_type, members_str, constructor, methods, operators)
+                format!("{}struct {} {{\n{}\n{}\n{}\n{}\n{}{}}} ;\n", template, impl_type, members_str, constructor, move_constructor, move_assign, methods, operators)
             }
             _ => format!(""),
         }

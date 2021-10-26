@@ -111,6 +111,7 @@ impl Type {
             Type::Generics(_, gens) => gens.iter().map(|gen| gen.is_solved_type()).all(|t| t),
             Type::Ref(ref ty) => ty.as_ref().is_solved_type(),
             Type::MutRef(ref ty) => ty.as_ref().is_solved_type(),
+            Type::Func(ref args, ref ret, _) => args.iter().map(|arg| arg.is_solved_type()).all(|t| t) && ret.is_solved_type(),
             _ => false,
         }
     }

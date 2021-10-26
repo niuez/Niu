@@ -50,4 +50,5 @@ impl Eq for i64 {
 impl Ord for i64 {
   fn le(a: &i64, b: &i64) -> bool $${a < b}$$
 }
+impl Clone for i64 { fn clone(a: &Self) -> Self $${a}$$ }
 impl Copy for i64 {}

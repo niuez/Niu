@@ -103,43 +103,48 @@ pub fn subseq_transpile(uexpr: &UnaryExpr, subseq: &Subseq, ta: &TypeAnnotation)
     match *subseq {
         Subseq::Call(ref call) => {
             if let UnaryExpr::Subseq(mem_caller, Subseq::Member(mem)) = uexpr {
-                let caller_trans = match ta.annotation(call.tag.get_num(), "AutoRefType", 0) {
-                    Type::AutoRef(_, AutoRefTag::Nothing) => format!("{}", mem_caller.transpile(ta)),
-                    Type::AutoRef(_, AutoRefTag::Ref) => format!("{}", mem_caller.transpile(ta)),
-                    Type::AutoRef(_, AutoRefTag::MutRef) => format!("{}", mem_caller.transpile(ta)),
-                    _ => unreachable!("it is not AutoRef"),
-                };
-                let ty = ta.annotation(call.tag.get_num(), "FuncTypeInfo", 0);
-                //if let Type::Func(_, _, Some((trait_id, ty))) = ty {
-                if let Type::Func(_, _, info) = ty {
-                    match info {
-                        FuncTypeInfo::TraitFunc(trait_id, generics_cnt, tag) => {
-                            let args = call.args.iter().map(|arg| arg.transpile(ta));
-                            let args = std::iter::once(caller_trans).chain(args).collect::<Vec<_>>().join(", ");
-                            let ty = std::iter::once(ta.annotation(tag.get_num(), "SelfType", 0)).chain(
-                                (0..generics_cnt).map(|i| ta.annotation(tag.get_num(), "TraitGenerics", i)))
-                                .map(|t| t.transpile(ta)).collect::<Vec<_>>().join(", ");
-                            format!("{}<{}>::{}({})", trait_id.transpile(ta), ty, mem.mem_id.into_string(), args)
-                        }
-                        FuncTypeInfo::SelfFunc(tag) => {
-                            let ty = ta.annotation(tag.get_num(), "SelfType", 0).transpile(ta);
-                            let args = call.args.iter().map(|arg| arg.transpile(ta));
-                            let args = std::iter::once(caller_trans).chain(args).collect::<Vec<_>>().join(", ");
-                            format!("{}::{}({})", ty, mem.mem_id.into_string(), args)
-                        }
-                        FuncTypeInfo::CppInline(cppinline, ids) => {
-                            let args = call.args.iter().map(|arg| arg.transpile(ta));
-                            let args = std::iter::once(caller_trans).chain(args);
-                            let mp = ids.into_iter().zip(args.into_iter()).collect::<HashMap<_, _>>();
-                            cppinline.transpile(ta, &mp)
-                        }
-                        FuncTypeInfo::None => {
-                            unimplemented!("Func type member?")
-                        }
-                    }
+                if mem.mem_id.into_string() == "clone" {
+                    format!("{}", mem_caller.transpile(ta))
                 }
                 else {
-                    unreachable!(format!("Member Call\nuexpr = {:?}\nsubseq = {:?}\nty = {:?}", uexpr, subseq, ty))
+                    let caller_trans = match ta.annotation(call.tag.get_num(), "AutoRefType", 0) {
+                        Type::AutoRef(_, AutoRefTag::Nothing) => format!("{}", mem_caller.transpile(ta)),
+                        Type::AutoRef(_, AutoRefTag::Ref) => format!("{}", mem_caller.transpile(ta)),
+                        Type::AutoRef(_, AutoRefTag::MutRef) => format!("{}", mem_caller.transpile(ta)),
+                        _ => unreachable!("it is not AutoRef"),
+                    };
+                    let ty = ta.annotation(call.tag.get_num(), "FuncTypeInfo", 0);
+                    //if let Type::Func(_, _, Some((trait_id, ty))) = ty {
+                    if let Type::Func(_, _, info) = ty {
+                        match info {
+                            FuncTypeInfo::TraitFunc(trait_id, generics_cnt, tag) => {
+                                let args = call.args.iter().map(|arg| arg.transpile(ta));
+                                let args = std::iter::once(caller_trans).chain(args).collect::<Vec<_>>().join(", ");
+                                let ty = std::iter::once(ta.annotation(tag.get_num(), "SelfType", 0)).chain(
+                                    (0..generics_cnt).map(|i| ta.annotation(tag.get_num(), "TraitGenerics", i)))
+                                    .map(|t| t.transpile(ta)).collect::<Vec<_>>().join(", ");
+                                format!("{}<{}>::{}({})", trait_id.transpile(ta), ty, mem.mem_id.into_string(), args)
+                            }
+                            FuncTypeInfo::SelfFunc(tag) => {
+                                let ty = ta.annotation(tag.get_num(), "SelfType", 0).transpile(ta);
+                                let args = call.args.iter().map(|arg| arg.transpile(ta));
+                                let args = std::iter::once(caller_trans).chain(args).collect::<Vec<_>>().join(", ");
+                                format!("{}::{}({})", ty, mem.mem_id.into_string(), args)
+                            }
+                            FuncTypeInfo::CppInline(cppinline, ids) => {
+                                let args = call.args.iter().map(|arg| arg.transpile(ta));
+                                let args = std::iter::once(caller_trans).chain(args);
+                                let mp = ids.into_iter().zip(args.into_iter()).collect::<HashMap<_, _>>();
+                                cppinline.transpile(ta, &mp)
+                            }
+                            FuncTypeInfo::None => {
+                                unimplemented!("Func type member?")
+                            }
+                        }
+                    }
+                    else {
+                        unreachable!(format!("Member Call\nuexpr = {:?}\nsubseq = {:?}\nty = {:?}", uexpr, subseq, ty))
+                    }
                 }
             }
             else if let UnaryExpr::TraitMethod(_, _, method_id) = uexpr {
