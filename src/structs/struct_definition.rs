@@ -148,7 +148,7 @@ impl StructDefinition {
                         format!("typename std::enable_if<IndexMut<{0}>::value, typename Index<{0}>::Output&>::type operator[](typename Index<{0}>::Arg k) {{ return IndexMut<{0}>::index_mut(*this, k); }}\n", self_type)
                     }
                     "Clone" => {
-                        let copy_constructor = format!("{}(const {}& right) {{ *this = Clone<{1}>::clone(right); }}", self.member_def.struct_id.transpile(ta), impl_type.clone());
+                        let copy_constructor = format!("{0}(const {1}& right) :{}(Clone<{1}>::clone(right)) {{}}", self.member_def.struct_id.transpile(ta), impl_type.clone());
                         let copy_assign = format!("{0}& operator=(const {0}& right) {{ return *this = Clone<{0}>::clone(right); }}", impl_type.clone());
                         format!("{}\n{}\n", copy_constructor, copy_assign)
                     }

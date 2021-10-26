@@ -9,6 +9,9 @@ struct Am {
   }
 }
 
+impl Clone for Am {
+  fn clone(self: &Self) -> Self { Am { v: self.v } }
+}
 impl Copy for Am {}
 
 impl Monoid for Am {
@@ -34,6 +37,9 @@ impl Monoid for Fm {
   }
 }
 
+impl Clone for Fm {
+  fn clone(self: &Self) -> Self { Fm { a: self.a, b: self.b } }
+}
 impl Copy for Fm {}
 
 
