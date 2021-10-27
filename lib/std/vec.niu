@@ -28,3 +28,15 @@ impl<T> IndexMut for Vec<T> {
 impl<T> Eq for Vec<T> where T: Eq {
   fn eq(self: &Self, right: &Self) -> bool $${self==right}$$
 }
+
+impl<T> Iterator for Vec<T> {
+  type Item = T;
+}
+
+impl<T> Iterator for &Vec<T> {
+  type Item = &T;
+}
+
+impl<T> Iterator for &mut Vec<T> {
+  type Item = &mut T;
+}

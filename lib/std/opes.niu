@@ -80,3 +80,7 @@ trait Clone {
   fn clone(self: &Self) -> Self;
 }
 trait Copy where Self: Clone {}
+
+trait Iterator {
+  type Item;
+}

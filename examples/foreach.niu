@@ -1,0 +1,21 @@
+import "std/vec.niu"
+import "std/u64.niu"
+#include <iostream>
+
+fn println(a: u64) -> void $${std::cout << $arg(a) << std::endl;}$$
+
+fn main() -> void {
+  let mut v = Vec::new();
+  for i = 0; i < 5; i = i + 1 {
+    v.push(i);
+  }
+  for e in &v {
+    println(*e);
+  }
+  for e in &mut v {
+    *e = *e + 10;
+  }
+  for e in v {
+    println(e);
+  }
+}

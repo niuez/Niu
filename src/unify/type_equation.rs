@@ -158,6 +158,7 @@ impl Type {
             Type::AutoRef(ref ty, _) => {
                 ty.as_ref().occurs(t)
             }
+
             Type::End => false,
         }
     }

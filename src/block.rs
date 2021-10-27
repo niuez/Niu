@@ -39,6 +39,7 @@ impl Transpile for Block {
         let return_trans = match self.return_exp {
             Some(Expression::IfExpr(ref ifexpr)) => format!("{};\n", ifexpr.transpile_for_return(ta)),
             Some(Expression::ForExpr(ref forexpr)) => format!("{};\n", forexpr.transpile(ta)),
+            Some(Expression::ForEachExpr(ref foreach)) => format!("{};\n", foreach.transpile(ta)),
             Some(ref return_exp) => format!("return {};\n", return_exp.transpile(ta)),
             None => format!(""),
         };
@@ -84,7 +85,7 @@ fn parse_block_end(s: &str) -> IResult<&str, BlockElement> {
 }
 
 fn parse_block_statement_with_block(s: &str) -> IResult<&str, BlockElement> {
-    let (s, (_, expr)) = tuple((multispace0, alt((parse_if_expr, parse_for_expr))))(s)?;
+    let (s, (_, expr)) = tuple((multispace0, alt((parse_if_expr, parse_for_expr, parse_for_each_expr))))(s)?;
     Ok((s, BlockElement::Statement(Statement::Expression(expr, Tag::new()))))
 }
 

@@ -1,5 +1,6 @@
 pub mod if_expr;
 pub mod for_expr;
+pub mod for_each_expr;
 
 //use nom::branch::*;
 use nom::IResult;
@@ -19,6 +20,7 @@ use crate::move_checker::*;
 
 pub use if_expr::*;
 pub use for_expr::*;
+pub use for_each_expr::*;
 
 fn expr_gen_type<'a, EI: Iterator<Item=Type>, O: 'a, OI: Iterator<Item=&'a O>, F: Fn(&O) -> (&'static str, &'static str)>
 (equs: &mut TypeEquations, mut exprs: EI, opes: OI, f: F, tag: Tag) -> TResult {
@@ -45,6 +47,7 @@ fn expr_gen_type<'a, EI: Iterator<Item=Type>, O: 'a, OI: Iterator<Item=&'a O>, F
 pub enum Expression {
     IfExpr(Box<IfExpr>),
     ForExpr(Box<ForExpr>),
+    ForEachExpr(Box<ForEachExpr>),
     Expression(ExpOr),
 }
 
@@ -54,6 +57,7 @@ impl GenType for Expression {
             Expression::Expression(ref e) => e.gen_type(equs, trs),
             Expression::IfExpr(ref ifexpr) => ifexpr.as_ref().gen_type(equs, trs),
             Expression::ForExpr(ref forexpr) => forexpr.as_ref().gen_type(equs, trs),
+            Expression::ForEachExpr(ref foreach) => foreach.as_ref().gen_type(equs, trs),
         }
     }
 }
@@ -64,6 +68,7 @@ impl Transpile for Expression {
             Expression::Expression(ref e) => e.transpile(ta),
             Expression::IfExpr(ref ifexpr) => ifexpr.as_ref().transpile(ta),
             Expression::ForExpr(ref forexpr) => forexpr.as_ref().transpile(ta),
+            Expression::ForEachExpr(ref foreach) => foreach.as_ref().transpile(ta),
         }
     }
 }
@@ -74,6 +79,7 @@ impl MutCheck for Expression {
             Expression::Expression(ref e) => e.mut_check(ta, vars),
             Expression::IfExpr(ref ifexpr) => ifexpr.as_ref().mut_check(ta, vars),
             Expression::ForExpr(ref forexpr) => forexpr.as_ref().mut_check(ta, vars),
+            Expression::ForEachExpr(ref foreach) => foreach.as_ref().mut_check(ta, vars),
         }
     }
 }
@@ -84,6 +90,7 @@ impl MoveCheck for Expression {
             Expression::Expression(ref e) => e.move_check(mc, ta),
             Expression::IfExpr(ref ifexpr) => ifexpr.as_ref().move_check(mc, ta),
             Expression::ForExpr(ref forexpr) => forexpr.as_ref().move_check(mc, ta),
+            Expression::ForEachExpr(ref foreach) => foreach.as_ref().move_check(mc, ta),
         }
     }
 }
