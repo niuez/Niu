@@ -14,6 +14,7 @@ use crate::unify::*;
 use crate::type_spec::*;
 use crate::trans::*;
 use crate::mut_checker::*;
+use crate::move_checker::*;
 use crate::identifier::*;
 
 #[derive(Debug)]
@@ -72,6 +73,7 @@ pub fn subseq_gen_type(uexpr: &UnaryExpr, subseq: &Subseq, equs: &mut TypeEquati
             equs.add_equation(st_type.clone(), st);
             let alpha = mem.mem_id.generate_type_variable("MemberType", 0, equs);
             equs.add_equation(alpha.clone(), Type::Member(Box::new(st_type.clone()), mem.mem_id.clone()));
+            equs.regist_check_copyable(mem.mem_id.tag.clone(), alpha);
             Ok(Type::Member(Box::new(st_type), mem.mem_id.clone()))
         }
         Subseq::Index(ref index) => {
@@ -80,7 +82,8 @@ pub fn subseq_gen_type(uexpr: &UnaryExpr, subseq: &Subseq, equs: &mut TypeEquati
             equs.add_equation(caller.clone(), caller_type);
             let arg0 = Type::AutoRef(Box::new(caller.clone()), AutoRefTag::Tag(index.tag.clone()));
             let arg1 = index.arg.as_ref().gen_type(equs, trs)?;
-            Ok(Type::Deref(Box::new(
+            let alpha = index.tag.generate_type_variable("IndexResult", 0, equs);
+            equs.add_equation(alpha.clone(), Type::Deref(Box::new(
                         Type::CallEquation(CallEquation {
                             caller_type: None,
                             trait_gen: Some(TraitGenerics { trait_id: TraitId { id: Identifier::from_str("Index") }, generics: Vec::new() }),
@@ -88,7 +91,9 @@ pub fn subseq_gen_type(uexpr: &UnaryExpr, subseq: &Subseq, equs: &mut TypeEquati
                             args: vec![arg0, arg1],
                             tag: index.tag.clone(),
                         }
-            ))))
+            ))));
+            equs.regist_check_copyable(index.tag.clone(), alpha.clone());
+            Ok(alpha)
         }
     }
 
@@ -98,43 +103,48 @@ pub fn subseq_transpile(uexpr: &UnaryExpr, subseq: &Subseq, ta: &TypeAnnotation)
     match *subseq {
         Subseq::Call(ref call) => {
             if let UnaryExpr::Subseq(mem_caller, Subseq::Member(mem)) = uexpr {
-                let caller_trans = match ta.annotation(call.tag.get_num(), "AutoRefType", 0) {
-                    Type::AutoRef(_, AutoRefTag::Nothing) => format!("{}", mem_caller.transpile(ta)),
-                    Type::AutoRef(_, AutoRefTag::Ref) => format!("{}", mem_caller.transpile(ta)),
-                    Type::AutoRef(_, AutoRefTag::MutRef) => format!("{}", mem_caller.transpile(ta)),
-                    _ => unreachable!("it is not AutoRef"),
-                };
-                let ty = ta.annotation(call.tag.get_num(), "FuncTypeInfo", 0);
-                //if let Type::Func(_, _, Some((trait_id, ty))) = ty {
-                if let Type::Func(_, _, info) = ty {
-                    match info {
-                        FuncTypeInfo::TraitFunc(trait_id, generics_cnt, tag) => {
-                            let args = call.args.iter().map(|arg| arg.transpile(ta));
-                            let args = std::iter::once(caller_trans).chain(args).collect::<Vec<_>>().join(", ");
-                            let ty = std::iter::once(ta.annotation(tag.get_num(), "SelfType", 0)).chain(
-                                (0..generics_cnt).map(|i| ta.annotation(tag.get_num(), "TraitGenerics", i)))
-                                .map(|t| t.transpile(ta)).collect::<Vec<_>>().join(", ");
-                            format!("{}<{}>::{}({})", trait_id.transpile(ta), ty, mem.mem_id.into_string(), args)
-                        }
-                        FuncTypeInfo::SelfFunc(tag) => {
-                            let ty = ta.annotation(tag.get_num(), "SelfType", 0).transpile(ta);
-                            let args = call.args.iter().map(|arg| arg.transpile(ta));
-                            let args = std::iter::once(caller_trans).chain(args).collect::<Vec<_>>().join(", ");
-                            format!("{}::{}({})", ty, mem.mem_id.into_string(), args)
-                        }
-                        FuncTypeInfo::CppInline(cppinline, ids) => {
-                            let args = call.args.iter().map(|arg| arg.transpile(ta));
-                            let args = std::iter::once(caller_trans).chain(args);
-                            let mp = ids.into_iter().zip(args.into_iter()).collect::<HashMap<_, _>>();
-                            cppinline.transpile(ta, &mp)
-                        }
-                        FuncTypeInfo::None => {
-                            unimplemented!("Func type member?")
-                        }
-                    }
+                if mem.mem_id.into_string() == "clone" {
+                    format!("{}", mem_caller.transpile(ta))
                 }
                 else {
-                    unreachable!(format!("Member Call\nuexpr = {:?}\nsubseq = {:?}\nty = {:?}", uexpr, subseq, ty))
+                    let caller_trans = match ta.annotation(call.tag.get_num(), "AutoRefType", 0) {
+                        Type::AutoRef(_, AutoRefTag::Nothing) => format!("{}", mem_caller.transpile(ta)),
+                        Type::AutoRef(_, AutoRefTag::Ref) => format!("{}", mem_caller.transpile(ta)),
+                        Type::AutoRef(_, AutoRefTag::MutRef) => format!("{}", mem_caller.transpile(ta)),
+                        _ => unreachable!("it is not AutoRef"),
+                    };
+                    let ty = ta.annotation(call.tag.get_num(), "FuncTypeInfo", 0);
+                    //if let Type::Func(_, _, Some((trait_id, ty))) = ty {
+                    if let Type::Func(_, _, info) = ty {
+                        match info {
+                            FuncTypeInfo::TraitFunc(trait_id, generics_cnt, tag) => {
+                                let args = call.args.iter().map(|arg| arg.transpile(ta));
+                                let args = std::iter::once(caller_trans).chain(args).collect::<Vec<_>>().join(", ");
+                                let ty = std::iter::once(ta.annotation(tag.get_num(), "SelfType", 0)).chain(
+                                    (0..generics_cnt).map(|i| ta.annotation(tag.get_num(), "TraitGenerics", i)))
+                                    .map(|t| t.transpile(ta)).collect::<Vec<_>>().join(", ");
+                                format!("{}<{}>::{}({})", trait_id.transpile(ta), ty, mem.mem_id.into_string(), args)
+                            }
+                            FuncTypeInfo::SelfFunc(tag) => {
+                                let ty = ta.annotation(tag.get_num(), "SelfType", 0).transpile(ta);
+                                let args = call.args.iter().map(|arg| arg.transpile(ta));
+                                let args = std::iter::once(caller_trans).chain(args).collect::<Vec<_>>().join(", ");
+                                format!("{}::{}({})", ty, mem.mem_id.into_string(), args)
+                            }
+                            FuncTypeInfo::CppInline(cppinline, ids) => {
+                                let args = call.args.iter().map(|arg| arg.transpile(ta));
+                                let args = std::iter::once(caller_trans).chain(args);
+                                let mp = ids.into_iter().zip(args.into_iter()).collect::<HashMap<_, _>>();
+                                cppinline.transpile(ta, &mp)
+                            }
+                            FuncTypeInfo::None => {
+                                unimplemented!("Func type member?")
+                            }
+                        }
+                    }
+                    else {
+                        unreachable!(format!("Member Call\nuexpr = {:?}\nsubseq = {:?}\nty = {:?}", uexpr, subseq, ty))
+                    }
                 }
             }
             else if let UnaryExpr::TraitMethod(_, _, method_id) = uexpr {
@@ -187,10 +197,19 @@ pub fn subseq_transpile(uexpr: &UnaryExpr, subseq: &Subseq, ta: &TypeAnnotation)
         }
         Subseq::Member(ref mem) => {
             let caller = uexpr.transpile(ta);
-            match ta.annotation(mem.mem_id.get_tag_number(), "StructType", 0) {
+            let trans = match ta.annotation(mem.mem_id.get_tag_number(), "StructType", 0) {
                 Type::Ref(_) => format!("{}.{}", caller, mem.mem_id.into_string()),
                 Type::MutRef(_) => format!("{}.{}", caller, mem.mem_id.into_string()),
                 _ => format!("{}.{}", caller, mem.mem_id.into_string())
+            };
+            if ta.is_copyable(&mem.mem_id.tag) {
+                trans
+            }
+            else if ta.is_moved(&mem.mem_id.tag) {
+                format!("std::move({})", trans)
+            }
+            else {
+                trans
             }
         }
         Subseq::Index(ref index) => { 
@@ -254,6 +273,84 @@ pub fn subseq_mut_check(uexpr: &UnaryExpr, subseq: &Subseq, ta: &TypeAnnotation,
             let uexpr = uexpr.mut_check(ta, vars)?;
             let _arg = index.arg.as_ref().mut_check(ta, vars)?;
             Ok(uexpr)
+        }
+    }
+}
+
+pub fn subseq_move_check(uexpr: &UnaryExpr, subseq: &Subseq, mc: &mut VariablesMoveChecker, ta: &TypeAnnotation) -> Result<MoveResult, String> {
+    /*match *subseq {
+        Subseq::Call(ref call) => {
+            for arg in call.args.iter() {
+                let res = arg.move_check(mc, trs)?;
+            }
+            Ok(MutResult::Right)
+        }
+        Subseq::Member(ref mem) => {
+            let uexpr = uexpr.move_check(mc, trs)?;
+            match (uexpr, ta.annotation(mem.mem_id.get_tag_number(), "StructType", 0)) {
+                (MoveResult::Movable(id), _) => MoveResult::Movable(id),
+                (MoveResult::Right, Type::Ref(_)) | (MoveResult::Right, Type::MutRef(_)) => MoveResult::Deref,
+                (MoveResult::Right, _) => MoveResult::Right,
+                (MoveResult::Deref, _) => MoveResult::Deref,
+                (MoveResult::Dead(id), _) => Err(format!("{:?} {:?} is dead", uexpr, id))
+            }
+        }
+        Subseq::Index(ref index) => {
+            let uexpr = uexpr.mut_check(ta, vars)?;
+            let _arg = index.arg.as_ref().mut_check(ta, vars)?;
+            Ok(uexpr)
+        }
+    }*/
+    match *subseq {
+        Subseq::Call(ref call) => {
+            match uexpr {
+                UnaryExpr::Subseq(mem_caller, Subseq::Member(mem)) => {
+                    let mem_res = mem_caller.move_check(mc, ta)?;
+                    match ta.annotation(call.tag.get_num(), "AutoRefType", 0) {
+                        Type::AutoRef(_, AutoRefTag::MutRef) | Type::AutoRef(_, AutoRefTag::Ref) => {}
+                        Type::AutoRef(_, AutoRefTag::Nothing) => {
+                            mc.move_result(mem_res)?;
+                        }
+                        _ => return Err(format!("it is not AutoRef"))
+                    }
+                    for arg in call.args.iter() {
+                        let res = arg.move_check(mc, ta)?;
+                        mc.move_result(res)?;
+                    }
+                    Ok(MoveResult::Right)
+                }
+                uexpr => {
+                    for arg in call.args.iter() {
+                        let res = arg.move_check(mc, ta)?;
+                        mc.move_result(res)?;
+                    }
+                    Ok(MoveResult::Right)
+                }
+            }
+        }
+        Subseq::Member(ref mem) => {
+            let uexpr = uexpr.move_check(mc, ta)?;
+            if ta.is_copyable(&mem.mem_id.tag) {
+                Ok(MoveResult::Right)
+            }
+            else {
+                match (uexpr, ta.annotation(mem.mem_id.get_tag_number(), "StructType", 0)) {
+                    (_, Type::Ref(_)) | (MoveResult::Right, Type::MutRef(_)) => Ok(MoveResult::Deref),
+                    (MoveResult::Deref, _) => Ok(MoveResult::Deref),
+                    (uexpr, _) => Ok(MoveResult::Member(Box::new(uexpr), mem.mem_id.clone())),
+                }
+            }
+        }
+        Subseq::Index(ref index) => {
+            let uexpr = uexpr.move_check(mc, ta)?;
+            let arg = index.arg.as_ref().move_check(mc, ta)?;
+            mc.move_result(arg)?;
+            if ta.is_copyable(&index.tag) {
+                Ok(MoveResult::Right)
+            }
+            else {
+                Ok(MoveResult::Deref)
+            }
         }
     }
 }

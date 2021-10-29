@@ -17,6 +17,7 @@ use crate::trans::*;
 use crate::mut_checker::*;
 use crate::type_spec::*;
 use crate::cpp_inline::*;
+use crate::move_checker::*;
 
 
 #[derive(Debug)]
@@ -293,6 +294,18 @@ impl FuncDefinition {
         else {
             format!("")
         }
+    }
+    pub fn move_check(&self, top_mc: &mut VariablesMoveChecker, ta: &TypeAnnotation) -> Result<(), String> {
+        log::info!("move check {:?}", self.func_id);
+        let mut mc = VariablesMoveChecker::new();
+        for (id, _, _) in self.args.iter() {
+            mc.regist_var(id);
+        }
+        if let FuncBlock::Block(ref block) = self.block {
+            block.move_check(&mut mc, ta)?;
+        }
+        top_mc.solve_lazys(mc)?;
+        Ok(())
     }
 }
 

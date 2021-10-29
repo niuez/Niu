@@ -1,0 +1,26 @@
+import "std/u64.niu"
+
+struct Hoge {
+  s: u64,
+  t: u64,
+} {
+  fn print(self: &Self) -> void {}
+  fn move_hoge(self: Self) -> void {}
+}
+
+fn main() -> void {
+  let mut hoge = Hoge { s: 9, t: 1 };
+  let b = hoge.s;
+  let c = hoge.t;
+  hoge.s = 91;
+  hoge.t = 19;
+  hoge.print();
+  let huga = hoge;
+  huga.move_hoge();
+
+  let mut v = 100;
+  for i = 0; i < 5; i = i + 1 {
+    let w = v;
+    v = 120;
+  }
+}

@@ -11,12 +11,14 @@ struct SegmentTree<T> where T: Monoid {
   node: Vec<T>,
   n: u64,
 } {
-  fn init(arr: &Vec<T>) -> Self {
+  fn init(arr: Vec<T>) -> Self {
     let mut n = 1;
     for i = 1; n < arr.len(); n = n * 2 {}
     let mut node = Vec::init(2 * n, T#Monoid::ide());
-    for i = 0; i < arr.len(); i = i + 1 {
-      node[i + n] = arr[i];
+    let mut j = 0;
+    for x in arr {
+      node[j + n] = x;
+      j = j + 1;
     }
     for i = n - 1; i >= 1; i = i - 1 {
       node[i] = node[i * 2].ope(&node[i * 2 + 1]);

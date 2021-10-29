@@ -58,6 +58,25 @@ impl MutCheck for ForExpr {
     }
 }
 
+impl MoveCheck for ForExpr {
+    fn move_check(&self, mc: &mut VariablesMoveChecker, ta: &TypeAnnotation) -> Result<MoveResult, String> {
+        let mut for_init_mc = VariablesMoveChecker::new();
+        self.init.move_check(&mut for_init_mc, ta)?;
+        let mut for_loop_mc = VariablesMoveChecker::new();
+        self.cond.move_check(&mut for_loop_mc, ta)?;
+        self.block.move_check(&mut for_loop_mc, ta)?;
+        self.update.move_check(&mut for_loop_mc, ta)?;
+        if for_loop_mc.is_lazy_empty() {
+            for_init_mc.solve_lazys(for_loop_mc)?;
+            mc.solve_lazys(for_init_mc)?;
+            Ok(MoveResult::Right)
+        }
+        else {
+            Err(format!("for loop move error, {:?}", for_loop_mc.print_lazy()))
+        }
+    }
+}
+
 pub fn parse_for_expr_paren(s: &str) -> IResult<&str, Expression> {
     let (s, (_, _, _, _, init, _, _, _, cond, _, _, _, update, _, _, _, block)) =
         tuple((tag("for"), multispace0, char('('), multispace0,

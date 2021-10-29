@@ -15,6 +15,7 @@ use crate::structs::*;
 use crate::unify::*;
 use crate::trans::*;
 use crate::mut_checker::*;
+use crate::move_checker::*;
 use crate::type_spec::*;
 use crate::traits::*;
 
@@ -57,7 +58,15 @@ impl GenType for UnaryExpr {
 impl Transpile for UnaryExpr {
     fn transpile(&self, ta: &TypeAnnotation) -> String {
         match *self {
-            UnaryExpr::Variable(ref v) => v.transpile(ta),
+            UnaryExpr::Variable(ref v) => {
+                let trans = v.transpile(ta);
+                if ta.is_moved(&v.id.tag) {
+                    format!("std::move({})", trans)
+                }
+                else {
+                    trans
+                }
+            }
             UnaryExpr::Literal(ref l) => l.transpile(ta),
             UnaryExpr::Parentheses(ref p) => p.transpile(ta),
             UnaryExpr::Block(ref b) => format!("[&](){{ {} }}()", b.transpile(ta)),
@@ -87,6 +96,25 @@ impl MutCheck for UnaryExpr {
             }
             UnaryExpr::TraitMethod(ref _spec, _, ref _method_id) => {
                 Ok(MutResult::NotMut)
+            }
+        }
+    }
+}
+
+impl MoveCheck for UnaryExpr {
+    fn move_check(&self, mc: &mut VariablesMoveChecker, ta: &TypeAnnotation) -> Result<MoveResult, String> {
+        match *self {
+            UnaryExpr::Variable(ref v) => v.move_check(mc, ta),
+            UnaryExpr::Literal(ref l) => l.move_check(mc, ta),
+            UnaryExpr::Parentheses(ref p) => p.move_check(mc, ta),
+            UnaryExpr::Block(ref b) => b.move_check(mc, ta),
+            UnaryExpr::Subseq(ref expr, ref s) => subseq_move_check(expr.as_ref(), s, mc, ta),
+            UnaryExpr::StructInst(ref inst) => inst.move_check(mc, ta),
+            UnaryExpr::TraitMethod(ref _spec, Some(ref _trait_id), ref _method_id) => {
+                Ok(MoveResult::Right)
+            }
+            UnaryExpr::TraitMethod(ref _spec, _, ref _method_id) => {
+                Ok(MoveResult::Right)
             }
         }
     }
@@ -123,7 +151,9 @@ impl Variable {
 
 impl GenType for Variable {
     fn gen_type(&self, equs: &mut TypeEquations, trs: &TraitsInfo) -> TResult {
-        equs.get_type_from_variable(trs, self)
+        let ty = equs.get_type_from_variable(trs, self)?;
+        equs.regist_check_copyable(self.id.tag.clone(), ty.clone());
+        Ok(ty)
     }
 }
 
@@ -136,6 +166,17 @@ impl Transpile for Variable {
 impl MutCheck for Variable {
     fn mut_check(&self, _ta: &TypeAnnotation, vars: &mut VariablesInfo) -> Result<MutResult, String> {
         Ok(vars.find_variable(&self.id).unwrap_or(MutResult::NotMut))
+    }
+}
+
+impl MoveCheck for Variable {
+    fn move_check(&self, mc: &mut VariablesMoveChecker, ta: &TypeAnnotation) -> Result<MoveResult, String> {
+        if ta.is_copyable(&self.id.tag) {
+            Ok(MoveResult::Right)
+        }
+        else {
+            Ok(MoveResult::Variable(self.id.clone()))
+        }
     }
 }
 
@@ -164,6 +205,12 @@ impl Transpile for Parentheses {
 impl MutCheck for Parentheses {
     fn mut_check(&self, ta: &TypeAnnotation, vars: &mut VariablesInfo) -> Result<MutResult, String> {
         self.expr.mut_check(ta, vars)
+    }
+}
+
+impl MoveCheck for Parentheses {
+    fn move_check(&self, mc: &mut VariablesMoveChecker, ta: &TypeAnnotation) -> Result<MoveResult, String> {
+        self.expr.move_check(mc, ta)
     }
 }
 

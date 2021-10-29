@@ -14,6 +14,7 @@ use crate::traits::*;
 use crate::unify::*;
 use crate::trans::*;
 use crate::mut_checker::*;
+use crate::move_checker::*;
 use crate::structs::*;
 use crate::unit_test::*;
 
@@ -82,6 +83,7 @@ impl FullContent {
             ta.insert(tv, t);
 
         }
+        ta.regist_copyable(equs.copyable);
         Ok(ta)
     }
 
@@ -100,6 +102,20 @@ impl FullContent {
         }
         Ok(())
     }
+    pub fn move_check(&self, ta: &TypeAnnotation) -> Result<VariablesMoveChecker, String> {
+        let mut mc = VariablesMoveChecker::new();
+        for st in self.structs.iter() {
+            st.move_check(&mut mc, ta)?;
+        }
+
+        for im in self.impls.iter() {
+            im.move_check(&mut mc, ta)?;
+        }
+        for f in self.funcs.iter() {
+            f.move_check(&mut mc, ta)?;
+        }
+        Ok(mc)
+    }
     pub fn transpile(&self, ta: &mut TypeAnnotation) -> String {
         let mut res = String::new();
         for include in self.includes.iter() {
@@ -107,7 +123,7 @@ impl FullContent {
         }
         res.push_str("\n");
         let mut operators = HashMap::new();
-        let opes_str = ["Index", "IndexMut", "BitOr", "BitXor", "BitAnd", "Shl", "Shr", "Add", "Sub", "Mul", "Div", "Rem"];
+        let opes_str = ["Index", "IndexMut", "Clone"];
         for ope in opes_str {
             operators.insert(ope.to_string(), HashSet::new());
         }
