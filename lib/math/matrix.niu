@@ -44,7 +44,6 @@ struct Matrix<F> where F: Field
       if exp & 1 == 1 {
         ans = &ans * &now;
       }
-      else {}
       now = &now * &now;
     }
     ans

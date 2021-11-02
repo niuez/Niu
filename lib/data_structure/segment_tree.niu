@@ -45,11 +45,11 @@ struct SegmentTree<T> where T: Monoid {
       if (i & 1) == 1 {
         lx = lx.ope(&self.node[i]);
         i = i + 1;
-      } else {}
+      }
       if (j & 1) == 1 {
         j = j - 1;
         rx = self.node[j].ope(&rx);
-      } else {}
+      }
       i = i >> 1;
     }
     lx.ope(&rx)
