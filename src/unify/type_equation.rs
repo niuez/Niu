@@ -97,6 +97,7 @@ pub enum Type {
     MutRef(Box<Type>),
     Deref(Box<Type>),
     AutoRef(Box<Type>, AutoRefTag),
+    Tuple(Vec<Type>),
     End,
 }
 
@@ -112,6 +113,7 @@ impl Type {
             Type::Ref(ref ty) => ty.as_ref().is_solved_type(),
             Type::MutRef(ref ty) => ty.as_ref().is_solved_type(),
             Type::Func(ref args, ref ret, _) => args.iter().map(|arg| arg.is_solved_type()).all(|t| t) && ret.is_solved_type(),
+            Type::Tuple(ref params) => params.iter().map(|p| p.is_solved_type()).all(|b| b),
             _ => false,
         }
     }
@@ -158,7 +160,9 @@ impl Type {
             Type::AutoRef(ref ty, _) => {
                 ty.as_ref().occurs(t)
             }
-
+            Type::Tuple(ref params) => {
+                params.iter().map(|p| p.occurs(t)).any(|b| b)
+            }
             Type::End => false,
         }
     }
@@ -200,6 +204,9 @@ impl Type {
             }
             Type::AutoRef(ref mut ty, _) => {
                 ty.as_mut().subst(theta)
+            }
+            Type::Tuple(ref mut params) => {
+                params.iter_mut().map(|p| p.subst(theta)).fold(SolveChange::Not, |a, b| a & b)
             }
             Type::End => { SolveChange::Not },
             // TypeVariable
@@ -284,6 +291,9 @@ impl Transpile for Type {
                     };
                     format!("{}{}", ty_id.transpile(ta), gens_trans)
                 }
+            }
+            Type::Tuple(ref params) => {
+                format!("std::tuple<{}>", params.iter().map(|p| p.transpile(ta)).collect::<Vec<_>>().join(", "))
             }
             ref ty => unreachable!(format!("it is not Type {:?}", ty)),
         }
@@ -601,7 +611,8 @@ impl TypeEquations {
         let (ty, b5) = self.solve_deref(ty, trs)?;
         let (ty, b6) = self.solve_autoref(ty, trs)?;
         let (ty, b7) = self.solve_func(ty, trs)?;
-        Ok((ty, b0 & b1 & b2 & b3 & b4 & b5 & b6 & b7))
+        let (ty, b8) = self.solve_tuple(ty, trs)?;
+        Ok((ty, b0 & b1 & b2 & b3 & b4 & b5 & b6 & b7 & b8))
     }
 
     fn solve_call_equation(&mut self, ty: Type, trs: &TraitsInfo) -> Result<(Type, SolveChange), UnifyErr> {
@@ -861,6 +872,21 @@ impl TypeEquations {
         }
     }
 
+    fn solve_tuple(&mut self, ty: Type, trs: &TraitsInfo) -> Result<(Type, SolveChange), UnifyErr> {
+        if let Type::Tuple(params) = ty {
+            let mut change = SolveChange::Not;
+            let params = params.into_iter().map(|ty| {
+                let (ty, ch) = self.solve_relations(ty, trs)?;
+                change &= ch;
+                Ok(ty)
+            }).collect::<Result<Vec<_>, _>>()?;
+            Ok((Type::Tuple(params), change))
+        }
+        else {
+            Ok((ty, SolveChange::Not))
+        }
+    }
+
     pub fn unify(&mut self, trs: &TraitsInfo) -> Result<(), UnifyErr> {
         /* log::debug!("unify");
         for (i, equ) in self.equs.iter().enumerate() {
@@ -1021,6 +1047,14 @@ impl TypeEquations {
                         }
                         (Type::MutRef(l_ty), Type::MutRef(r_ty)) => {
                             self.add_equation(*l_ty, *r_ty);
+                        }
+                        (Type::Tuple(lp), Type::Tuple(rp)) => {
+                            if lp.len() != rp.len() {
+                                Err(UnifyErr::Contradiction(format!("lengths of tuples are not match, {:?}, {:?}", lp, rp)))?;
+                            }
+                            for (l, r) in lp.into_iter().zip(rp.into_iter()) {
+                                self.add_equation(l, r)
+                            }
                         }
                         (Type::TypeVariable(lv), rt) if self.remove_want_solve(&lv) => {
                             if rt.occurs(&lv) {

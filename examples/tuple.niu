@@ -1,0 +1,7 @@
+fn throw_tuple(xyz: (u64, i64, bool)) -> (u64, i64, bool) {
+  xyz
+}
+
+fn main() -> void {
+  throw_tuple((91u64, 19i64, false, ));
+}

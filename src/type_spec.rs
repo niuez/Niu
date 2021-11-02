@@ -165,6 +165,7 @@ pub enum TypeSpec {
     Pointer(Box<TypeSpec>),
     MutPointer(Box<TypeSpec>),
     Associated(Box<TypeSpec>, AssociatedType),
+    Tuple(Vec<TypeSpec>),
 }
 
 impl TypeSpec {
@@ -182,6 +183,10 @@ impl TypeSpec {
             TypeSpec::Associated(ref spec, ref asso) => {
                 let trait_gen = asso.trait_spec.generate_trait_generics(equs, trs, mp)?;
                 Ok(Type::AssociatedType(Box::new(spec.as_ref().generics_to_type(mp, equs, trs)?), trait_gen, asso.type_id.clone()))
+            }
+            TypeSpec::Tuple(ref params) => {
+                let params = params.iter().map(|p| p.generics_to_type(mp, equs, trs)).collect::<Result<Vec<_>, _>>()?;
+                Ok(Type::Tuple(params))
             }
         }
     }
@@ -201,6 +206,10 @@ impl TypeSpec {
                 let trait_gen = asso.trait_spec.generate_trait_generics_with_no_map(equs, trs)?;
                 Ok(Type::AssociatedType(Box::new(spec.as_ref().generate_type_no_auto_generics(equs, trs)?), trait_gen, asso.type_id.clone()))
             }
+            TypeSpec::Tuple(ref params) => {
+                let params = params.iter().map(|p| p.generate_type_no_auto_generics(equs, trs)).collect::<Result<Vec<_>, _>>()?;
+                Ok(Type::Tuple(params))
+            }
         }
     }
 
@@ -214,6 +223,9 @@ impl TypeSpec {
                 spec.associated_type_depth()
             }
             TypeSpec::Associated(spec, _) => 1 + spec.associated_type_depth(),
+            TypeSpec::Tuple(ref params) => {
+                params.iter().map(|p| p.associated_type_depth()).max().unwrap()
+            }
         }
     }
 
@@ -227,6 +239,9 @@ impl TypeSpec {
                 Err(format!("cant get typeid from pointer {:?}", self))
             }
             TypeSpec::Associated(_, _) => Err(format!("cant get typeid from {:?}", self)),
+            TypeSpec::Tuple(_) => {
+                Err(format!("cant get typeid from tuple {:?}", self))
+            }
         }
     }
 
@@ -264,9 +279,15 @@ fn parse_type_spec_mutpointer(s: &str) -> IResult<&str, TypeSpec> {
 }
 
 fn parse_type_spec_paren(s: &str) -> IResult<&str, TypeSpec> {
-    let (s, (_, _, spec, _)) = tuple((tag("("), multispace0, parse_type_spec, tag(")")))(s)?;
+    let (s, (_, _, spec, _, _)) = tuple((tag("("), multispace0, parse_type_spec, multispace0, tag(")")))(s)?;
     Ok((s, spec))
 }
+
+fn parse_type_spec_tuple(s: &str) -> IResult<&str, TypeSpec> {
+    let (s, (_, _, tuples, _, _, _, _)) = tuple((char('('), multispace0, separated_list1(tuple((multispace0, char(','), multispace0)), parse_type_spec), multispace0, opt(char(',')), multispace0, char(')')))(s)?;
+    Ok((s, TypeSpec::Tuple(tuples)))
+}
+
 
 fn parse_type_spec_sign(s: &str) -> IResult<&str, TypeSpec> {
     let (s, sign) = parse_type_sign(s)?;
@@ -275,7 +296,7 @@ fn parse_type_spec_sign(s: &str) -> IResult<&str, TypeSpec> {
 }
 
 pub fn parse_type_spec(s: &str) -> IResult<&str, TypeSpec> {
-    alt((parse_type_spec_mutpointer, parse_type_spec_pointer, parse_type_spec_paren, parse_type_spec_sign))(s)
+    alt((parse_type_spec_mutpointer, parse_type_spec_pointer, parse_type_spec_paren, parse_type_spec_tuple, parse_type_spec_sign))(s)
 }
 
 /* 
@@ -319,6 +340,9 @@ impl Transpile for TypeSpec {
                 }
 
             }
+            TypeSpec::Tuple(ref params) => {
+                format!("std::tuple<{}>", params.iter().map(|p| p.transpile(ta)).collect::<Vec<_>>().join(", "))
+            }
         }
                 
     }
@@ -334,6 +358,8 @@ fn parse_type_spec_test() {
     log::debug!("{:?}", parse_type_spec("*i64").ok());
     log::debug!("{:?}", parse_type_spec("*(*i64)").ok());
     log::debug!("{:?}", parse_type_spec("*(T#MyTrait::Output)").ok());
+    println!("{:?}", parse_type_spec("(X, Y, Z)").unwrap());
+    println!("{:?}", parse_type_spec("(X, Y,)").unwrap());
     // log::debug!("{:?}", parse_type_spec("Pair<Pair<i64, u64>, bool>").unwrap().1.gen_type(&mut equs));
 }
     
