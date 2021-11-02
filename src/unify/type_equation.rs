@@ -600,7 +600,8 @@ impl TypeEquations {
         let (ty, b4) = self.solve_generics(ty, trs)?;
         let (ty, b5) = self.solve_deref(ty, trs)?;
         let (ty, b6) = self.solve_autoref(ty, trs)?;
-        Ok((ty, b0 & b1 & b2 & b3 & b4 & b5 & b6))
+        let (ty, b7) = self.solve_func(ty, trs)?;
+        Ok((ty, b0 & b1 & b2 & b3 & b4 & b5 & b6 & b7))
     }
 
     fn solve_call_equation(&mut self, ty: Type, trs: &TraitsInfo) -> Result<(Type, SolveChange), UnifyErr> {
@@ -838,6 +839,22 @@ impl TypeEquations {
         if let Type::AutoRef(ty, tag) = ty {
             let (ty, change) = self.solve_relations(*ty, trs)?;
             Ok((Type::AutoRef(Box::new(ty), tag), change))
+        }
+        else {
+            Ok((ty, SolveChange::Not))
+        }
+    }
+
+    fn solve_func(&mut self, ty: Type, trs: &TraitsInfo) -> Result<(Type, SolveChange), UnifyErr> {
+        if let Type::Func(args, ret, info) = ty {
+            let mut change = SolveChange::Not;
+            let args = args.into_iter().map(|ty| {
+                let (ty, ch) = self.solve_relations(ty, trs)?;
+                change &= ch;
+                Ok(ty)
+            }).collect::<Result<Vec<_>, _>>()?;
+            let (ret, ret_change) = self.solve_relations(*ret, trs)?;
+            Ok((Type::Func(args, Box::new(ret), info), change & ret_change))
         }
         else {
             Ok((ty, SolveChange::Not))
