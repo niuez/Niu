@@ -24,7 +24,6 @@ struct Modint<M> where M: Mod {
       if exp & 1 == 1 {
         ans = ans * now;
       }
-      else {}
       now = now * now;
     }
     ans

@@ -4,6 +4,7 @@ use nom::character::complete::*;
 use nom::multi::*;
 use nom::sequence::*; 
 use nom::bytes::complete::*;
+use nom::combinator::*;
 
 use crate::identifier::*;
 use crate::expression::{ Expression, parse_expression };
@@ -23,15 +24,18 @@ struct IfPair {
 pub struct IfExpr {
     ifp: IfPair,
     elifp: Vec<IfPair>,
-    el_block: Block,
+    el_block: Option<Block>,
     tag: Tag,
 }
 
 impl IfExpr {
     pub fn transpile_for_return(&self, ta: &TypeAnnotation) -> String {
         let if_trans = format!("if({}) {{\n{}}}\n", self.ifp.cond.transpile(ta), self.ifp.block.transpile(ta));
-        let elif_trans = self.elifp.iter().map(|ifp| format!("\nelse if({}) {{\n{}}}\n", ifp.cond.transpile(ta), ifp.block.transpile(ta))).collect::<Vec<_>>().join("");
-        let else_trans = format!("else {{\n{}}}", self.el_block.transpile(ta));
+        let elif_trans = self.elifp.iter().map(|ifp| format!("else if({}) {{\n{}}}\n", ifp.cond.transpile(ta), ifp.block.transpile(ta))).collect::<Vec<_>>().join("");
+        let else_trans = match self.el_block.as_ref() {
+            Some(el_block) => format!("else {{\n{}}}\n", el_block.transpile(ta)),
+            None => format!(""),
+        };
         format!("{}{}{}", if_trans, elif_trans, else_trans)
     }
 }
@@ -49,7 +53,10 @@ impl GenType for IfExpr {
             equs.add_equation(cond_type, Type::from_str("bool"));
             equs.add_equation(return_type.clone(), bl2_type);
         }
-        let el_bl_type = self.el_block.gen_type(equs, trs)?;
+        let el_bl_type = match self.el_block.as_ref() {
+            Some(el_block) => el_block.gen_type(equs, trs)?,
+            None => Type::from_str("void"),
+        };
         equs.add_equation(return_type.clone(), el_bl_type);
         Ok(return_type)
     }
@@ -58,8 +65,11 @@ impl GenType for IfExpr {
 impl Transpile for IfExpr {
     fn transpile(&self, ta: &TypeAnnotation) -> String {
         let if_trans = format!("if({}) {{\n {}}}\n", self.ifp.cond.transpile(ta), self.ifp.block.transpile(ta));
-        let elif_trans = self.elifp.iter().map(|ifp| format!("\nelse if({}) {{\n {}}}\n", ifp.cond.transpile(ta), ifp.block.transpile(ta))).collect::<Vec<_>>().join("");
-        let else_trans = format!("else {{\n {}}}", self.el_block.transpile(ta));
+        let elif_trans = self.elifp.iter().map(|ifp| format!("else if({}) {{\n {}}}\n", ifp.cond.transpile(ta), ifp.block.transpile(ta))).collect::<Vec<_>>().join("");
+        let else_trans = match self.el_block.as_ref() {
+            Some(el_block) => format!("else {{\n{}}}\n", el_block.transpile(ta)),
+            None => format!(""),
+        };
         if Type::from_str("void") == ta.annotation(self.tag.get_num(), "ReturnType", 0) {
             format!("{}{}{}", if_trans, elif_trans, else_trans)
         }
@@ -77,7 +87,9 @@ impl MutCheck for IfExpr {
             cond.mut_check(ta, vars)?;
             block.mut_check(ta, vars)?;
         }
-        self.el_block.mut_check(ta, vars)?;
+        if let Some(el_block) = self.el_block.as_ref() {
+            el_block.mut_check(ta, vars)?;
+        }
         Ok(MutResult::NotMut)
     }
 }
@@ -97,9 +109,9 @@ impl MoveCheck for IfExpr {
             block.move_check(&mut ifp_mc, ta)?;
             base_mc.parallel_merge(ifp_mc);
         }
-        {
+        if let Some(el_block) = self.el_block.as_ref() {
             let mut ifp_mc = VariablesMoveChecker::new();
-            self.el_block.move_check(&mut ifp_mc, ta)?;
+            el_block.move_check(&mut ifp_mc, ta)?;
             base_mc.parallel_merge(ifp_mc);
         }
         mc.solve_lazys(base_mc)?;
@@ -109,11 +121,12 @@ impl MoveCheck for IfExpr {
 
 
 pub fn parse_if_expr(s: &str) -> IResult<&str, Expression> {
-    let (s, (_, _, if_cond, _, if_block, _, many, _, _, el_block, _)) = tuple((tag("if"), multispace1, parse_expression, multispace0, parse_block, multispace0,
+    let (s, (_, _, if_cond, _, if_block, _, many, el_block, _)) = tuple((tag("if"), multispace1, parse_expression, multispace0, parse_block, multispace0,
                         many0(tuple((tag("else"), multispace1, tag("if"), multispace1, parse_expression, multispace0, parse_block, multispace0))),
-                        tag("else"), multispace0, parse_block, multispace0))(s)?;
+                        opt(tuple((tag("else"), multispace0, parse_block))), multispace0))(s)?;
     let ifp = IfPair { cond: if_cond, block: if_block };
     let elifp = many.into_iter().map(|(_, _, _, _, cond, _, block, _)| IfPair { cond, block }).collect::<Vec<_>>();
+    let el_block = el_block.map(|(_, _, block)| block);
     Ok((s, Expression::IfExpr(Box::new(IfExpr { ifp, elifp, el_block, tag: Tag::new(), }))))
 }
 
