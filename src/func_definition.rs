@@ -226,7 +226,8 @@ impl FuncDefinition {
                 format!("{} {}", ty.transpile(ta), id.into_string())
             }
             else {
-                format!("{} const {}", ty.transpile(ta), id.into_string())
+                //format!("{} const {}", ty.transpile(ta), id.into_string())
+                format!("{} {}", ty.transpile(ta), id.into_string())
             }
         }).collect::<Vec<_>>().join(", ");
 
@@ -265,7 +266,8 @@ impl FuncDefinition {
                 format!("{} {}", ty.transpile(ta), id.into_string())
             }
             else {
-                format!("{} const {}", ty.transpile(ta), id.into_string())
+                //format!("{} const {}", ty.transpile(ta), id.into_string())
+                format!("{} {}", ty.transpile(ta), id.into_string())
             }
         }).collect::<Vec<_>>().join(", ");
 

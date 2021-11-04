@@ -328,6 +328,7 @@ pub fn parse_full_content_from_file(filename: &str, import_path: &[PathBuf]) -> 
         }
     }
     includes.push("type_traits".to_string());
+    includes.push("tuple".to_string());
     includes.sort();
     includes.dedup();
     Ok(FullContent { structs, funcs, traits, impls, includes, unit_tests })

@@ -7,7 +7,7 @@ use nom::combinator::*;
 use nom::multi::*;
 
 use crate::literal::{ Literal, parse_literal };
-use crate::identifier::{ Identifier, parse_identifier };
+use crate::identifier::*;
 use crate::expression::{ Expression, parse_expression };
 use crate::subseq::*;
 use crate::block::{ parse_block, Block };
@@ -28,6 +28,7 @@ pub enum UnaryExpr {
     Subseq(Box<UnaryExpr>, Subseq),
     StructInst(StructInstantiation),
     TraitMethod(TypeSpec, Option<TraitSpec>, Identifier),
+    Tuple(Vec<Expression>, Tag),
 }
 
 impl GenType for UnaryExpr {
@@ -50,6 +51,12 @@ impl GenType for UnaryExpr {
                 let right = Type::TraitMethod(Box::new(spec.generics_to_type(&GenericsTypeMap::empty(), equs, trs)?), trait_gen.clone(), mem_id.clone());
                 equs.add_equation(alpha, right);
                 Ok(Type::TraitMethod(Box::new(spec.generics_to_type(&GenericsTypeMap::empty(), equs, trs)?), trait_gen.clone(), mem_id.clone()))
+            }
+            UnaryExpr::Tuple(ref params, ref tag) => {
+                let params = params.iter().map(|p| p.gen_type(equs, trs)).collect::<Result<Vec<_>, _>>()?;
+                let alpha = tag.generate_type_variable("TupleType", 0, equs);
+                equs.add_equation(alpha.clone(), Type::Tuple(params));
+                Ok(alpha)
             }
         }
     }
@@ -78,6 +85,9 @@ impl Transpile for UnaryExpr {
             UnaryExpr::TraitMethod(ref spec, _, ref method_id) => {
                 format!("{}::{}", spec.transpile(ta), method_id.into_string())
             }
+            UnaryExpr::Tuple(ref params, ref tag) => {
+                format!("{}{{ {} }}", ta.annotation(tag.get_num(), "TupleType", 0).transpile(ta), params.iter().map(|p| p.transpile(ta)).collect::<Vec<_>>().join(", "))
+            }
         }
     }
 }
@@ -95,6 +105,12 @@ impl MutCheck for UnaryExpr {
                 Ok(MutResult::NotMut)
             }
             UnaryExpr::TraitMethod(ref _spec, _, ref _method_id) => {
+                Ok(MutResult::NotMut)
+            }
+            UnaryExpr::Tuple(ref params, ref _tag) => {
+                for p in params.iter() {
+                    p.mut_check(ta, vars)?;
+                }
                 Ok(MutResult::NotMut)
             }
         }
@@ -116,6 +132,13 @@ impl MoveCheck for UnaryExpr {
             UnaryExpr::TraitMethod(ref _spec, _, ref _method_id) => {
                 Ok(MoveResult::Right)
             }
+            UnaryExpr::Tuple(ref params, ref _tag) => {
+                for p in params.iter() {
+                    let res = p.move_check(mc, ta)?;
+                    mc.move_result(res)?;
+                }
+                Ok(MoveResult::Right)
+            }
         }
     }
 }
@@ -126,6 +149,7 @@ pub fn parse_unary_expr(s: &str) -> IResult<&str, UnaryExpr> {
             parse_struct_instantiation,
             parse_literal,
             parse_parentheses,
+            parse_unaryexpr_tuple,
             parse_bracket_block,
             parse_variable,
             ))(s)?;
@@ -238,6 +262,11 @@ pub fn parse_unary_trait_method(ss: &str) -> IResult<&str, UnaryExpr> {
         });
     }
     Ok((s, UnaryExpr::TraitMethod(ty, tail_tr_op, tail_id)))
+}
+
+fn parse_unaryexpr_tuple(s: &str) -> IResult<&str, UnaryExpr> {
+    let (s, (_, _, tuples, _, _, _, _)) = tuple((char('('), multispace0, separated_list1(tuple((multispace0, char(','), multispace0)), parse_expression), multispace0, opt(char(',')), multispace0, char(')')))(s)?;
+    Ok((s, UnaryExpr::Tuple(tuples, Tag::new())))
 }
 
 #[test]
