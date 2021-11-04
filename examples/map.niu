@@ -11,11 +11,18 @@ fn main() -> void {
   mp.insert(4, 4i64);
   mp.insert(2, 2i64);
   mp.insert(3, 3i64);
+
   for x in &mp {
     println(&x.0);
     println(&x.1);
   }
+
+  for i = 1; i <= 5; i = i + 1 {
+    println(&mp[&i]);
+  }
+
   mp.remove(&3);
+
   for x in mp {
     let (k, v) = x;
     println(&k);
