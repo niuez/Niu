@@ -130,11 +130,7 @@ pub fn literal_i64(s: &str) -> IResult<&str, Literal> {
 }
 
 pub fn unsigned_number(s: &str) -> IResult<&str, Vec<&str>> {
-    let (s, x) = digit1(s)?;
-    fold_many0(alt((tag("_"), digit1)), vec![x], |mut acc: Vec<_>, item| {
-        acc.push(item);
-        acc
-    })(s)
+    separated_list1(tag("_"), digit1)(s)
 }
 
 pub fn literal_boolean(s: &str) -> IResult<&str, Literal> {

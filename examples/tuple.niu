@@ -1,3 +1,7 @@
+struct Hoge {
+  val: u64
+} {}
+
 fn throw_tuple(xyz: (u64, i64, bool)) -> (u64, i64, bool) {
   xyz
 }
@@ -6,4 +10,11 @@ fn main() -> void {
   let (x, y, z) = throw_tuple((91u64, 19i64, false, ));
 
   let (a, b, (c, d)) = (1, 2, (3, 4));
+
+  let t = (1, 2);
+  let t0 = t.0;
+  let t1 = t.1;
+
+  let tt = (Hoge { val: 8 }, false);
+  let tt0 = tt.0;
 }

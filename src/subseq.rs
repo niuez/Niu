@@ -21,6 +21,7 @@ use crate::identifier::*;
 pub enum Subseq {
     Call(Call),
     Member(Member),
+    TupleMember(TupleMember),
     Index(IndexCall),
 }
 
@@ -75,6 +76,15 @@ pub fn subseq_gen_type(uexpr: &UnaryExpr, subseq: &Subseq, equs: &mut TypeEquati
             equs.add_equation(alpha.clone(), Type::Member(Box::new(st_type.clone()), mem.mem_id.clone()));
             equs.regist_check_copyable(mem.mem_id.tag.clone(), alpha);
             Ok(Type::Member(Box::new(st_type), mem.mem_id.clone()))
+        }
+        Subseq::TupleMember(ref mem) => {
+            let st = uexpr.gen_type(equs, trs)?;
+            let st_type = mem.id.tag.generate_type_variable("StructType", 0, equs);
+            equs.add_equation(st_type.clone(), st);
+            let alpha = mem.id.tag.generate_type_variable("MemberType", 0, equs);
+            equs.add_equation(alpha.clone(), Type::TupleMember(Box::new(st_type.clone()), mem.idx));
+            equs.regist_check_copyable(mem.id.tag.clone(), alpha.clone());
+            Ok(alpha)
         }
         Subseq::Index(ref index) => {
             let caller = uexpr.gen_type(equs, trs)?;
@@ -212,6 +222,21 @@ pub fn subseq_transpile(uexpr: &UnaryExpr, subseq: &Subseq, ta: &TypeAnnotation)
                 trans
             }
         }
+        Subseq::TupleMember(ref mem) => {
+            let caller = uexpr.transpile(ta);
+            let trans = match ta.annotation(mem.id.tag.get_num(), "StructType", 0) {
+                _ => format!("std::get<{}>({})", mem.idx, caller)
+            };
+            if ta.is_copyable(&mem.id.tag) {
+                trans
+            }
+            else if ta.is_moved(&mem.id.tag) {
+                format!("std::move({})", trans)
+            }
+            else {
+                trans
+            }
+        }
         Subseq::Index(ref index) => { 
             let caller = uexpr.transpile(ta);
             let arg = index.arg.as_ref().transpile(ta);
@@ -264,6 +289,14 @@ pub fn subseq_mut_check(uexpr: &UnaryExpr, subseq: &Subseq, ta: &TypeAnnotation,
         Subseq::Member(ref mem) => {
             let uexpr = uexpr.mut_check(ta, vars)?;
             match (uexpr, ta.annotation(mem.mem_id.get_tag_number(), "StructType", 0)) {
+                (MutResult::Mut, _) => Ok(MutResult::Mut),
+                (_, Type::MutRef(_)) => Ok(MutResult::Mut),
+                _ => Ok(MutResult::NotMut),
+            }
+        }
+        Subseq::TupleMember(ref mem) => {
+            let uexpr = uexpr.mut_check(ta, vars)?;
+            match (uexpr, ta.annotation(mem.id.tag.get_num(), "StructType", 0)) {
                 (MutResult::Mut, _) => Ok(MutResult::Mut),
                 (_, Type::MutRef(_)) => Ok(MutResult::Mut),
                 _ => Ok(MutResult::NotMut),
@@ -341,6 +374,19 @@ pub fn subseq_move_check(uexpr: &UnaryExpr, subseq: &Subseq, mc: &mut VariablesM
                 }
             }
         }
+        Subseq::TupleMember(ref mem) => {
+            let uexpr = uexpr.move_check(mc, ta)?;
+            if ta.is_copyable(&mem.id.tag) {
+                Ok(MoveResult::Right)
+            }
+            else {
+                match (uexpr, ta.annotation(mem.id.get_tag_number(), "StructType", 0)) {
+                    (_, Type::Ref(_)) | (MoveResult::Right, Type::MutRef(_)) => Ok(MoveResult::Deref),
+                    (MoveResult::Deref, _) => Ok(MoveResult::Deref),
+                    (uexpr, _) => Ok(MoveResult::Member(Box::new(uexpr), mem.id.clone())),
+                }
+            }
+        }
         Subseq::Index(ref index) => {
             let uexpr = uexpr.move_check(mc, ta)?;
             let arg = index.arg.as_ref().move_check(mc, ta)?;
@@ -357,7 +403,7 @@ pub fn subseq_move_check(uexpr: &UnaryExpr, subseq: &Subseq, mc: &mut VariablesM
 
 
 pub fn parse_subseq(s: &str) -> IResult<&str, Subseq> {
-    let (s, (_, x)) = tuple((multispace0, alt((parse_call, parse_member, parse_index_call))))(s)?;
+    let (s, (_, x)) = tuple((multispace0, alt((parse_call, parse_member, parse_tuple_member, parse_index_call))))(s)?;
     Ok((s, x))
 }
 
@@ -407,6 +453,17 @@ pub struct Member {
 fn parse_member(s: &str) -> IResult<&str, Subseq> {
     let (s, (_, _, mem_id)) = tuple((char('.'), multispace0, parse_identifier))(s)?;
     Ok((s, Subseq::Member(Member { mem_id })))
+}
+
+#[derive(Debug)]
+pub struct TupleMember {
+    pub idx: usize,
+    pub id: Identifier,
+}
+
+fn parse_tuple_member(s: &str) -> IResult<&str, Subseq> {
+    let (s, (_, _, idx)) = tuple((char('.'), multispace0, nom::character::complete::u64))(s)?;
+    Ok((s, Subseq::TupleMember(TupleMember { idx: idx as usize, id: Identifier::from_str(&idx.to_string()), })))
 }
 
 #[test]

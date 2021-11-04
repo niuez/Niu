@@ -98,6 +98,7 @@ pub enum Type {
     Deref(Box<Type>),
     AutoRef(Box<Type>, AutoRefTag),
     Tuple(Vec<Type>),
+    TupleMember(Box<Type>, usize),
     End,
 }
 
@@ -163,6 +164,9 @@ impl Type {
             Type::Tuple(ref params) => {
                 params.iter().map(|p| p.occurs(t)).any(|b| b)
             }
+            Type::TupleMember(ref ty, _) => {
+                ty.as_ref().occurs(t)
+            }
             Type::End => false,
         }
     }
@@ -207,6 +211,9 @@ impl Type {
             }
             Type::Tuple(ref mut params) => {
                 params.iter_mut().map(|p| p.subst(theta)).fold(SolveChange::Not, |a, b| a & b)
+            }
+            Type::TupleMember(ref mut ty, _) => {
+                ty.as_mut().subst(theta)
             }
             Type::End => { SolveChange::Not },
             // TypeVariable
@@ -612,7 +619,8 @@ impl TypeEquations {
         let (ty, b6) = self.solve_autoref(ty, trs)?;
         let (ty, b7) = self.solve_func(ty, trs)?;
         let (ty, b8) = self.solve_tuple(ty, trs)?;
-        Ok((ty, b0 & b1 & b2 & b3 & b4 & b5 & b6 & b7 & b8))
+        let (ty, b9) = self.solve_tuple_member(ty, trs)?;
+        Ok((ty, b0 & b1 & b2 & b3 & b4 & b5 & b6 & b7 & b8 & b9))
     }
 
     fn solve_call_equation(&mut self, ty: Type, trs: &TraitsInfo) -> Result<(Type, SolveChange), UnifyErr> {
@@ -886,6 +894,27 @@ impl TypeEquations {
             Ok((ty, SolveChange::Not))
         }
     }
+
+    fn solve_tuple_member(&mut self, ty: Type, trs: &TraitsInfo) -> Result<(Type, SolveChange), UnifyErr> {
+        if let Type::TupleMember(ty, idx) = ty {
+            let (ty, change) = self.solve_relations(*ty, trs)?;
+            if let Type::Tuple(mut params) = ty {
+                if idx < params.len() {
+                    Ok((params.swap_remove(idx), SolveChange::Changed))
+                }
+                else {
+                    Err(UnifyErr::Contradiction(format!("tuple {:?} cannot index {}", params, idx)))
+                }
+            }
+            else {
+                Ok((ty, change))
+            }
+        }
+        else {
+            Ok((ty, SolveChange::Not))
+        }
+    }
+
 
     pub fn unify(&mut self, trs: &TraitsInfo) -> Result<(), UnifyErr> {
         /* log::debug!("unify");
