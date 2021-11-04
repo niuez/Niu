@@ -90,7 +90,7 @@ impl VariableDeclaration {
             VariableDeclaration::Leaf(ref id, ref is_mut) => {
                 format!("{}{} {} = {}",
                         ta.annotation(id.get_tag_number(), "LetType", 0).transpile(ta),
-                        if *is_mut { "" } else { " const" },
+                        if *is_mut { "" } else { "" },
                         id.into_string(),
                         right,
                         )
