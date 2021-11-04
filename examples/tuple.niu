@@ -15,6 +15,9 @@ fn main() -> void {
   let t0 = t.0;
   let t1 = t.1;
 
-  let tt = (Hoge { val: 8 }, false);
+  let mut tt = (Hoge { val: 8 }, false);
   let tt0 = tt.0;
+  tt.0 = tt0;
+
+  let ttt = tt;
 }
