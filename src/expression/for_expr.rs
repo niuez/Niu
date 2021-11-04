@@ -88,7 +88,7 @@ pub fn parse_for_expr_paren(s: &str) -> IResult<&str, Expression> {
 
 fn parse_initial_variable(s: &str) -> IResult<&str, Statement> {
     let (s, (id, _, tyinfo, _, _e, _, value)) = tuple((parse_identifier, multispace0, opt(tuple((char(':'), multispace0, parse_type_spec))), multispace0, tag("="), multispace0, parse_expression))(s)?;
-    Ok((s, Statement::LetDeclaration(LetDeclaration { id, is_mut: true, type_info: tyinfo.map(|(_, _, type_info)| type_info ), value })))
+    Ok((s, Statement::LetDeclaration(LetDeclaration { vars: VariableDeclaration::Leaf(id, true), type_info: tyinfo.map(|(_, _, type_info)| type_info ), value })))
 }
 
 pub fn parse_for_expr_no_parentheses(s: &str) -> IResult<&str, Expression> {
