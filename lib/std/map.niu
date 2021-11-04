@@ -1,0 +1,33 @@
+#include <map>
+import "std/opes.niu"
+
+struct Map<K, V> where K: Ord $${std::map<$ty(K), $ty(V)>}$$ {
+  fn empty() -> Map<K, V> $${std::map<$ty(K), $ty(V)>()}$$
+  fn insert(self: &mut Self, key: K, value: V) -> void $${$arg(self).insert(std::make_pair($arg(key), $arg(value)))}$$
+  fn remove(self: &mut Self, key: &K) -> bool $${$arg(self).erase($arg(key))}$$
+  fn len(self: &Self) -> u64 $${$arg(self).size()}$$
+  fn contain(self: &Self, key: &K) -> bool $${$arg(self).count($arg(key))}$$
+}
+
+impl<K, V> Index for Map<K, V> where K: Ord {
+  type Output = V;
+  type Arg = &K;
+  fn index(self: &Self, i: &K) -> &V $${$arg(self).find($arg(i))->second}$$
+}
+
+impl<K, V> IndexMut for Map<K, V> where K: Ord {
+  fn index_mut(self: &mut Self, i: &K) -> &mut V $${$arg(self)[$arg(i)]}$$
+}
+
+impl<K, V> Iterator for Map<K, V> where K: Ord {
+  type Item = (K, V);
+}
+
+impl<K, V> Iterator for &Map<K, V> where K: Ord {
+  type Item = &(K, V);
+}
+
+impl<K, V> Iterator for &mut Map<K, V> where K: Ord {
+  type Item = &mut (K, V);
+}
+

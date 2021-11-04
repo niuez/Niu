@@ -1,0 +1,21 @@
+import "std/set.niu"
+import "std/u64.niu"
+#include <iostream>
+
+fn println<T>(t: &T) -> void $${std::cout << $arg(t) << std::endl;}$$
+
+fn main() -> void {
+  let mut st = Set::empty();
+  st.insert(5);
+  st.insert(2);
+  st.insert(3);
+  st.insert(1);
+  st.insert(4);
+  for x in &st {
+    println(x);
+  }
+  st.remove(&3);
+  for x in st {
+    println(&x);
+  }
+}
