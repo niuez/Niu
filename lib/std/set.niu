@@ -1,0 +1,23 @@
+#include <set>
+import "std/opes.niu"
+
+struct Set<T> where T: Ord $${std::set<$ty(T)>}$$ {
+  fn empty() -> Set<T> $${std::set<$ty(T)>()}$$
+  fn insert(self: &mut Self, t: T) -> void $${$arg(self).insert($arg(t))}$$
+  fn remove(self: &mut Self, t: &T) -> bool $${$arg(self).erase($arg(t))}$$
+  fn len(self: &Self) -> u64 $${$arg(self).size()}$$
+  fn contain(self: &Self, t: &T) -> bool $${$arg(self).count($arg(t))}$$
+}
+
+impl<T> Iterator for Set<T> where T: Ord {
+  type Item = T;
+}
+
+impl<T> Iterator for &Set<T> where T: Ord {
+  type Item = &T;
+}
+
+impl<T> Iterator for &mut Set<T> where T: Ord {
+  type Item = &mut T;
+}
+

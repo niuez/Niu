@@ -906,6 +906,33 @@ impl TypeEquations {
                     Err(UnifyErr::Contradiction(format!("tuple {:?} cannot index {}", params, idx)))
                 }
             }
+            else if let Type::Ref(ty) = ty {
+                if let Type::Tuple(mut params) = *ty {
+                    if idx < params.len() {
+                        Ok((params.swap_remove(idx), SolveChange::Changed))
+                    }
+                    else {
+                        Err(UnifyErr::Contradiction(format!("ref tuple {:?} cannot index {}", params, idx)))
+                    }
+                }
+                else {
+                    Ok((Type::Ref(ty), change))
+                }
+            }
+            else if let Type::MutRef(ty) = ty {
+                if let Type::Tuple(mut params) = *ty {
+                    if idx < params.len() {
+                        Ok((params.swap_remove(idx), SolveChange::Changed))
+                    }
+                    else {
+                        Err(UnifyErr::Contradiction(format!("mut ref tuple {:?} cannot index {}", params, idx)))
+                    }
+                }
+                else {
+                    Ok((Type::Ref(ty), change))
+                }
+            }
+            
             else {
                 Ok((ty, change))
             }
@@ -992,6 +1019,14 @@ impl TypeEquations {
                         }
                         (left, Type::Member(b, a)) => {
                             self.equs.push_back(TypeEquation::Equal(left, Type::Member(b, a), changed));
+                            self.change_cnt += changed.cnt();
+                        }
+                        (Type::TupleMember(b, a), right) => {
+                            self.equs.push_back(TypeEquation::Equal(Type::TupleMember(b, a), right, changed));
+                            self.change_cnt += changed.cnt();
+                        }
+                        (left, Type::TupleMember(b, a)) => {
+                            self.equs.push_back(TypeEquation::Equal(left, Type::TupleMember(b, a), changed));
                             self.change_cnt += changed.cnt();
                         }
                         (Type::CallEquation(call), right) => {
