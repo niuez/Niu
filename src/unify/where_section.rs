@@ -116,6 +116,12 @@ impl WhereSection {
                 Some(ResultFindOperator::Ord) => {
                     conds.push(format!("decltype(std::declval<{0}>() < std::declval<{0}>(), std::true_type())", ty.transpile(ta)))
                 }
+                Some(ResultFindOperator::Clone) => {
+                    conds.push(format!("std::is_copy_assignable<{}>", ty.transpile(ta)))
+                }
+                Some(ResultFindOperator::Copy) => {
+                    conds.push(format!("std::is_copy_assignable<{}>", ty.transpile(ta)))
+                }
                 None => {
                     let generics = std::iter::once(ty.transpile(ta)).chain(tr.generics.iter().map(|g| g.transpile(ta))).collect::<Vec<_>>().join(", ");
                     let trait_ty = format!("{}<{}>", tr.trait_id.transpile(ta), generics);
