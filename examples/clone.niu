@@ -1,0 +1,17 @@
+import "std/opes.niu"
+import "std/u64.niu"
+
+struct Hoge {} {}
+
+impl Clone for Hoge {
+  fn clone(self: &Self) -> Self { Hoge {} }
+}
+
+fn clone_t<T>(t: &T) -> T where T: Clone {
+  t.clone()
+}
+
+fn main() -> void {
+  clone_t(&Hoge{});
+  clone_t(&1);
+}

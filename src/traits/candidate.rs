@@ -241,6 +241,25 @@ impl ImplDefinition {
                 .collect::<Vec<_>>().join("");
                 require_methods
             }
+            Some(ResultFindOperator::Clone) => {
+                if let FuncBlock::CppInline(_) = self.require_methods[&TraitMethodIdentifier { id: Identifier::from_str("clone") }].block {
+                    format!("")
+                }
+                else {
+                    let generics = self.generics.iter().map(|id| format!("class {}", id.transpile(ta))).collect::<Vec<_>>().join(", ");
+                    let templates = if generics == "" { format!("") } else { format!("template<{}> ", generics) };
+                    let where_str = self.where_sec.transpile(ta);
+                    let generics_param = std::iter::once(self.impl_ty.transpile(ta)).chain(self.trait_spec.generics.iter().map(|g| g.transpile(ta)))
+                        .collect::<Vec<_>>().join(", ");
+                    let class_str = format!("{}<{}, {}>::", self.trait_spec.trait_id.transpile(ta), generics_param, where_str);
+                    let require_methods = self.require_methods.iter().map(|(_, def)| {
+                        let func = def.transpile_for_impl(ta, &class_str, false);
+                        format!("{}{}", templates, func)
+                    }).collect::<Vec<_>>().join("\n");
+                    require_methods
+                }
+            }
+
         }
     }
     pub fn move_check(&self, mc: &mut VariablesMoveChecker, ta: &TypeAnnotation) -> Result<(), String> {
@@ -273,7 +292,7 @@ pub fn parse_impl_definition(s: &str) -> IResult<&str, ImplDefinition> {
             multispace0, char('}')))(s)?;
     let asso_defs = many_types.into_iter().map(|(_, _, id, _, _, _, ty, _, _, _)| (id, ty)).collect();
     let require_methods = match find_operator(trait_spec.trait_id.id.into_string().as_str()) {
-        None => {
+        None | Some(ResultFindOperator::Clone) => {
             many_methods.into_iter().map(|(func, _)| (TraitMethodIdentifier { id: func.func_id.clone() }, func)).collect()
         }
         Some(ResultFindOperator::Unary((_, ope))) | Some(ResultFindOperator::Binary((_, ope))) => {
@@ -401,6 +420,32 @@ impl Transpile for ImplDefinition {
                     } ))
                     .collect::<Vec<_>>().join("");
                     require_methods
+                }
+            }
+            Some(ResultFindOperator::Clone) => {
+                if let FuncBlock::CppInline(_) = self.require_methods[&TraitMethodIdentifier { id: Identifier::from_str("clone") }].block {
+                    format!("")
+                }
+                else {
+                    let generics = self.generics.iter().map(|id| format!("class {}", id.transpile(ta))).collect::<Vec<_>>().join(", ");
+                    let where_str = self.where_sec.transpile(ta);
+                    let templates = format!("template<{}> ", generics);
+                    let generics_param = std::iter::once(self.impl_ty.transpile(ta)).chain(self.trait_spec.generics.iter().map(|g| g.transpile(ta)))
+                        .collect::<Vec<_>>().join(", ");
+                    let impl_def = if self.where_sec.is_empty() {
+                        format!("{}struct {}<{}, void>: std::true_type", templates, self.trait_spec.trait_id.transpile(ta), generics_param.clone())
+                    }
+                    else {
+                        format!("{}struct {}<{}, {}>: std::true_type", templates, self.trait_spec.trait_id.transpile(ta), generics_param.clone(), where_str)
+                    };
+                    let asso_defs = self.asso_defs.iter().map(|(id, spec)| {
+                        format!("using {} = {};\n", id.transpile(ta), spec.transpile(ta))
+                    }).collect::<Vec<_>>().join(" ");
+                    let require_methods = self.require_methods.iter().map(|(_, def)| {
+                        let def_str = def.transpile_definition_only(ta, "", true);
+                        format!("{};", def_str)
+                    }).collect::<Vec<_>>().join("\n");
+                    format!("{} {{\n{}\n{}\n}};\n", impl_def, asso_defs, require_methods)
                 }
             }
         }
