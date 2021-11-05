@@ -41,6 +41,7 @@ pub enum ResultFindOperator {
     Eq,
     Ord,
     Clone,
+    Copy,
 }
 
 /* pub fn find_binary_operator(tr: &str) -> Option<(&'static str, &'static str)> {
@@ -63,6 +64,9 @@ pub fn find_operator(tr: &str) -> Option<ResultFindOperator> {
         ))
         .chain(std::iter::once(
             (&"Clone", ResultFindOperator::Clone)
+        ))
+        .chain(std::iter::once(
+            (&"Copy", ResultFindOperator::Copy)
         ))
         .find_map(|(tr_id, val)|
                   if *tr_id == tr { Some(val) }
@@ -182,7 +186,7 @@ pub fn parse_trait_definition(s: &str) -> IResult<&str, TraitDefinition> {
     let asso_ids = many_types.into_iter().map(|(_, _, id, _, _, _)| id).collect();
     //let required_methods = many_methods.into_iter().map(|(info, _, _, _)| (TraitMethodIdentifier { id: info.func_id.clone() }, info)).collect();
     let required_methods = match find_operator(trait_id.id.into_string().as_str()) {
-        None | Some(ResultFindOperator::Clone) => {
+        None | Some(ResultFindOperator::Clone) | Some(ResultFindOperator::Copy) => {
             many_methods.into_iter().map(|(func, _, _, _)| (TraitMethodIdentifier { id: func.func_id.clone() }, func)).collect()
         }
         Some(ResultFindOperator::Unary((_, ope))) | Some(ResultFindOperator::Binary((_, ope))) => {

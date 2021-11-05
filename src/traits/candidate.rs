@@ -259,7 +259,9 @@ impl ImplDefinition {
                     require_methods
                 }
             }
-
+            Some(ResultFindOperator::Copy) => {
+                format!("")
+            }
         }
     }
     pub fn move_check(&self, mc: &mut VariablesMoveChecker, ta: &TypeAnnotation) -> Result<(), String> {
@@ -312,6 +314,9 @@ pub fn parse_impl_definition(s: &str) -> IResult<&str, ImplDefinition> {
                 func.func_id = Identifier::from_str("operator<");
                 (TraitMethodIdentifier { id: func.func_id.clone() }, func)
             }).collect()
+        }
+        Some(ResultFindOperator::Copy) => {
+            HashMap::new()
         }
     };
     Ok((s, ImplDefinition { generics, trait_spec, impl_ty, where_sec, asso_defs, require_methods }))
@@ -447,6 +452,9 @@ impl Transpile for ImplDefinition {
                     }).collect::<Vec<_>>().join("\n");
                     format!("{} {{\n{}\n{}\n}};\n", impl_def, asso_defs, require_methods)
                 }
+            }
+            Some(ResultFindOperator::Copy) => {
+                format!("")
             }
         }
     }

@@ -6,9 +6,10 @@ struct Hoge {} {}
 impl Clone for Hoge {
   fn clone(self: &Self) -> Self { Hoge {} }
 }
+impl Copy for Hoge {}
 
-fn clone_t<T>(t: &T) -> T where T: Clone {
-  t.clone()
+fn clone_t<T>(t: &T) -> T where T: Copy {
+  *t
 }
 
 fn main() -> void {

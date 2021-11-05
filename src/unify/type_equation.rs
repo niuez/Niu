@@ -274,6 +274,9 @@ impl Transpile for Type {
                     Some(ResultFindOperator::Clone) => {
                         unreachable!("trait Clone have no associated type");
                     }
+                    Some(ResultFindOperator::Copy) => {
+                        unreachable!("trait Copy have no associated type");
+                    }
                     None => {
 
                         let generics = std::iter::once(ty.transpile(ta)).chain(tr.generics.iter().map(|g| g.transpile(ta))).collect::<Vec<_>>().join(", ");
