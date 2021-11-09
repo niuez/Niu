@@ -37,6 +37,8 @@ pub mod unit_test;
 pub mod subcommand;
 pub mod move_checker;
 
+pub mod error;
+
 use std::path::*;
 
 //use crate::trans::Transpile;

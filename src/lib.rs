@@ -34,3 +34,4 @@ pub mod mut_checker;
 pub mod move_checker;
 pub mod unit_test;
 
+pub mod error;

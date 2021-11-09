@@ -18,6 +18,7 @@ use crate::mut_checker::*;
 use crate::type_spec::*;
 use crate::cpp_inline::*;
 use crate::move_checker::*;
+use crate::error::*;
 
 
 #[derive(Debug)]
@@ -68,7 +69,7 @@ impl FuncDefinitionInfo {
         Ok(Type::Func(args, Box::new(return_type), type_info))
     }
 
-    pub fn check_equal(&self, right: &Self, equs: &mut TypeEquations, trs: &TraitsInfo, self_gen_map: &GenericsTypeMap, right_gen_map: &GenericsTypeMap) -> Result<(), String> {
+    pub fn check_equal(&self, right: &Self, equs: &mut TypeEquations, trs: &TraitsInfo, self_gen_map: &GenericsTypeMap, right_gen_map: &GenericsTypeMap) -> Result<(), UnifyErr> {
         if self.generics != right.generics {
             Err(format!("generics of method {:?} is not matched", self.func_id))?;
         }
@@ -88,8 +89,7 @@ impl FuncDefinitionInfo {
             Type::Func(right_args, Box::new(right_return_type), FuncTypeInfo::None)
             );
         log::info!("function {:?} and {:?} are equal unify", self.func_id, right.func_id);
-        equs.unify(&mut trs).map_err(|err| err.to_string())?;
-        Ok(())
+        equs.unify(&mut trs)
     }
 
     pub fn get_generics_annotation(&self, ta: &TypeAnnotation, call_id: &Identifier) -> String {
@@ -125,7 +125,7 @@ impl FuncDefinition {
          }
          )
     }
-    pub fn unify_definition(&self, equs: &mut TypeEquations, trs: &TraitsInfo) -> Result<(), String> {
+    pub fn unify_definition(&self, equs: &mut TypeEquations, trs: &TraitsInfo) -> Result<(), Box<dyn NiuError>> {
         if let FuncBlock::Block(ref block) = self.block {
             if self.func_id == Identifier::from_str("main") {
                 if self.generics.len() > 0 {
@@ -143,7 +143,7 @@ impl FuncDefinition {
             }
             else {
                 Ok(())
-            }?;
+            }.map_err(|s| ErrorComment::boxed(s))?;
 
             equs.into_scope();
 
@@ -170,10 +170,10 @@ impl FuncDefinition {
 
             log::info!("function {:?} unify", self.func_id);
             equs.debug();
-            let result = equs.unify(&mut trs);
+            let result = equs.unify(&mut trs).map_err(|e| e.into_err());
 
             equs.out_scope();
-            result.map_err(|err| err.to_string())
+            result
         }
         else {
             Ok(())
