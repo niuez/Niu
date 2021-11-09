@@ -354,6 +354,7 @@ impl std::ops::BitAndAssign for SolveChange {
 pub enum TypeEquation {
     CopyTrait(Tag, Type, SolveChange),
     HasTrait(Type, TraitGenerics, SolveChange),
+    TupleTrait(Type, TraitId, SolveChange),
     Equal(Type, Type, SolveChange),
 }
 
@@ -552,6 +553,10 @@ impl TypeEquations {
         self.equs.push_back(TypeEquation::HasTrait(ty, tr, SolveChange::Changed));
         self.change_cnt += 1;
     }
+    pub fn add_tuple_trait(&mut self, ty: Type, tr: TraitId) {
+        self.equs.push_back(TypeEquation::TupleTrait(ty, tr, SolveChange::Changed));
+        self.change_cnt += 1;
+    }
     pub fn add_equation(&mut self, left: Type, right: Type) {
         self.equs.push_back(TypeEquation::Equal(left, right, SolveChange::Changed));
         self.change_cnt += 1;
@@ -605,6 +610,10 @@ impl TypeEquations {
                     self.change_cnt += changed.cnt();
                 }
                 TypeEquation::CopyTrait(_, ref mut ty, ref mut changed) => {
+                    *changed &= ty.subst(theta);
+                    self.change_cnt += changed.cnt();
+                }
+                TypeEquation::TupleTrait(ref mut ty, _, ref mut changed) => {
                     *changed &= ty.subst(theta);
                     self.change_cnt += changed.cnt();
                 }
@@ -973,6 +982,20 @@ impl TypeEquations {
                     else {
                         self.equs.push_back(TypeEquation::HasTrait(left, tr, changed));
                         self.change_cnt += changed.cnt();
+                    }
+                }
+                TypeEquation::TupleTrait(left, tr, before_changed) => {
+                    self.change_cnt -= before_changed.cnt();
+                    let (left, left_changed) = self.solve_relations(left, trs)?;
+                    if let Type::Tuple(ts) = left {
+                        for t in ts {
+                            self.equs.push_back(TypeEquation::HasTrait(t, TraitGenerics { trait_id: tr.clone(), generics: Vec::new() }, SolveChange::Changed));
+                            self.change_cnt += 1;
+                        }
+                    }
+                    else {
+                        self.equs.push_back(TypeEquation::TupleTrait(left, tr, left_changed));
+                        self.change_cnt += left_changed.cnt();
                     }
                 }
                 TypeEquation::CopyTrait(tag, ty, before_changed) => {

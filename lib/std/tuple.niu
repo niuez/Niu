@@ -1,0 +1,15 @@
+import "std/opes.niu"
+
+impl<T> Clone for T where tuple T: Clone {
+  fn clone(self: &Self) -> Self $${self}$$
+}
+
+impl<T> Copy for T where tuple T: Copy, T: Clone {}
+
+impl<T> Eq for T where tuple T: Eq {
+  fn eq(self: &Self, right: &Self) -> bool $${}$$
+}
+
+impl<T> Ord for T where tuple T: Ord, T: Eq {
+  fn le(self: &Self, right: &Self) -> bool $${}$$
+}
