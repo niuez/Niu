@@ -15,6 +15,7 @@ use crate::unary_expr::*;
 use crate::trans::*;
 use crate::unify::*;
 use crate::mut_checker::*;
+use crate::move_checker::*;
 
 #[derive(Debug)]
 pub struct StructInstantiation {
@@ -75,6 +76,16 @@ impl MutCheck for StructInstantiation {
             expr.mut_check(ta, vars)?;
         }
         Ok(MutResult::NotMut)
+    }
+}
+
+impl MoveCheck for StructInstantiation {
+    fn move_check(&self, mc: &mut VariablesMoveChecker, ta: &TypeAnnotation) -> Result<MoveResult, String> {
+        for (_, expr) in self.members.iter() {
+            let res = expr.move_check(mc, ta)?;
+            mc.move_result(res)?;
+        }
+        Ok(MoveResult::Right)
     }
 }
 

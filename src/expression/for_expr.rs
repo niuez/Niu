@@ -58,6 +58,25 @@ impl MutCheck for ForExpr {
     }
 }
 
+impl MoveCheck for ForExpr {
+    fn move_check(&self, mc: &mut VariablesMoveChecker, ta: &TypeAnnotation) -> Result<MoveResult, String> {
+        let mut for_init_mc = VariablesMoveChecker::new();
+        self.init.move_check(&mut for_init_mc, ta)?;
+        let mut for_loop_mc = VariablesMoveChecker::new();
+        self.cond.move_check(&mut for_loop_mc, ta)?;
+        self.block.move_check(&mut for_loop_mc, ta)?;
+        self.update.move_check(&mut for_loop_mc, ta)?;
+        if for_loop_mc.is_lazy_empty() {
+            for_init_mc.solve_lazys(for_loop_mc)?;
+            mc.solve_lazys(for_init_mc)?;
+            Ok(MoveResult::Right)
+        }
+        else {
+            Err(format!("for loop move error, {:?}", for_loop_mc.print_lazy()))
+        }
+    }
+}
+
 pub fn parse_for_expr_paren(s: &str) -> IResult<&str, Expression> {
     let (s, (_, _, _, _, init, _, _, _, cond, _, _, _, update, _, _, _, block)) =
         tuple((tag("for"), multispace0, char('('), multispace0,
@@ -69,7 +88,7 @@ pub fn parse_for_expr_paren(s: &str) -> IResult<&str, Expression> {
 
 fn parse_initial_variable(s: &str) -> IResult<&str, Statement> {
     let (s, (id, _, tyinfo, _, _e, _, value)) = tuple((parse_identifier, multispace0, opt(tuple((char(':'), multispace0, parse_type_spec))), multispace0, tag("="), multispace0, parse_expression))(s)?;
-    Ok((s, Statement::LetDeclaration(LetDeclaration { id, is_mut: true, type_info: tyinfo.map(|(_, _, type_info)| type_info ), value })))
+    Ok((s, Statement::LetDeclaration(LetDeclaration { vars: VariableDeclaration::Leaf(id, true), type_info: tyinfo.map(|(_, _, type_info)| type_info ), value })))
 }
 
 pub fn parse_for_expr_no_parentheses(s: &str) -> IResult<&str, Expression> {

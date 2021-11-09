@@ -5,6 +5,7 @@ use nom::character::complete::*;
 use nom::combinator::*;
 use nom::multi::*;
 use nom::sequence::*;
+use nom::branch::*;
 use nom::IResult;
 
 use crate::type_spec::*;
@@ -16,11 +17,12 @@ use crate::trans::*;
 #[derive(Debug, Clone)]
 pub struct WhereSection {
     has_traits: Vec<(TypeSpec, usize, TraitSpec, Vec<(AssociatedTypeIdentifier, TypeSpec)>)>,
+    tuple_traits: Vec<(TypeSpec, TraitId)>,
 }
 
 impl WhereSection {
     pub fn empty() -> Self {
-        WhereSection { has_traits: Vec::new() }
+        WhereSection { has_traits: Vec::new(), tuple_traits: Vec::new(), }
     }
     pub fn is_empty(&self) -> bool {
         self.has_traits.is_empty()
@@ -35,6 +37,10 @@ impl WhereSection {
                 let asso_spec_ty = asso_spec.generics_to_type(mp, equs, trs)?;
                 equs.add_equation(asso_ty, asso_spec_ty)
             }
+        }
+        for (spec, tr_id) in self.tuple_traits.iter() {
+            let ty = spec.generics_to_type(mp, equs, trs)?;
+            equs.add_tuple_trait(ty, tr_id.clone());
         }
         Ok(())
     }
@@ -116,6 +122,12 @@ impl WhereSection {
                 Some(ResultFindOperator::Ord) => {
                     conds.push(format!("decltype(std::declval<{0}>() < std::declval<{0}>(), std::true_type())", ty.transpile(ta)))
                 }
+                Some(ResultFindOperator::Clone) => {
+                    conds.push(format!("std::is_copy_assignable<{}>", ty.transpile(ta)))
+                }
+                Some(ResultFindOperator::Copy) => {
+                    conds.push(format!("std::is_copy_assignable<{}>", ty.transpile(ta)))
+                }
                 None => {
                     let generics = std::iter::once(ty.transpile(ta)).chain(tr.generics.iter().map(|g| g.transpile(ta))).collect::<Vec<_>>().join(", ");
                     let trait_ty = format!("{}<{}>", tr.trait_id.transpile(ta), generics);
@@ -149,25 +161,41 @@ fn parse_associated_type_specifiers(s: &str) -> IResult<&str, Vec<(AssociatedTyp
     Ok((s, res))
 }
 
-fn parse_has_trait_element(s: &str) -> IResult<&str, (TypeSpec, usize, TraitSpec, Vec<(AssociatedTypeIdentifier, TypeSpec)>)> {
+fn parse_has_trait_element(s: &str) -> IResult<&str, WhereElem> {
     let (s, (spec, _, _, _, tr_id, _, assos)) = tuple((parse_type_spec, multispace0, char(':'), multispace0, parse_trait_spec, multispace0, parse_associated_type_specifiers))(s)?;
     let dep = spec.associated_type_depth();
-    Ok((s, (spec, dep, tr_id, assos)))
+    Ok((s, WhereElem::HasTrait((spec, dep, tr_id, assos))))
+}
+
+fn parse_tuple_trait_element(s: &str) -> IResult<&str, WhereElem> {
+    let (s, (_, _, spec, _, _, _, tr_id)) = tuple((tag("tuple"), multispace1, parse_type_spec, multispace0, char(':'), multispace0, parse_trait_id))(s)?;
+    Ok((s, WhereElem::TupleTrait((spec, tr_id))))
+}
+
+enum WhereElem {
+    HasTrait((TypeSpec, usize, TraitSpec, Vec<(AssociatedTypeIdentifier, TypeSpec)>)),
+    TupleTrait((TypeSpec, TraitId)),
 }
 
 pub fn parse_where_section(s: &str) -> IResult<&str, WhereSection> {
     let (s, op) = opt(
         tuple((
                 tag("where"), multispace1,
-                separated_list0(tuple((multispace0, char(','), multispace0)), parse_has_trait_element),
+                separated_list0(tuple((multispace0, char(','), multispace0)), alt((parse_has_trait_element, parse_tuple_trait_element))),
                 opt(tuple((multispace0, char(','))))
                 ))
         )(s)?;
-    let has_traits = match op {
-        Some((_, _, equs, _)) => equs,
-        None => Vec::new(),
-    };
-    Ok((s, WhereSection { has_traits }))
+    let mut has_traits = Vec::new();
+    let mut tuple_traits = Vec::new();
+    if let Some((_, _, equs, _)) = op {
+        for e in equs {
+            match e {
+                WhereElem::HasTrait(h) => has_traits.push(h),
+                WhereElem::TupleTrait(h) => tuple_traits.push(h),
+            }
+        }
+    }
+    Ok((s, WhereSection { has_traits, tuple_traits }))
 }
 
 #[test]

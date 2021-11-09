@@ -14,6 +14,7 @@ use crate::unary_expr::UnaryExpr;
 use crate::unify::*;
 use crate::trans::*;
 use crate::mut_checker::*;
+use crate::move_checker::*;
 
 #[derive(Debug)]
 pub enum Literal {
@@ -50,6 +51,12 @@ impl Transpile for Literal {
 impl MutCheck for Literal {
     fn mut_check(&self, _ta: &TypeAnnotation, _vars: &mut VariablesInfo) -> Result<MutResult, String> {
         Ok(MutResult::NotMut)
+    }
+}
+
+impl MoveCheck for Literal {
+    fn move_check(&self, mc: &mut VariablesMoveChecker, ta: &TypeAnnotation) -> Result<MoveResult, String> {
+        Ok(MoveResult::Right)
     }
 }
 
@@ -123,11 +130,7 @@ pub fn literal_i64(s: &str) -> IResult<&str, Literal> {
 }
 
 pub fn unsigned_number(s: &str) -> IResult<&str, Vec<&str>> {
-    let (s, x) = digit1(s)?;
-    fold_many0(alt((tag("_"), digit1)), vec![x], |mut acc: Vec<_>, item| {
-        acc.push(item);
-        acc
-    })(s)
+    separated_list1(tag("_"), digit1)(s)
 }
 
 pub fn literal_boolean(s: &str) -> IResult<&str, Literal> {

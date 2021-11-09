@@ -1,13 +1,13 @@
 [package]
 name = "niu"
-version = "0.6.1"
+version = "0.8.0"
 authors = ["niuez <niuez.graph@gmail.com>"]
 edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-nom = "6.0.0"
+nom = "7.0.0"
 log = "0.4.0"
 env_logger = "0.8.4"
 clap = "2.33.3"

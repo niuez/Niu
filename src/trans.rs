@@ -1,7 +1,7 @@
-use std::collections::HashMap;
+use std::collections::{ HashMap, HashSet };
 
 use crate::type_id::TypeId;
-use crate::identifier::Identifier;
+use crate::identifier::*;
 use crate::unary_expr::Variable;
 use crate::func_definition::{ FuncDefinition, FuncDefinitionInfo};
 use crate::structs::*;
@@ -13,12 +13,14 @@ pub struct TypeAnnotation {
     func: HashMap<Variable, FuncDefinitionInfo>,
     structs: HashMap<TypeId, (Vec<TypeId>, StructMember)>,
     theta: HashMap<(usize, &'static str, usize), Type>,
+    copyable: HashSet<Tag>,
+    moved: HashSet<Tag>,
     pub self_type: Option<String>,
 }
 
 impl TypeAnnotation {
     pub fn new() -> Self {
-        Self { func: HashMap::new(), structs: HashMap::new(), theta: HashMap::new(), self_type: None }
+        Self { func: HashMap::new(), structs: HashMap::new(), theta: HashMap::new(), copyable: HashSet::new(), moved: HashSet::new(), self_type: None }
     }
     pub fn insert(&mut self, tv: TypeVariable, t: Type) {
         let TypeVariable::Counter(i, label, num) = tv;
@@ -30,6 +32,12 @@ impl TypeAnnotation {
     }
     pub fn regist_structs_info(&mut self, st: &StructMemberDefinition) {
         self.structs.insert(st.struct_id.clone(), (st.generics.clone(), st.member.clone()));
+    }
+    pub fn regist_moved(&mut self, moved: HashSet<Tag>) {
+        self.moved = moved
+    }
+    pub fn regist_copyable(&mut self, copyable: HashSet<Tag>) {
+        self.copyable = copyable;
     }
     pub fn size(&self) -> usize {
         self.theta.len() 
@@ -69,6 +77,12 @@ impl TypeAnnotation {
         else {
             None
         }
+    }
+    pub fn is_moved(&self, tag: &Tag) -> bool {
+        self.moved.contains(tag)
+    }
+    pub fn is_copyable(&self, tag: &Tag) -> bool {
+        self.copyable.contains(tag)
     }
 }
 

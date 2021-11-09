@@ -1,3 +1,5 @@
+import "std/u64.niu"
+
 fn main() -> void {
   let a = 2;
   let b = 5;
@@ -7,4 +9,8 @@ fn main() -> void {
   else {
     b / a
   };
+
+  if a == b {
+    let c = a + b;
+  }
 }

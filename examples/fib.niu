@@ -1,0 +1,27 @@
+import "math/matrix.niu"
+import "math/modint.niu"
+#include <iostream>
+
+impl Field for Modint<M9982> {
+  fn zero() -> Self { Modint::init(0) }
+  fn one() -> Self { Modint::init(1) }
+}
+
+fn scan<T>(t: &mut T) -> void $${std::cin >> $arg(t);}$$
+fn println<T>(t: &T) -> void $${std::cout << $arg(t) << std::endl;}$$
+
+fn main() -> void {
+  let mut n = 0;
+  scan(&mut n);
+
+  let mut mat = Matrix<Modint<M9982>>::zero(2, 2);
+  let mut ini = Matrix::zero(2, 1);
+  mat[0][1] = Modint::init(1);
+  mat[1][0] = Modint::init(1);
+  mat[1][1] = Modint::init(1);
+  ini[0][0] = Modint::init(0);
+  ini[1][0] = Modint::init(1);
+
+  let ans = &mat.pow(n) * &ini;
+  println(&ans[0][0].a);
+}

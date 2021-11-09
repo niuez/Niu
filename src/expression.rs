@@ -1,5 +1,6 @@
 pub mod if_expr;
 pub mod for_expr;
+pub mod for_each_expr;
 
 //use nom::branch::*;
 use nom::IResult;
@@ -15,9 +16,11 @@ use crate::traits::*;
 use crate::unify::*;
 use crate::trans::*;
 use crate::mut_checker::*;
+use crate::move_checker::*;
 
 pub use if_expr::*;
 pub use for_expr::*;
+pub use for_each_expr::*;
 
 fn expr_gen_type<'a, EI: Iterator<Item=Type>, O: 'a, OI: Iterator<Item=&'a O>, F: Fn(&O) -> (&'static str, &'static str)>
 (equs: &mut TypeEquations, mut exprs: EI, opes: OI, f: F, tag: Tag) -> TResult {
@@ -44,6 +47,7 @@ fn expr_gen_type<'a, EI: Iterator<Item=Type>, O: 'a, OI: Iterator<Item=&'a O>, F
 pub enum Expression {
     IfExpr(Box<IfExpr>),
     ForExpr(Box<ForExpr>),
+    ForEachExpr(Box<ForEachExpr>),
     Expression(ExpOr),
 }
 
@@ -53,6 +57,7 @@ impl GenType for Expression {
             Expression::Expression(ref e) => e.gen_type(equs, trs),
             Expression::IfExpr(ref ifexpr) => ifexpr.as_ref().gen_type(equs, trs),
             Expression::ForExpr(ref forexpr) => forexpr.as_ref().gen_type(equs, trs),
+            Expression::ForEachExpr(ref foreach) => foreach.as_ref().gen_type(equs, trs),
         }
     }
 }
@@ -63,6 +68,7 @@ impl Transpile for Expression {
             Expression::Expression(ref e) => e.transpile(ta),
             Expression::IfExpr(ref ifexpr) => ifexpr.as_ref().transpile(ta),
             Expression::ForExpr(ref forexpr) => forexpr.as_ref().transpile(ta),
+            Expression::ForEachExpr(ref foreach) => foreach.as_ref().transpile(ta),
         }
     }
 }
@@ -73,6 +79,18 @@ impl MutCheck for Expression {
             Expression::Expression(ref e) => e.mut_check(ta, vars),
             Expression::IfExpr(ref ifexpr) => ifexpr.as_ref().mut_check(ta, vars),
             Expression::ForExpr(ref forexpr) => forexpr.as_ref().mut_check(ta, vars),
+            Expression::ForEachExpr(ref foreach) => foreach.as_ref().mut_check(ta, vars),
+        }
+    }
+}
+
+impl MoveCheck for Expression {
+    fn move_check(&self, mc: &mut VariablesMoveChecker, ta: &TypeAnnotation) -> Result<MoveResult, String> {
+        match *self {
+            Expression::Expression(ref e) => e.move_check(mc, ta),
+            Expression::IfExpr(ref ifexpr) => ifexpr.as_ref().move_check(mc, ta),
+            Expression::ForExpr(ref forexpr) => forexpr.as_ref().move_check(mc, ta),
+            Expression::ForEachExpr(ref foreach) => foreach.as_ref().move_check(mc, ta),
         }
     }
 }
@@ -178,6 +196,22 @@ impl MutCheck for ExpOr {
     }
 }
 
+impl MoveCheck for ExpOr {
+    fn move_check(&self, mc: &mut VariablesMoveChecker, ta: &TypeAnnotation) -> Result<MoveResult, String> {
+        if self.terms.len() == 1 {
+            self.terms.last().unwrap().move_check(mc, ta)
+        }
+        else {
+            for term in self.terms.iter() {
+                let res = term.move_check(mc, ta)?;
+                mc.move_result(res)?;
+            }
+            Ok(MoveResult::Right)
+        }
+    }
+}
+
+
 #[derive(Debug)]
 pub struct ExpAnd {
     pub terms: Vec<ExpOrd>,
@@ -251,6 +285,20 @@ impl MutCheck for ExpAnd {
     }
 }
 
+impl MoveCheck for ExpAnd {
+    fn move_check(&self, mc: &mut VariablesMoveChecker, ta: &TypeAnnotation) -> Result<MoveResult, String> {
+        if self.terms.len() == 1 {
+            self.terms.last().unwrap().move_check(mc, ta)
+        }
+        else {
+            for term in self.terms.iter() {
+                let res = term.move_check(mc, ta)?;
+                mc.move_result(res)?;
+            }
+            Ok(MoveResult::Right)
+        }
+    }
+}
 
 #[derive(Debug)]
 pub struct ExpOrd {
@@ -376,6 +424,20 @@ impl MutCheck for ExpOrd {
     }
 }
 
+impl MoveCheck for ExpOrd {
+    fn move_check(&self, mc: &mut VariablesMoveChecker, ta: &TypeAnnotation) -> Result<MoveResult, String> {
+        if self.terms.len() == 1 {
+            self.terms.last().unwrap().move_check(mc, ta)
+        }
+        else {
+            for term in self.terms.iter() {
+                let _ = term.move_check(mc, ta)?;
+            }
+            Ok(MoveResult::Right)
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct ExpBitOr {
     pub terms: Vec<ExpBitXor>,
@@ -445,6 +507,21 @@ impl MutCheck for ExpBitOr {
                 term.mut_check(ta, vars)?;
             }
             Ok(MutResult::NotMut)
+        }
+    }
+}
+
+impl MoveCheck for ExpBitOr {
+    fn move_check(&self, mc: &mut VariablesMoveChecker, ta: &TypeAnnotation) -> Result<MoveResult, String> {
+        if self.terms.len() == 1 {
+            self.terms.last().unwrap().move_check(mc, ta)
+        }
+        else {
+            for term in self.terms.iter() {
+                let res = term.move_check(mc, ta)?;
+                mc.move_result(res)?;
+            }
+            Ok(MoveResult::Right)
         }
     }
 }
@@ -522,6 +599,20 @@ impl MutCheck for ExpBitXor {
     }
 }
 
+impl MoveCheck for ExpBitXor {
+    fn move_check(&self, mc: &mut VariablesMoveChecker, ta: &TypeAnnotation) -> Result<MoveResult, String> {
+        if self.terms.len() == 1 {
+            self.terms.last().unwrap().move_check(mc, ta)
+        }
+        else {
+            for term in self.terms.iter() {
+                let res = term.move_check(mc, ta)?;
+                mc.move_result(res)?;
+            }
+            Ok(MoveResult::Right)
+        }
+    }
+}
 #[derive(Debug)]
 pub struct ExpBitAnd {
     pub terms: Vec<ExpShift>,
@@ -598,6 +689,20 @@ impl MutCheck for ExpBitAnd {
     }
 }
 
+impl MoveCheck for ExpBitAnd {
+    fn move_check(&self, mc: &mut VariablesMoveChecker, ta: &TypeAnnotation) -> Result<MoveResult, String> {
+        if self.terms.len() == 1 {
+            self.terms.last().unwrap().move_check(mc, ta)
+        }
+        else {
+            for term in self.terms.iter() {
+                let res = term.move_check(mc, ta)?;
+                mc.move_result(res)?;
+            }
+            Ok(MoveResult::Right)
+        }
+    }
+}
 #[derive(Debug)]
 pub struct ExpShift {
     pub terms: Vec<ExpAddSub>,
@@ -677,6 +782,20 @@ impl MutCheck for ExpShift {
     }
 }
 
+impl MoveCheck for ExpShift {
+    fn move_check(&self, mc: &mut VariablesMoveChecker, ta: &TypeAnnotation) -> Result<MoveResult, String> {
+        if self.terms.len() == 1 {
+            self.terms.last().unwrap().move_check(mc, ta)
+        }
+        else {
+            for term in self.terms.iter() {
+                let res = term.move_check(mc, ta)?;
+                mc.move_result(res)?;
+            }
+            Ok(MoveResult::Right)
+        }
+    }
+}
 #[derive(Debug)]
 pub struct ExpAddSub {
     pub terms: Vec<ExpMulDivRem>,
@@ -752,6 +871,21 @@ impl MutCheck for ExpAddSub {
                 term.mut_check(ta, vars)?;
             }
             Ok(MutResult::NotMut)
+        }
+    }
+}
+
+impl MoveCheck for ExpAddSub {
+    fn move_check(&self, mc: &mut VariablesMoveChecker, ta: &TypeAnnotation) -> Result<MoveResult, String> {
+        if self.terms.len() == 1 {
+            self.terms.last().unwrap().move_check(mc, ta)
+        }
+        else {
+            for term in self.terms.iter() {
+                let res = term.move_check(mc, ta)?;
+                mc.move_result(res)?;
+            }
+            Ok(MoveResult::Right)
         }
     }
 }
@@ -849,6 +983,21 @@ impl MutCheck for ExpMulDivRem {
     }
 }
 
+impl MoveCheck for ExpMulDivRem {
+    fn move_check(&self, mc: &mut VariablesMoveChecker, ta: &TypeAnnotation) -> Result<MoveResult, String> {
+        if self.unary_exprs.len() == 1 {
+            self.unary_exprs.last().unwrap().move_check(mc, ta)
+        }
+        else {
+            for term in self.unary_exprs.iter() {
+                let res = term.move_check(mc, ta)?;
+                mc.move_result(res)?;
+            }
+            Ok(MoveResult::Right)
+        }
+    }
+}
+
 #[derive(Debug)]
 pub enum ExpUnaryOpe {
     UnaryExpr(UnaryExpr),
@@ -869,6 +1018,7 @@ impl GenType for ExpUnaryOpe {
                 let alpha = tag.generate_not_void_type_variable("DerefType", 0, equs);
                 let right = exp.as_ref().gen_type(equs, trs)?;
                 equs.add_equation(alpha.clone(), right);
+                equs.regist_check_copyable(tag.clone(), Type::Deref(Box::new(alpha.clone())));
                 Ok(Type::Deref(Box::new(alpha)))
             }
             Self::Neg(ref exp, ref tag) => {
@@ -935,6 +1085,39 @@ impl MutCheck for ExpUnaryOpe {
             Self::Not(ref exp, _) => {
                 exp.mut_check(ta, vars)?;
                 Ok(MutResult::NotMut)
+            }
+        }
+    }
+}
+
+impl MoveCheck for ExpUnaryOpe {
+    fn move_check(&self, mc: &mut VariablesMoveChecker, ta: &TypeAnnotation) -> Result<MoveResult, String> {
+        match self {
+            Self::UnaryExpr(ref exp) => exp.move_check(mc, ta),
+            Self::Ref(ref exp) => {
+                exp.move_check(mc, ta)?;
+                Ok(MoveResult::Right)
+            }
+            Self::MutRef(ref exp) => {
+                exp.move_check(mc, ta)?;
+                Ok(MoveResult::Right)
+            }
+            Self::Deref(ref exp, ref tag) => {
+                exp.move_check(mc, ta)?;
+                if ta.is_copyable(tag) {
+                    Ok(MoveResult::Right)
+                }
+                else {
+                    Ok(MoveResult::Deref)
+                }
+            }
+            Self::Neg(ref exp, _) => {
+                exp.move_check(mc, ta)?;
+                Ok(MoveResult::Right)
+            }
+            Self::Not(ref exp, _) => {
+                exp.move_check(mc, ta)?;
+                Ok(MoveResult::Right)
             }
         }
     }

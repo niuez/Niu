@@ -9,6 +9,11 @@ struct Am {
   }
 }
 
+impl Clone for Am {
+  fn clone(self: &Self) -> Self { Am { v: self.v } }
+}
+impl Copy for Am {}
+
 impl Monoid for Am {
   fn ide() -> Am { Am::init(0i64) }
   fn ope(self: &Am, right: &Am) -> Am {
@@ -32,6 +37,11 @@ impl Monoid for Fm {
   }
 }
 
+impl Clone for Fm {
+  fn clone(self: &Self) -> Self { Fm { a: self.a, b: self.b } }
+}
+impl Copy for Fm {}
+
 
 testfn(library-checker-problems:datastructure/point_add_range_sum) segmenttree_point_add_range_sum $${
   std::cin.tie(nullptr);
@@ -44,7 +54,7 @@ testfn(library-checker-problems:datastructure/point_add_range_sum) segmenttree_p
     a[i] = Am::init(v);
   }
   using Seg = SegmentTree<Am>;
-  auto seg = Seg::init(a);
+  auto seg = Seg::init(std::move(a));
   while(Q--) {
     int t, a, b;
     std::cin >> t >> a >> b;
@@ -68,7 +78,7 @@ testfn(library-checker-problems:datastructure/point_set_range_composite) segment
     a[i] = Fm::init(v, w);
   }
   using Seg = SegmentTree<Fm>;
-  auto seg = Seg::init(a);
+  auto seg = Seg::init(std::move(a));
   while(Q--) {
     int t, a, b, c;
     std::cin >> t >> a >> b >> c;

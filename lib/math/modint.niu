@@ -24,7 +24,6 @@ struct Modint<M> where M: Mod {
       if exp & 1 == 1 {
         ans = ans * now;
       }
-      else {}
       now = now * now;
     }
     ans
@@ -85,3 +84,7 @@ impl<M> Neg for Modint<M> where M: Mod {
     }
   }
 }
+impl<M> Clone for Modint<M> where M: Mod {
+  fn clone(self: &Self) -> Self { Modint { a: self.a } }
+}
+impl<M> Copy for Modint<M> where M: Mod {}

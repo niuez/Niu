@@ -43,8 +43,6 @@ struct UnionFind {
         self.par[yr] = xr;
       }
     }
-    else {
-    }
   }
 }
 

@@ -46,3 +46,5 @@ impl Eq for u64 {
 impl Ord for u64 {
   fn le(a: &u64, b: &u64) -> bool $${a < b}$$
 }
+impl Clone for u64 { fn clone(a: &Self) -> Self $${a}$$ }
+impl Copy for u64 {}

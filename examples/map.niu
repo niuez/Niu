@@ -1,0 +1,31 @@
+import "std/map.niu"
+import "std/u64.niu"
+#include <iostream>
+
+fn println<T>(t: &T) -> void $${std::cout << $arg(t) << std::endl;}$$
+
+fn main() -> void {
+  let mut mp = Map::empty();
+  mp.insert(1, 1i64);
+  mp.insert(5, 5i64);
+  mp.insert(4, 4i64);
+  mp.insert(2, 2i64);
+  mp.insert(3, 3i64);
+
+  for x in &mp {
+    println(&x.0);
+    println(&x.1);
+  }
+
+  for i = 1; i <= 5; i = i + 1 {
+    println(&mp[&i]);
+  }
+
+  mp.remove(&3);
+
+  for x in mp {
+    let (k, v) = x;
+    println(&k);
+    println(&v);
+  }
+}
