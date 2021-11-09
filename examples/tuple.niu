@@ -1,3 +1,6 @@
+import "std/tuple.niu"
+import "std/u64.niu"
+
 struct Hoge {
   val: u64
 } {}
@@ -20,4 +23,6 @@ fn main() -> void {
   tt.0 = tt0;
 
   let ttt = tt;
+
+  let copy_t = t;
 }
