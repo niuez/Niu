@@ -8,15 +8,17 @@ pub struct SourceRange {
     start: usize,
     end: usize,
 }
+pub fn with_range<'a, O, E, P>(mut p: P) -> impl FnMut(&'a str) -> IResult<&'a str, (O, SourceRange), E>
+where E: ParseError<&'a str>,
+      P: Parser<&'a str, O, E> {
+          move |s| {
+              let (ss, o) = p.parse(s)?;
+              let range = SourceRange { start: s.len(), end: ss.len() };
+              Ok((ss, (o, range)))
+          }
+      }
 
 impl SourceRange {
-    pub fn parse_with_range<'a, O, E, P>(s: &'a str, mut p: P) -> IResult<&'a str, (O, SourceRange), E>
-        where E: ParseError<&'a str>,
-              P: Parser<&'a str, O, E> {
-        let (ss, o) = p.parse(s)?;
-        let range = SourceRange { start: s.len(), end: ss.len() };
-        Ok((ss, (o, range)))
-    }
     pub fn get_range_str<'a>(&self, s: &'a str) -> &'a str {
         s.get((s.len() - self.start)..(s.len() - self.end)).unwrap()
     }
