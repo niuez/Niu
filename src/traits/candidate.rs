@@ -125,6 +125,7 @@ pub struct ImplDefinition {
     pub trait_spec: TraitSpec,
     pub impl_ty: TypeSpec,
     pub where_sec: WhereSection,
+    pub without_member_range: SourceRange,
     pub asso_defs: HashMap<AssociatedTypeIdentifier, TypeSpec>,
     pub require_methods: HashMap<TraitMethodIdentifier, FuncDefinition>,
 }
@@ -142,6 +143,7 @@ impl ImplDefinition {
             trait_spec: self.trait_spec.clone(),
             impl_ty: self.impl_ty.clone(),
             where_sec: self.where_sec.clone(),
+            without_member_range: self.without_member_range.clone(),
             asso_defs: self.asso_defs.clone(),
             require_methods: self.require_methods.iter().map(|(id, func)| (id.clone(), func.get_func_info().1)).collect(),
         }))
@@ -283,11 +285,13 @@ fn parse_generics_args(s: &str) -> IResult<&str, Vec<TypeId>> {
 }*/
 
 pub fn parse_impl_definition(s: &str) -> IResult<&str, ImplDefinition> {
-    let (s, (_, generics, _, trait_spec, _, _, _, impl_ty, _, where_sec, _, _, _, many_types, many_methods, _, _)) = 
-        tuple((tag("impl"), parse_generics_args,
-            multispace1, parse_trait_spec,
-            multispace1, tag("for"), multispace1, parse_type_spec,
-            multispace0, parse_where_section,
+    let (s, (((_, generics, _, trait_spec, _, _, _, impl_ty, _, where_sec), range), _, _, _, many_types, many_methods, _, _)) = 
+        tuple((
+            with_range(tuple((tag("impl"), parse_generics_args,
+                multispace1, parse_trait_spec,
+                multispace1, tag("for"), multispace1, parse_type_spec,
+                multispace0, parse_where_section,
+            ))),
             multispace0, char('{'), multispace0,
             many0(tuple((tag("type"), multispace1, parse_associated_type_identifier, multispace0, char('='), multispace0, parse_type_spec, multispace0, char(';'), multispace0))),
             many0(tuple((parse_func_definition, multispace0))),
@@ -319,7 +323,7 @@ pub fn parse_impl_definition(s: &str) -> IResult<&str, ImplDefinition> {
             HashMap::new()
         }
     };
-    Ok((s, ImplDefinition { generics, trait_spec, impl_ty, where_sec, asso_defs, require_methods }))
+    Ok((s, ImplDefinition { generics, trait_spec, impl_ty, where_sec, asso_defs, require_methods, without_member_range: range }))
 }
 
 impl Transpile for ImplDefinition {
@@ -467,6 +471,7 @@ pub struct ImplCandidate {
     pub trait_spec: TraitSpec,
     pub impl_ty: TypeSpec,
     pub where_sec: WhereSection,
+    pub without_member_range: SourceRange,
     pub asso_defs: HashMap<AssociatedTypeIdentifier, TypeSpec>,
     pub require_methods: HashMap<TraitMethodIdentifier, FuncDefinitionInfo>,
 }
@@ -501,7 +506,7 @@ impl ImplCandidate {
 
         let impl_ty = self.impl_ty.generics_to_type(&gen_mp, &mut equs, trs).unwrap();
         equs.add_equation(impl_ty, self_type.clone());
-        self.where_sec.regist_equations(&gen_mp, &mut equs, trs)?;
+        self.where_sec.regist_equations(&gen_mp, &mut equs, trs, &self.without_member_range.hint("impl defined", ErrorHint::None))?;
         let func_ty = self.require_methods
             .get(&TraitMethodIdentifier { id: call_eq.func_id.clone() })
             .ok_or(ErrorComment::empty(format!("require methods doesnt have {:?}", call_eq.func_id)))?
@@ -555,7 +560,7 @@ impl ImplCandidate {
 
         let impl_ty = self.impl_ty.generics_to_type(&gen_mp, &mut equs, trs).unwrap();
         equs.add_equation(ty.clone(), impl_ty);
-        if self.where_sec.regist_equations(&gen_mp, &mut equs, trs).is_ok() {
+        if self.where_sec.regist_equations(&gen_mp, &mut equs, trs, &self.without_member_range.hint("impl defined", ErrorHint::None)).is_ok() {
             //equs.debug();
             equs.unify(trs).ok().map(|_| SubstsMap::new(equs.take_substs()))
         }

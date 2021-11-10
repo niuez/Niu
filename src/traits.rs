@@ -137,6 +137,7 @@ pub struct TraitDefinition {
     pub trait_id: TraitId,
     pub generics: Vec<TypeId>,
     pub where_sec: WhereSection,
+    pub without_member_range: SourceRange,
     pub asso_ids: Vec<AssociatedTypeIdentifier>,
     pub required_methods: HashMap<TraitMethodIdentifier, FuncDefinitionInfo>,
 }
@@ -146,6 +147,7 @@ pub struct TraitDefinitionInfo {
     pub trait_id: TraitId,
     pub generics: Vec<TypeId>,
     pub where_sec: WhereSection,
+    pub without_member_range: SourceRange,
     pub asso_ids: Vec<AssociatedTypeIdentifier>,
     pub required_methods: HashMap<TraitMethodIdentifier, FuncDefinitionInfo>,
 }
@@ -156,6 +158,7 @@ impl TraitDefinition {
             trait_id: self.trait_id.clone(),
             generics: self.generics.clone(),
             where_sec: self.where_sec.clone(),
+            without_member_range: self.without_member_range.clone(),
             asso_ids: self.asso_ids.clone(),
             required_methods: self.required_methods.clone(),
         })
@@ -177,10 +180,11 @@ impl Transpile for TraitDefinition {
 }
 
 pub fn parse_trait_definition(s: &str) -> IResult<&str, TraitDefinition> {
-    let (s, (_, _, trait_id, _, generics, _, where_sec, _, _, _, many_types, many_methods, _, _)) = 
-        tuple((tag("trait"), multispace1, parse_trait_id,
+    let (s, (((_, _, trait_id, _, generics, _, where_sec), range),_, _, _, many_types, many_methods, _, _)) = 
+        tuple((
+            with_range(tuple((tag("trait"), multispace1, parse_trait_id,
             multispace0, parse_generics_args,
-            multispace0, parse_where_section, multispace0, char('{'), multispace0,
+            multispace0, parse_where_section))), multispace0, char('{'), multispace0,
             many0(tuple((tag("type"), multispace1, parse_associated_type_identifier, multispace0, char(';'), multispace0))),
             many0(tuple((parse_func_definition_info, multispace0, char(';'), multispace0))),
             multispace0, char('}')))(s)?;
@@ -209,7 +213,7 @@ pub fn parse_trait_definition(s: &str) -> IResult<&str, TraitDefinition> {
             }).collect()
         }
     };
-    Ok((s, TraitDefinition { trait_id, generics, where_sec, asso_ids, required_methods }))
+    Ok((s, TraitDefinition { trait_id, generics, where_sec, asso_ids, required_methods, without_member_range: range }))
 }
 
 

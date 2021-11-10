@@ -1,12 +1,5 @@
 use std::collections::HashMap;
 
-use nom::bytes::complete::*;
-use nom::character::complete::*;
-use nom::combinator::*;
-use nom::multi::*;
-use nom::sequence::*;
-use nom::IResult;
-
 use crate::identifier::*;
 use crate::type_id::*;
 use crate::type_spec::*;
@@ -23,6 +16,7 @@ pub struct ImplSelfDefinition {
     pub generics: Vec<TypeId>,
     pub impl_ty: TypeSpec,
     pub where_sec: WhereSection,
+    pub without_member_range: SourceRange,
     pub require_methods: HashMap<Identifier, FuncDefinition>,
     pub tag: Tag,
 }
@@ -32,6 +26,7 @@ pub struct ImplSelfCandidate {
     pub generics: Vec<TypeId>,
     pub impl_ty: TypeSpec,
     pub where_sec: WhereSection,
+    pub without_member_range: SourceRange,
     pub require_methods: HashMap<Identifier, FuncDefinitionInfo>,
     tag: Tag,
 }
@@ -42,6 +37,7 @@ impl ImplSelfDefinition {
             generics: self.generics.clone(),
             impl_ty: self.impl_ty.clone(),
             where_sec: self.where_sec.clone(),
+            without_member_range: self.without_member_range.clone(),
             require_methods: self.require_methods.iter().map(|(id, func)| (id.clone(), func.get_func_info().1)).collect(),
             tag: self.tag.clone(),
         }
@@ -88,7 +84,7 @@ impl ImplSelfCandidate {
         let gen_mp = mp.next(gen_mp);
         let impl_ty = self.impl_ty.generics_to_type(&gen_mp, &mut equs, trs)?;
         equs.add_equation(impl_ty, self_type.clone());
-        self.where_sec.regist_equations(&gen_mp, &mut equs, trs)?;
+        self.where_sec.regist_equations(&gen_mp, &mut equs, trs, &self.without_member_range.hint("selfimpl defined", ErrorHint::None))?;
         let func_ty = self.require_methods
             .get(&call_eq.func_id)
             .ok_or(ErrorComment::empty(format!("require methods doesnt have {:?}", call_eq.func_id)))?
@@ -129,7 +125,7 @@ impl ImplSelfCandidate {
         let gen_mp = mp.next(gen_mp);
         let impl_ty = self.impl_ty.generics_to_type(&gen_mp, &mut equs, trs).unwrap();
         equs.add_equation(ty.clone(), impl_ty);
-        if self.where_sec.regist_equations(&gen_mp, &mut equs, trs).is_ok() {
+        if self.where_sec.regist_equations(&gen_mp, &mut equs, trs, &ErrorHint::None).is_ok() {
             equs.unify(trs).ok().map(|_| SubstsMap::new(equs.take_substs()))
         }
         else {
@@ -163,7 +159,7 @@ impl ImplSelfCandidate {
         format!("SelfImplCandidate for {:?}", self.impl_ty)
     }
 }
-
+/*
 fn parse_generics_args(s: &str) -> IResult<&str, Vec<TypeId>> {
     let (s, op) = opt(tuple((multispace0, char('<'), multispace0, separated_list0(tuple((multispace0, char(','), multispace0)), parse_type_id), multispace0, char('>'))))(s)?;
     Ok((s, op.map(|(_, _, _, res, _, _)| res).unwrap_or(Vec::new())))
@@ -180,3 +176,4 @@ pub fn parse_impl_self_definition(s: &str) -> IResult<&str, ImplSelfDefinition> 
     let require_methods = many_methods.into_iter().map(|(func, _)| (func.func_id.clone(), func)).collect();
     Ok((s, ImplSelfDefinition { generics, impl_ty, where_sec, require_methods, tag: Tag::new() }))
 }
+*/

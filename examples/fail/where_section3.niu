@@ -1,0 +1,11 @@
+import "std/opes.niu"
+struct Hoge {} {}
+
+trait Clone2 where Self: Clone {}
+
+impl Clone2 for Hoge {}
+
+fn main() -> void {
+  let a = Hoge {};
+  let b = CloneOnly { t: a };
+}

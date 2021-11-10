@@ -19,6 +19,9 @@ where E: ParseError<&'a str>,
       }
 
 impl SourceRange {
+    pub fn empty() -> Self {
+        SourceRange { start: 0, end: 0 }
+    }
     pub fn get_range_str<'a>(&self, s: &'a str) -> &'a str {
         s.get((s.len() - self.start)..(s.len() - self.end)).unwrap()
     }
@@ -43,6 +46,8 @@ impl RangeHint {
 
 impl NiuError for RangeHint {
     fn what(&self, data: &ErrorData) -> String {
-        format!("hint: {}\n    | {}\n{}", self.hint, self.range.get_range_str(data.statement).to_string(), self.prev.as_ref().what(data))
+        let code = self.range.get_range_str(data.statement).split("\n")
+            .map(|s| format!("    | {}", s)).collect::<Vec<_>>().join("\n");
+        format!("{}\nhint: {}\n{}", self.prev.as_ref().what(data), self.hint, code)
     }
 }

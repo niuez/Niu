@@ -19,20 +19,23 @@ use crate::error::*;
 pub struct WhereSection {
     has_traits: Vec<(TypeSpec, usize, TraitSpec, Vec<(AssociatedTypeIdentifier, TypeSpec)>, SourceRange)>,
     tuple_traits: Vec<(TypeSpec, TraitId, SourceRange)>,
+    range: SourceRange,
 }
 
 impl WhereSection {
     pub fn empty() -> Self {
-        WhereSection { has_traits: Vec::new(), tuple_traits: Vec::new(), }
+        WhereSection { has_traits: Vec::new(), tuple_traits: Vec::new(), range: SourceRange::empty(), }
     }
     pub fn is_empty(&self) -> bool {
         self.has_traits.is_empty()
     }
-    pub fn regist_equations(&self, mp: &GenericsTypeMap, equs: &mut TypeEquations, trs: &TraitsInfo) -> Result<(), Error> {
+    pub fn regist_equations(&self, mp: &GenericsTypeMap, equs: &mut TypeEquations, trs: &TraitsInfo, define_source: &ErrorHint) -> Result<(), Error> {
         for (spec, _, tr_spec, asso_eqs, range) in self.has_traits.iter() {
             let ty = spec.generics_to_type(mp, equs, trs)?;
             let tr_gen = tr_spec.generate_trait_generics(equs, trs, mp)?;
-            equs.add_has_trait(ty.clone(), tr_gen.clone(), range.hint("where section", ErrorHint::None));
+            equs.add_has_trait(ty.clone(), tr_gen.clone(),
+                range.hint("param candidate of where section", define_source.clone())
+            );
             for (asso_id, asso_spec) in asso_eqs.iter() {
                 let asso_ty = Type::AssociatedType(Box::new(ty.clone()), tr_gen.clone(), asso_id.clone());
                 let asso_spec_ty = asso_spec.generics_to_type(mp, equs, trs)?;
@@ -41,7 +44,7 @@ impl WhereSection {
         }
         for (spec, tr_id, range) in self.tuple_traits.iter() {
             let ty = spec.generics_to_type(mp, equs, trs)?;
-            equs.add_tuple_trait(ty, tr_id.clone(), range.hint("tuple where section", ErrorHint::None));
+            equs.add_tuple_trait(ty, tr_id.clone(), range.hint("tuple param candidate", define_source.clone()));
         }
         Ok(())
     }
@@ -79,8 +82,8 @@ impl WhereSection {
     }
 
     pub fn check_equal(&self, right: &Self) -> bool {
-                self.has_traits.clone().into_iter().map(|(t0, t1, t2, t3, t4)| (t0, t1, t2, t3)).collect::<HashSet<_>>()
-            == right.has_traits.clone().into_iter().map(|(t0, t1, t2, t3, t4)| (t0, t1, t2, t3)).collect::<HashSet<_>>()
+                self.has_traits.clone().into_iter().map(|(t0, t1, t2, t3, _)| (t0, t1, t2, t3)).collect::<HashSet<_>>()
+            == right.has_traits.clone().into_iter().map(|(t0, t1, t2, t3, _)| (t0, t1, t2, t3)).collect::<HashSet<_>>()
     }
 
     pub fn transpile(&self, ta: &TypeAnnotation) -> String {
@@ -179,13 +182,13 @@ enum WhereElem {
 }
 
 pub fn parse_where_section(s: &str) -> IResult<&str, WhereSection> {
-    let (s, op) = opt(
+    let (s, (op, range)) = with_range(opt(
         tuple((
                 tag("where"), multispace1,
                 separated_list0(tuple((multispace0, char(','), multispace0)), alt((parse_has_trait_element, parse_tuple_trait_element))),
                 opt(tuple((multispace0, char(','))))
                 ))
-        )(s)?;
+        ))(s)?;
     let mut has_traits = Vec::new();
     let mut tuple_traits = Vec::new();
     if let Some((_, _, equs, _)) = op {
@@ -196,7 +199,7 @@ pub fn parse_where_section(s: &str) -> IResult<&str, WhereSection> {
             }
         }
     }
-    Ok((s, WhereSection { has_traits, tuple_traits }))
+    Ok((s, WhereSection { has_traits, tuple_traits, range }))
 }
 
 #[test]

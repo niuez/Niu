@@ -35,6 +35,7 @@ pub struct FuncDefinition {
     pub args: Vec<(Identifier, TypeSpec, bool)>,
     pub return_type: TypeSpec,
     pub block: FuncBlock,
+    def_range: SourceRange,
 }
 
 #[derive(Debug, Clone)]
@@ -45,6 +46,7 @@ pub struct FuncDefinitionInfo {
     pub args: Vec<(Identifier, TypeSpec, bool)>,
     pub return_type: TypeSpec,
     pub inline: Option<CppInline>,
+    range: SourceRange,
 }
 
 impl FuncDefinitionInfo {
@@ -55,7 +57,7 @@ impl FuncDefinitionInfo {
             gen_mp.insert(g_id.clone(), ty_var.clone());
         }
         let mp = before_mp.next(gen_mp);
-        self.where_sec.regist_equations(&mp, equs, trs)?;
+        self.where_sec.regist_equations(&mp, equs, trs, &self.range.hint("function defined", ErrorHint::None))?;
         let args = self.args.iter().map(|(_, t, _)| t.generics_to_type(&mp, equs, trs)).collect::<Result<Vec<Type>, _>>()?;
         let return_type = self.return_type.generics_to_type(&mp, equs, trs)?;
 
@@ -122,6 +124,7 @@ impl FuncDefinition {
              args: self.args.clone(),
              return_type: self.return_type.clone(),
              inline,
+             range: self.def_range.clone(),
          }
          )
     }
@@ -327,11 +330,11 @@ fn parse_mutable(s: &str) -> IResult<&str, bool> {
 }
 
 pub fn parse_func_definition_info(s: &str) -> IResult<&str, FuncDefinitionInfo> {
-    let (s, (_, _, func_id, _, generics_opt, _, _, _, op, _, _, _, _, return_type, _, where_sec)) = 
-        tuple((tag("fn"), multispace1, parse_identifier, multispace0, opt(tuple((char('<'), multispace0, opt(tuple((parse_type_id, multispace0, many0(tuple((char(','), multispace0, parse_type_id, multispace0))), opt(char(',')), multispace0))), char('>'), multispace0))), multispace0,
+    let (s, ((_, _, func_id, _, generics_opt, _, _, _, op, _, _, _, _, return_type, _, where_sec), range)) = 
+        with_range(tuple((tag("fn"), multispace1, parse_identifier, multispace0, opt(tuple((char('<'), multispace0, opt(tuple((parse_type_id, multispace0, many0(tuple((char(','), multispace0, parse_type_id, multispace0))), opt(char(',')), multispace0))), char('>'), multispace0))), multispace0,
                char('('), multispace0,
             opt(tuple((parse_mutable, parse_identifier, multispace0, char(':'), multispace0, parse_type_spec, multispace0, many0(tuple((char(','), multispace0, parse_mutable, parse_identifier, multispace0, char(':'), multispace0, parse_type_spec, multispace0))), opt(char(',')), multispace0))),
-            char(')'), multispace0, tag("->"), multispace0, parse_type_spec, multispace0, parse_where_section))(s)?;
+            char(')'), multispace0, tag("->"), multispace0, parse_type_spec, multispace0, parse_where_section)))(s)?;
     let generics = match generics_opt {
         Some((_, _, generics_opt, _, _)) => {
             match generics_opt {
@@ -357,7 +360,7 @@ pub fn parse_func_definition_info(s: &str) -> IResult<&str, FuncDefinitionInfo> 
         }
         None => Vec::new(),
     };
-    Ok((s, FuncDefinitionInfo { func_id, generics, where_sec, args, return_type, inline: None }))
+    Ok((s, FuncDefinitionInfo { func_id, generics, where_sec, args, return_type, inline: None, range }))
 }
 
 fn parse_func_block_block(s: &str) -> IResult<&str, FuncBlock> {
@@ -377,7 +380,7 @@ fn parse_func_block(s: &str) -> IResult<&str, FuncBlock> {
 
 pub fn parse_func_definition(s: &str) -> IResult<&str, FuncDefinition> {
     let (s, (info, _, block)) = tuple((parse_func_definition_info, multispace0, parse_func_block))(s)?;
-    Ok((s, FuncDefinition { func_id: info.func_id, generics: info.generics, where_sec: info.where_sec, args: info.args, return_type: info.return_type, block }))
+    Ok((s, FuncDefinition { func_id: info.func_id, generics: info.generics, where_sec: info.where_sec, args: info.args, return_type: info.return_type, block, def_range: info.range.clone() }))
 }
 
 

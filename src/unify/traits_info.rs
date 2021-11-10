@@ -128,7 +128,7 @@ impl<'a> TraitsInfo<'a> {
                         let gen_mp = GenericsTypeMap::empty();
                         let mp = def.generics.iter().cloned().zip(gens.iter().cloned()).collect::<HashMap<_, _>>();
                         let mp = gen_mp.next(mp);
-                        def.where_sec.regist_equations(&mp, equs, self)?;
+                        def.where_sec.regist_equations(&mp, equs, self, &def.without_member_range.hint("struct definition", ErrorHint::None))?;
                         Ok(Type::Generics(id, gens))
                     }
                     else if gens.len() == 0 && def.get_generics_len() > 0 {
@@ -136,7 +136,7 @@ impl<'a> TraitsInfo<'a> {
                         let gen_mp = GenericsTypeMap::empty();
                         let mp = def.generics.iter().cloned().zip(gens.iter().cloned()).collect::<HashMap<_, _>>();
                         let mp = gen_mp.next(mp);
-                        def.where_sec.regist_equations(&mp, equs, self)?;
+                        def.where_sec.regist_equations(&mp, equs, self, &def.without_member_range.hint("struct definition", ErrorHint::None))?;
                         Ok(Type::Generics(id, gens))
                     }
                     else {
@@ -323,11 +323,11 @@ impl<'a> TraitsInfo<'a> {
                 let tr_gen_map = empty_gen_map.next(tr_gen_map);
                 log::debug!("{:?}", tr_gen_map);
                 {
-                    tr.where_sec.regist_equations(&GenericsTypeMap::empty(), equs, &gen_trs)?;
+                    tr.where_sec.regist_equations(&GenericsTypeMap::empty(), equs, &gen_trs, &tr.without_member_range.hint("trait defined", ErrorHint::None))?;
                     match equs.unify(&gen_trs) {
                         Ok(_) => Ok(()),
-                        Err(UnifyErr::Deficiency(s)) => Err(ErrorComment::empty(format!("trait {:?} where section error, {:?}", tr.trait_id, s))),
-                        Err(UnifyErr::Contradiction(s)) => Err(ErrorComment::empty(format!("trait {:?} where section error, {:?}", tr.trait_id, s))),
+                        Err(UnifyErr::Deficiency(s)) => Err(ErrorComment::empty(format!("trait {:?} where section error {}", tr.trait_id, s))),
+                        Err(UnifyErr::Contradiction(s)) => Err(ErrorComment::new(format!("trait {:?} where section error", tr.trait_id), s)),
                     }?;
                 }
                 for (id, info) in tr.required_methods.iter() {
