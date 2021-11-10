@@ -282,7 +282,7 @@ pub fn parse_full_content<'a>(s: &'a str, name: &str) -> IResult<&'a str, (Vec<(
         }
     }
     let programs = std::iter::once((s.to_string(), name.to_string())).collect();
-    Ok((s, (imports, FullContent { programs, structs, funcs, traits, impls, includes, unit_tests, })))
+    Ok((ss, (imports, FullContent { programs, structs, funcs, traits, impls, includes, unit_tests, })))
 }
 
 
