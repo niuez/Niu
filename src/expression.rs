@@ -17,6 +17,7 @@ use crate::unify::*;
 use crate::trans::*;
 use crate::mut_checker::*;
 use crate::move_checker::*;
+use crate::error::*;
 
 pub use if_expr::*;
 pub use for_expr::*;
@@ -100,8 +101,8 @@ where
     P::Child: ParseExpression,
     P::Operator: ParseOperator,
 {
-    let (s, (head, _, tails)) = 
-        tuple((P::Child::parse_expression, multispace0, many0(tuple((P::Operator::parse_operator, multispace0, P::Child::parse_expression, multispace0)))))(s)?;
+    let (s, ((head, _, tails), range)) = 
+        with_range(tuple((P::Child::parse_expression, multispace0, many0(tuple((P::Operator::parse_operator, multispace0, P::Child::parse_expression, multispace0))))))(s)?;
     let mut terms = vec![head];
     let mut opes = Vec::new();
 
@@ -109,13 +110,13 @@ where
         terms.push(term);
         opes.push(ope);
     }
-    Ok((s, P::new_expr(terms, opes)))
+    Ok((s, P::new_expr(terms, opes, range)))
 }
 
 trait ParseExpression: Sized {
     type Child: Sized;
     type Operator: Sized;
-    fn new_expr(childs: Vec<Self::Child>, opes: Vec<Self::Operator>) -> Self;
+    fn new_expr(childs: Vec<Self::Child>, opes: Vec<Self::Operator>, range: SourceRange) -> Self;
     fn parse_expression(s: &str) -> IResult<&str, Self>;
 }
 
@@ -167,7 +168,7 @@ impl Transpile for OperatorOr {
 impl ParseExpression for ExpOr {
     type Child = ExpAnd;
     type Operator = OperatorOr;
-    fn new_expr(terms: Vec<Self::Child>, opes: Vec<Self::Operator>) -> Self {
+    fn new_expr(terms: Vec<Self::Child>, opes: Vec<Self::Operator>, _range: SourceRange) -> Self {
         Self { terms, opes }
     }
     fn parse_expression(s: &str) -> IResult<&str, Self> {
@@ -256,7 +257,7 @@ impl Transpile for OperatorAnd {
 impl ParseExpression for ExpAnd {
     type Child = ExpOrd;
     type Operator = OperatorAnd;
-    fn new_expr(terms: Vec<Self::Child>, opes: Vec<Self::Operator>) -> Self {
+    fn new_expr(terms: Vec<Self::Child>, opes: Vec<Self::Operator>, _range: SourceRange) -> Self {
         Self { terms, opes }
     }
     fn parse_expression(s: &str) -> IResult<&str, Self> {
@@ -304,6 +305,7 @@ impl MoveCheck for ExpAnd {
 pub struct ExpOrd {
     pub terms: Vec<ExpBitOr>,
     pub ope: Option<OperatorOrd>,
+    range: SourceRange
 }
 
 impl GenType for ExpOrd {
@@ -315,7 +317,7 @@ impl GenType for ExpOrd {
                 equs.add_has_trait(t0.clone(), TraitGenerics {
                     trait_id: TraitId { id: Identifier::from_str("Eq") },
                     generics: Vec::new(),
-                });
+                }, self.range.hint("ord operator", ErrorHint::None));
                 equs.add_equation(t0, t1);
                 Ok(Type::from_str("bool"))
             }
@@ -325,7 +327,7 @@ impl GenType for ExpOrd {
                 equs.add_has_trait(t0.clone(), TraitGenerics {
                     trait_id: TraitId { id: Identifier::from_str("Ord") },
                     generics: Vec::new(),
-                });
+                }, self.range.hint("ord operator", ErrorHint::None));
                 equs.add_equation(t0, t1);
                 Ok(Type::from_str("bool"))
             }
@@ -378,12 +380,12 @@ impl Transpile for OperatorOrd {
 impl ParseExpression for ExpOrd {
     type Child = ExpBitOr;
     type Operator = OperatorOrd;
-    fn new_expr(terms: Vec<Self::Child>, mut opes: Vec<Self::Operator>) -> Self {
+    fn new_expr(terms: Vec<Self::Child>, mut opes: Vec<Self::Operator>, range: SourceRange) -> Self {
         if terms.len() == 1 && opes.len() == 0 {
-            Self { terms, ope: None }
+            Self { terms, ope: None, range }
         }
         else if terms.len() == 2 && opes.len() == 1 {
-            Self { terms, ope: Some(opes.remove(0)) }
+            Self { terms, ope: Some(opes.remove(0)), range }
         }
         else {
             unreachable!();
@@ -482,7 +484,7 @@ impl Transpile for OperatorBitOr {
 impl ParseExpression for ExpBitOr {
     type Child = ExpBitXor;
     type Operator = OperatorBitOr;
-    fn new_expr(terms: Vec<Self::Child>, opes: Vec<Self::Operator>) -> Self {
+    fn new_expr(terms: Vec<Self::Child>, opes: Vec<Self::Operator>, _range: SourceRange) -> Self {
         Self { terms, opes }
     }
     fn parse_expression(s: &str) -> IResult<&str, Self> {
@@ -570,7 +572,7 @@ impl Transpile for OperatorBitXor {
 impl ParseExpression for ExpBitXor {
     type Child = ExpBitAnd;
     type Operator = OperatorBitXor;
-    fn new_expr(terms: Vec<Self::Child>, opes: Vec<Self::Operator>) -> Self {
+    fn new_expr(terms: Vec<Self::Child>, opes: Vec<Self::Operator>, _range: SourceRange) -> Self {
         Self { terms, opes }
     }
     fn parse_expression(s: &str) -> IResult<&str, Self> {
@@ -659,7 +661,7 @@ impl Transpile for OperatorBitAnd {
 impl ParseExpression for ExpBitAnd {
     type Child = ExpShift;
     type Operator = OperatorBitAnd;
-    fn new_expr(terms: Vec<Self::Child>, opes: Vec<Self::Operator>) -> Self {
+    fn new_expr(terms: Vec<Self::Child>, opes: Vec<Self::Operator>, _range: SourceRange) -> Self {
         Self { terms, opes }
     }
     fn parse_expression(s: &str) -> IResult<&str, Self> {
@@ -748,7 +750,7 @@ impl Transpile for OperatorShift {
 impl ParseExpression for ExpShift {
     type Child = ExpAddSub;
     type Operator = OperatorShift;
-    fn new_expr(terms: Vec<Self::Child>, opes: Vec<Self::Operator>) -> Self {
+    fn new_expr(terms: Vec<Self::Child>, opes: Vec<Self::Operator>, _range: SourceRange) -> Self {
         Self { terms, opes }
     }
     fn parse_expression(s: &str) -> IResult<&str, Self> {
@@ -841,7 +843,7 @@ impl Transpile for OperatorAddSub {
 impl ParseExpression for ExpAddSub {
     type Child = ExpMulDivRem;
     type Operator = OperatorAddSub;
-    fn new_expr(terms: Vec<Self::Child>, opes: Vec<Self::Operator>) -> Self {
+    fn new_expr(terms: Vec<Self::Child>, opes: Vec<Self::Operator>, _range: SourceRange) -> Self {
         Self { terms, opes }
     }
     fn parse_expression(s: &str) -> IResult<&str, Self> {
@@ -939,7 +941,7 @@ impl Transpile for OperatorMulDivRem {
 impl ParseExpression for ExpMulDivRem {
     type Child = ExpUnaryOpe;
     type Operator = OperatorMulDivRem;
-    fn new_expr(unary_exprs: Vec<Self::Child>, opes: Vec<Self::Operator>) -> Self {
+    fn new_expr(unary_exprs: Vec<Self::Child>, opes: Vec<Self::Operator>, _range: SourceRange) -> Self {
         Self { unary_exprs, opes, tag: Tag::new(), }
     }
     fn parse_expression(s: &str) -> IResult<&str, Self> {

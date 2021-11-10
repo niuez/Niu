@@ -17,8 +17,8 @@ use crate::error::*;
 
 #[derive(Debug, Clone)]
 pub struct WhereSection {
-    has_traits: Vec<(TypeSpec, usize, TraitSpec, Vec<(AssociatedTypeIdentifier, TypeSpec)>)>,
-    tuple_traits: Vec<(TypeSpec, TraitId)>,
+    has_traits: Vec<(TypeSpec, usize, TraitSpec, Vec<(AssociatedTypeIdentifier, TypeSpec)>, SourceRange)>,
+    tuple_traits: Vec<(TypeSpec, TraitId, SourceRange)>,
 }
 
 impl WhereSection {
@@ -29,25 +29,25 @@ impl WhereSection {
         self.has_traits.is_empty()
     }
     pub fn regist_equations(&self, mp: &GenericsTypeMap, equs: &mut TypeEquations, trs: &TraitsInfo) -> Result<(), Error> {
-        for (spec, _, tr_spec, asso_eqs) in self.has_traits.iter() {
+        for (spec, _, tr_spec, asso_eqs, range) in self.has_traits.iter() {
             let ty = spec.generics_to_type(mp, equs, trs)?;
             let tr_gen = tr_spec.generate_trait_generics(equs, trs, mp)?;
-            equs.add_has_trait(ty.clone(), tr_gen.clone());
+            equs.add_has_trait(ty.clone(), tr_gen.clone(), range.hint("where section", ErrorHint::None));
             for (asso_id, asso_spec) in asso_eqs.iter() {
                 let asso_ty = Type::AssociatedType(Box::new(ty.clone()), tr_gen.clone(), asso_id.clone());
                 let asso_spec_ty = asso_spec.generics_to_type(mp, equs, trs)?;
                 equs.add_equation(asso_ty, asso_spec_ty)
             }
         }
-        for (spec, tr_id) in self.tuple_traits.iter() {
+        for (spec, tr_id, range) in self.tuple_traits.iter() {
             let ty = spec.generics_to_type(mp, equs, trs)?;
-            equs.add_tuple_trait(ty, tr_id.clone());
+            equs.add_tuple_trait(ty, tr_id.clone(), range.hint("tuple where section", ErrorHint::None));
         }
         Ok(())
     }
 
     pub fn regist_candidate(&self, equs: &TypeEquations, trs: &mut TraitsInfo) -> Result<(), Error> {
-        for (spec, _, tr_spec, asso_eqs) in self.has_traits.iter() {
+        for (spec, _, tr_spec, asso_eqs, _range) in self.has_traits.iter() {
 
 
             let mut tmp_equs = TypeEquations::new();
@@ -79,14 +79,14 @@ impl WhereSection {
     }
 
     pub fn check_equal(&self, right: &Self) -> bool {
-                self.has_traits.clone().into_iter().collect::<HashSet<_>>()
-            == right.has_traits.clone().into_iter().collect::<HashSet<_>>()
+                self.has_traits.clone().into_iter().map(|(t0, t1, t2, t3, t4)| (t0, t1, t2, t3)).collect::<HashSet<_>>()
+            == right.has_traits.clone().into_iter().map(|(t0, t1, t2, t3, t4)| (t0, t1, t2, t3)).collect::<HashSet<_>>()
     }
 
     pub fn transpile(&self, ta: &TypeAnnotation) -> String {
         let mut conds = Vec::new();
         //let bin_opes = BINARY_OPERATOR_TRAITS.iter().cloned().collect::<HashMap<_, _>>();
-        for (ty, _, tr, assos) in self.has_traits.iter() {
+        for (ty, _, tr, assos, range) in self.has_traits.iter() {
             match find_operator(tr.trait_id.id.into_string().as_str()) {
                 Some(ResultFindOperator::Binary((_, ope))) => {
                     let assos = assos.iter().map(|(id, asso_ty)| (id.id.into_string(), asso_ty.clone())).collect::<HashMap<_, _>>();
@@ -149,7 +149,7 @@ impl WhereSection {
 }
 
 fn parse_associated_type_specifier_elem(s: &str) -> IResult<&str, (AssociatedTypeIdentifier, TypeSpec)> {
-    let (s, (id, _, _, _, spec)) = tuple((parse_associated_type_identifier, multispace0, char('='), multispace0, parse_type_spec))(s)?;
+    let (s, ((id, _, _, _, spec), range)) = with_range(tuple((parse_associated_type_identifier, multispace0, char('='), multispace0, parse_type_spec)))(s)?;
     Ok((s, (id, spec)))
 }
 
@@ -163,19 +163,19 @@ fn parse_associated_type_specifiers(s: &str) -> IResult<&str, Vec<(AssociatedTyp
 }
 
 fn parse_has_trait_element(s: &str) -> IResult<&str, WhereElem> {
-    let (s, (spec, _, _, _, tr_id, _, assos)) = tuple((parse_type_spec, multispace0, char(':'), multispace0, parse_trait_spec, multispace0, parse_associated_type_specifiers))(s)?;
+    let (s, ((spec, _, _, _, tr_id, _, assos), range)) = with_range(tuple((parse_type_spec, multispace0, char(':'), multispace0, parse_trait_spec, multispace0, parse_associated_type_specifiers)))(s)?;
     let dep = spec.associated_type_depth();
-    Ok((s, WhereElem::HasTrait((spec, dep, tr_id, assos))))
+    Ok((s, WhereElem::HasTrait((spec, dep, tr_id, assos, range))))
 }
 
 fn parse_tuple_trait_element(s: &str) -> IResult<&str, WhereElem> {
-    let (s, (_, _, spec, _, _, _, tr_id)) = tuple((tag("tuple"), multispace1, parse_type_spec, multispace0, char(':'), multispace0, parse_trait_id))(s)?;
-    Ok((s, WhereElem::TupleTrait((spec, tr_id))))
+    let (s, ((_, _, spec, _, _, _, tr_id), range)) = with_range(tuple((tag("tuple"), multispace1, parse_type_spec, multispace0, char(':'), multispace0, parse_trait_id)))(s)?;
+    Ok((s, WhereElem::TupleTrait((spec, tr_id, range))))
 }
 
 enum WhereElem {
-    HasTrait((TypeSpec, usize, TraitSpec, Vec<(AssociatedTypeIdentifier, TypeSpec)>)),
-    TupleTrait((TypeSpec, TraitId)),
+    HasTrait((TypeSpec, usize, TraitSpec, Vec<(AssociatedTypeIdentifier, TypeSpec)>, SourceRange)),
+    TupleTrait((TypeSpec, TraitId, SourceRange)),
 }
 
 pub fn parse_where_section(s: &str) -> IResult<&str, WhereSection> {

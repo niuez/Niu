@@ -22,24 +22,27 @@ impl SourceRange {
     pub fn get_range_str<'a>(&self, s: &'a str) -> &'a str {
         s.get((s.len() - self.start)..(s.len() - self.end)).unwrap()
     }
+    pub fn hint(&self, hint: &str, prev: ErrorHint) -> ErrorHint {
+        RangeHint::new(self.clone(), hint, prev)
+    }
 }
 
 #[derive(Debug, Clone)]
 pub struct RangeHint {
     range: SourceRange,
     hint: String,
-    err: Box<Error>,
+    prev: Box<ErrorHint>,
 }
 
 impl RangeHint {
-    pub fn new(range: SourceRange, hint: String, err: Error) -> ErrorHint {
-        ErrorHint::Range(Self { range, hint, err: Box::new(err) })
+    pub fn new(range: SourceRange, hint: &str, prev: ErrorHint) -> ErrorHint {
+        ErrorHint::Range(Self { range, hint: hint.to_string(), prev: Box::new(prev) })
     }
 }
 
 
 impl NiuError for RangeHint {
     fn what(&self, data: &ErrorData) -> String {
-        format!("{} in\n|| {}\n{}", self.hint, self.range.get_range_str(data.statement).to_string(), self.err.as_ref().what(data))
+        format!("{}\n{} in\n|| {}", self.hint, self.range.get_range_str(data.statement).to_string(), self.prev.as_ref().what(data))
     }
 }
