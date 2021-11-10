@@ -69,12 +69,12 @@ impl FuncDefinitionInfo {
         Ok(Type::Func(args, Box::new(return_type), type_info))
     }
 
-    pub fn check_equal(&self, right: &Self, equs: &mut TypeEquations, trs: &TraitsInfo, self_gen_map: &GenericsTypeMap, right_gen_map: &GenericsTypeMap) -> Result<(), Box<dyn NiuError>> {
+    pub fn check_equal(&self, right: &Self, equs: &mut TypeEquations, trs: &TraitsInfo, self_gen_map: &GenericsTypeMap, right_gen_map: &GenericsTypeMap) -> Result<(), Error> {
         if self.generics != right.generics {
-            Err(ErrorComment::boxed(format!("generics of method {:?} is not matched", self.func_id)))?;
+            Err(ErrorComment::empty(format!("generics of method {:?} is not matched", self.func_id)))?;
         }
         if !self.where_sec.check_equal(&right.where_sec) {
-            Err(ErrorComment::boxed(format!("where_section of method {:?} is not matched", self.func_id)))?;
+            Err(ErrorComment::empty(format!("where_section of method {:?} is not matched", self.func_id)))?;
         }
         let mut trs = trs.into_scope();
         for g_id in self.generics.iter() {
@@ -125,7 +125,7 @@ impl FuncDefinition {
          }
          )
     }
-    pub fn unify_definition(&self, equs: &mut TypeEquations, trs: &TraitsInfo) -> Result<(), Box<dyn NiuError>> {
+    pub fn unify_definition(&self, equs: &mut TypeEquations, trs: &TraitsInfo) -> Result<(), Error> {
         if let FuncBlock::Block(ref block) = self.block {
             if self.func_id == Identifier::from_str("main") {
                 if self.generics.len() > 0 {
@@ -143,7 +143,7 @@ impl FuncDefinition {
             }
             else {
                 Ok(())
-            }.map_err(|s| ErrorComment::boxed(s))?;
+            }.map_err(|s| ErrorComment::empty(s))?;
 
             equs.into_scope();
 

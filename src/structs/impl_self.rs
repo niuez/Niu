@@ -46,7 +46,7 @@ impl ImplSelfDefinition {
             tag: self.tag.clone(),
         }
     }
-    pub fn unify_require_methods(&self, equs: &mut TypeEquations, trs: &TraitsInfo) -> Result<(), Box<dyn NiuError>> {
+    pub fn unify_require_methods(&self, equs: &mut TypeEquations, trs: &TraitsInfo) -> Result<(), Error> {
         let mut trs = trs.into_scope();
         for ty_id in self.generics.iter() {
             trs.regist_generics_type(ty_id)?;
@@ -70,9 +70,9 @@ impl ImplSelfDefinition {
 }
 
 impl ImplSelfCandidate {
-    pub fn generate_equations_for_call_equation(&self, call_eq: &CallEquation, trs: &TraitsInfo) -> Result<TypeEquations, Box<dyn NiuError>> {
+    pub fn generate_equations_for_call_equation(&self, call_eq: &CallEquation, trs: &TraitsInfo) -> Result<TypeEquations, Error> {
         if call_eq.trait_gen != None {
-            return Err(ErrorComment::boxed(format!("trait_id is not matched")))
+            return Err(ErrorComment::empty(format!("trait_id is not matched")))
         }
         let mut equs = TypeEquations::new();
         let self_type = call_eq.tag.generate_type_variable("SelfType", 0, &mut equs);
@@ -91,7 +91,7 @@ impl ImplSelfCandidate {
         self.where_sec.regist_equations(&gen_mp, &mut equs, trs)?;
         let func_ty = self.require_methods
             .get(&call_eq.func_id)
-            .ok_or(ErrorComment::boxed(format!("require methods doesnt have {:?}", call_eq.func_id)))?
+            .ok_or(ErrorComment::empty(format!("require methods doesnt have {:?}", call_eq.func_id)))?
             .generate_type(&gen_mp, &mut equs, trs, &call_eq.func_id)?;
         match func_ty {
             Type::Func(args, ret, info) => {
@@ -107,7 +107,7 @@ impl ImplSelfCandidate {
                 };
                 equs.add_equation(alpha, Type::Func(args.clone(), ret.clone(), info));
                 if args.len() != call_eq.args.len() {
-                    return Err(ErrorComment::boxed(format!("args len is not matched {:?} != {:?}", args, call_eq.args)))
+                    return Err(ErrorComment::empty(format!("args len is not matched {:?} != {:?}", args, call_eq.args)))
                 }
                 for (l, r) in args.into_iter().zip(call_eq.args.iter()) {
                     equs.add_equation(l, r.clone())
@@ -138,7 +138,7 @@ impl ImplSelfCandidate {
     }
     pub fn get_trait_method_from_id(&self, equs: &mut TypeEquations, trs: &TraitsInfo, method_id: &TraitMethodIdentifier, subst: &SubstsMap, ty: &Type) -> Type {
         let gen_vec = self.generics.iter().enumerate().map(|(i, id)| Ok((id.clone(), subst.get_from_tag(&self.tag, "Generics", i)?)))
-            .collect::<Result<Vec<_>, Box<dyn NiuError>>>().unwrap();
+            .collect::<Result<Vec<_>, Error>>().unwrap();
         let gen_hashmp = gen_vec.iter().cloned().collect::<HashMap<_, _>>();
         let mp = GenericsTypeMap::empty();
         let gen_mp = mp.next(gen_hashmp);

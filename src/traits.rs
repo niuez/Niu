@@ -107,12 +107,12 @@ impl TraitSpec {
     pub fn get_tag(&self) -> Tag {
         self.trait_id.id.tag.clone()
     }
-    pub fn generate_trait_generics(&self, equs: &mut TypeEquations, trs: &TraitsInfo, gen_mp: &GenericsTypeMap) -> Result<TraitGenerics, Box<dyn NiuError>> {
+    pub fn generate_trait_generics(&self, equs: &mut TypeEquations, trs: &TraitsInfo, gen_mp: &GenericsTypeMap) -> Result<TraitGenerics, Error> {
         trs.check_trait(self)?;
         let generics = self.generics.iter().map(|g| g.generics_to_type(gen_mp, equs, trs)).collect::<Result<Vec<_>, _>>()?;
         Ok(TraitGenerics { trait_id: self.trait_id.clone(), generics })
     }
-    pub fn generate_trait_generics_with_no_map(&self, equs: &TypeEquations, trs: &TraitsInfo) -> Result<TraitGenerics, Box<dyn NiuError>> {
+    pub fn generate_trait_generics_with_no_map(&self, equs: &TypeEquations, trs: &TraitsInfo) -> Result<TraitGenerics, Error> {
         trs.check_trait(self)?;
         let generics = self.generics.iter().map(|g| g.generate_type_no_auto_generics(equs, trs)).collect::<Result<Vec<_>, _>>()?;
         Ok(TraitGenerics { trait_id: self.trait_id.clone(), generics })

@@ -28,7 +28,7 @@ pub enum SelectionCandidate {
 }
 
 impl SelectionCandidate {
-    pub fn generate_equations_for_call_equation(&self, call_eq: &CallEquation, trs: &TraitsInfo) -> Result<TypeEquations, Box<dyn NiuError>> {
+    pub fn generate_equations_for_call_equation(&self, call_eq: &CallEquation, trs: &TraitsInfo) -> Result<TypeEquations, Error> {
         match *self {
             SelectionCandidate::ImplCandidate(ref cand) => {
                 cand.generate_equations_for_call_equation(call_eq, trs)
@@ -147,7 +147,7 @@ impl ImplDefinition {
         }))
     }
 
-    pub fn unify_require_methods(&self, equs: &mut TypeEquations, trs: &TraitsInfo) -> Result<(), Box<dyn NiuError>> {
+    pub fn unify_require_methods(&self, equs: &mut TypeEquations, trs: &TraitsInfo) -> Result<(), Error> {
         let mut trs = trs.into_scope();
         for ty_id in self.generics.iter() {
             trs.regist_generics_type(ty_id)?;
@@ -473,10 +473,10 @@ pub struct ImplCandidate {
 
 
 impl ImplCandidate {
-    pub fn generate_equations_for_call_equation(&self, call_eq: &CallEquation, trs: &TraitsInfo) -> Result<TypeEquations, Box<dyn NiuError>> {
+    pub fn generate_equations_for_call_equation(&self, call_eq: &CallEquation, trs: &TraitsInfo) -> Result<TypeEquations, Error> {
         if let Some(trait_spec) = &call_eq.trait_gen {
             if trait_spec.trait_id != self.get_trait_id() {
-                return Err(ErrorComment::boxed(format!("trait_id is not matched")))
+                return Err(ErrorComment::empty(format!("trait_id is not matched")))
             }
         }
         let mut equs = TypeEquations::new();
@@ -504,7 +504,7 @@ impl ImplCandidate {
         self.where_sec.regist_equations(&gen_mp, &mut equs, trs)?;
         let func_ty = self.require_methods
             .get(&TraitMethodIdentifier { id: call_eq.func_id.clone() })
-            .ok_or(ErrorComment::boxed(format!("require methods doesnt have {:?}", call_eq.func_id)))?
+            .ok_or(ErrorComment::empty(format!("require methods doesnt have {:?}", call_eq.func_id)))?
             .generate_type(&gen_mp, &mut equs, trs, &call_eq.func_id)?;
         match func_ty {
             Type::Func(args, ret, info) => {
@@ -526,7 +526,7 @@ impl ImplCandidate {
                 equs.add_equation(alpha, Type::Func(args.clone(), ret.clone(), info));
 
                 if args.len() != call_eq.args.len() {
-                    return Err(ErrorComment::boxed(format!("args len is not matched")))
+                    return Err(ErrorComment::empty(format!("args len is not matched")))
                 }
                 for (l, r) in args.into_iter().zip(call_eq.args.iter()) {
                     equs.add_equation(l, r.clone())
@@ -566,7 +566,7 @@ impl ImplCandidate {
 
     pub fn get_associated_from_id(&self, equs: &mut TypeEquations, trs: &TraitsInfo, asso_id: &AssociatedTypeIdentifier, subst: &SubstsMap) -> Type {
         let gen_mp = self.generics.iter().enumerate().map(|(i, id)| Ok((id.clone(), subst.get_from_tag(&self.trait_spec.get_tag(), "Generics", i)?)))
-            .collect::<Result<HashMap<_, _>, Box<dyn NiuError>>>().unwrap();
+            .collect::<Result<HashMap<_, _>, Error>>().unwrap();
         let mp = GenericsTypeMap::empty();
         let gen_mp = mp.next(gen_mp);
         self.asso_defs.get(asso_id).unwrap().generics_to_type(&gen_mp, equs, trs).unwrap()
@@ -574,7 +574,7 @@ impl ImplCandidate {
 
     pub fn get_trait_method_from_id(&self, equs: &mut TypeEquations, trs: &TraitsInfo, method_id: &TraitMethodIdentifier, subst: &SubstsMap, ty: &Type) -> Type {
         let gen_mp = self.generics.iter().enumerate().map(|(i, id)| Ok((id.clone(), subst.get_from_tag(&self.trait_spec.get_tag(), "Generics", i)?)))
-            .collect::<Result<HashMap<_, _>, Box<dyn NiuError>>>().unwrap();
+            .collect::<Result<HashMap<_, _>, Error>>().unwrap();
         let mp = GenericsTypeMap::empty();
         let gen_mp = mp.next(gen_mp);
         let before_self_type = equs.set_self_type(Some(ty.clone()));
@@ -623,10 +623,10 @@ impl ParamCandidate {
             trait_gen, trait_generics_arg, impl_ty, asso_defs, require_methods,
         })
     }
-    pub fn generate_equations_for_call_equation(&self, call_eq: &CallEquation, trs: &TraitsInfo) -> Result<TypeEquations, Box<dyn NiuError>> {
+    pub fn generate_equations_for_call_equation(&self, call_eq: &CallEquation, trs: &TraitsInfo) -> Result<TypeEquations, Error> {
         if let Some(trait_spec) = &call_eq.trait_gen {
             if trait_spec.trait_id != self.trait_gen.trait_id {
-                return Err(ErrorComment::boxed(format!("trait_id is not matched")))
+                return Err(ErrorComment::empty(format!("trait_id is not matched")))
             }
         }
         let empty_gen_mp = GenericsTypeMap::empty();
@@ -649,7 +649,7 @@ impl ParamCandidate {
         equs.add_equation(self.impl_ty.clone(), self_type.clone());
         let func_ty = self.require_methods
             .get(&TraitMethodIdentifier { id: call_eq.func_id.clone() })
-            .ok_or(ErrorComment::boxed(format!("require methods doesnt have {:?}", call_eq.func_id)))?
+            .ok_or(ErrorComment::empty(format!("require methods doesnt have {:?}", call_eq.func_id)))?
             .generate_type(&gen_mp, &mut equs, trs, &call_eq.func_id)?;
         match func_ty {
             Type::Func(args, ret, info) => {
@@ -670,7 +670,7 @@ impl ParamCandidate {
                 };
                 equs.add_equation(alpha, Type::Func(args.clone(), ret.clone(), info));
                 if args.len() != call_eq.args.len() {
-                    return Err(ErrorComment::boxed(format!("args len is not matched")))
+                    return Err(ErrorComment::empty(format!("args len is not matched")))
                 }
                 for (l, r) in args.into_iter().zip(call_eq.args.iter()) {
                     equs.add_equation(l, r.clone())

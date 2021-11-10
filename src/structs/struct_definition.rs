@@ -57,7 +57,7 @@ impl StructDefinition {
     pub fn get_member_def(&self) -> &StructMemberDefinition {
         &self.member_def
     }
-    pub fn unify_require_methods(&self, equs: &mut TypeEquations, trs: &TraitsInfo) -> Result<(), Box<dyn NiuError>> {
+    pub fn unify_require_methods(&self, equs: &mut TypeEquations, trs: &TraitsInfo) -> Result<(), Error> {
         self.impl_self.unify_require_methods(equs, trs)
     }
     pub fn mut_check(&self, ta: &TypeAnnotation, vars: &mut VariablesInfo) -> Result<(), String> {
@@ -188,11 +188,11 @@ impl StructMemberDefinition {
                         let mp = self.generics.iter().cloned().zip(gens.iter().cloned()).collect();
                         spec.generics_to_type(&GenericsTypeMap::empty().next(mp), equs, trs)
                     }
-                    None => Err(ErrorComment::boxed(format!("{:?} < {:?} >doesnt have member {:?}", self.struct_id, gens, id))),
+                    None => Err(ErrorComment::empty(format!("{:?} < {:?} >doesnt have member {:?}", self.struct_id, gens, id))),
                 }
             }
             StructMember::CppInline(_) => {
-                Err(ErrorComment::boxed(format!("{:?} is inline struct", self.struct_id)))
+                Err(ErrorComment::empty(format!("{:?} is inline struct", self.struct_id)))
             }
         }
     }

@@ -1,10 +1,8 @@
 pub mod range;
 pub mod comment;
-pub mod empty;
 
 pub use range::*;
 pub use comment::*;
-pub use empty::*;
 
 pub struct ErrorData<'a> {
     pub statement: &'a str,
@@ -14,9 +12,19 @@ pub trait NiuError: std::fmt::Debug {
     fn what(&self, data: &ErrorData) -> String;
 }
 
-impl<'a, E: NiuError + 'a> From<Box<E>> for Box<dyn NiuError + 'a> {
-    fn from(t: Box<E>) -> Box<dyn NiuError + 'a> {
-        t
-    }
+#[derive(Debug, Clone)]
+pub enum Error {
+    Range(ErrorRange),
+    Comment(ErrorComment),
+    None,
 }
 
+impl NiuError for Error {
+    fn what(&self, data: &ErrorData) -> String {
+        match *self {
+            Self::Range(ref a) => a.what(data),
+            Self::Comment(ref a) => a.what(data),
+            Self::None => format!(""),
+        }
+    }
+}

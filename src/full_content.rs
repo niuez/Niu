@@ -37,13 +37,13 @@ where
 }
 
 impl FullContent {
-    fn regist_traits(&self, trs: &mut TraitsInfo) -> Result<(), (Box<dyn NiuError>, &str)> {
+    fn regist_traits(&self, trs: &mut TraitsInfo) -> Result<(), (Error, &str)> {
         for t in self.traits.iter() {
             name_errmap(t, |tr| trs.regist_trait(tr))?;
         }
         Ok(())
     }
-    fn regist_impls(&self, equs: &mut TypeEquations, trs: &mut TraitsInfo) -> Result<(), (Box<dyn NiuError>, &str)> {
+    fn regist_impls(&self, equs: &mut TypeEquations, trs: &mut TraitsInfo) -> Result<(), (Error, &str)> {
         for (im, _) in self.impls.iter() {
             trs.preregist_impl_candidate(im);
         }
@@ -52,14 +52,14 @@ impl FullContent {
         }
         Ok(())
     }
-    fn regist_self_impls(&self, trs: &mut TraitsInfo) -> Result<(), (Box<dyn NiuError>, &str)> {
+    fn regist_self_impls(&self, trs: &mut TraitsInfo) -> Result<(), (Error, &str)> {
         for st in self.structs.iter() {
             name_errmap(st, |st| trs.regist_self_impl(st.get_impl_self_def()))?;
         }
         Ok(())
     }
 
-    fn inner_type_check(&self) -> Result<TypeAnnotation, (Box<dyn NiuError>, &str)> {
+    fn inner_type_check(&self) -> Result<TypeAnnotation, (Error, &str)> {
         let mut equs = TypeEquations::new();
         let mut ta = TypeAnnotation::new();
         let mut trs = TraitsInfo::new();
@@ -100,7 +100,7 @@ impl FullContent {
         let res = self.inner_type_check();
         res.map_err(|(err, name)| {
                 let data = ErrorData { statement: self.programs.get(name).unwrap() };
-                err.as_ref().what(&data)
+                err.what(&data)
             }
         )
     }

@@ -27,7 +27,7 @@ pub enum CppInlineElem {
 }
 
 impl CppInline {
-    pub fn generate_cpp_inline_info(&self, equs: &mut TypeEquations, trs: &TraitsInfo, gen_mp: &GenericsTypeMap) -> Result<CppInlineInfo, Box<dyn NiuError>> {
+    pub fn generate_cpp_inline_info(&self, equs: &mut TypeEquations, trs: &TraitsInfo, gen_mp: &GenericsTypeMap) -> Result<CppInlineInfo, Error> {
         let tag = Tag::new();
         let mut cnt = 0;
         let elems = self.inlines.iter().map(|inline| match inline {
@@ -41,7 +41,7 @@ impl CppInline {
             CppInlineElem::Arg(id) => Ok(CppInlineInfoElem::Arg(id.clone())),
             CppInlineElem::Any(c) => Ok(CppInlineInfoElem::Any(*c)),
             _ => unreachable!("End???"),
-        }).collect::<Result<Vec<_>, Box<dyn NiuError>>>()?;
+        }).collect::<Result<Vec<_>, Error>>()?;
         Ok(CppInlineInfo { elems, tag })
     }
 

@@ -69,16 +69,16 @@ impl<'a> TraitsInfo<'a> {
             upper_info: Some(self),
         }
     }
-    pub fn regist_structs_info(&mut self, st: &StructMemberDefinition) -> Result<(), Box<dyn NiuError>> {
+    pub fn regist_structs_info(&mut self, st: &StructMemberDefinition) -> Result<(), Error> {
         let id = st.get_id();
         match self.typeids.insert(id.clone(), StructDefinitionInfo::Def(st.clone())) {
-            Some(_) => Err(ErrorComment::boxed(format!("duplicate struct definition: {:?}", id))),
+            Some(_) => Err(ErrorComment::empty(format!("duplicate struct definition: {:?}", id))),
             None => Ok(()),
         }
     }
-    pub fn regist_generics_type(&mut self, generics_id: &TypeId) -> Result<(), Box<dyn NiuError>> {
+    pub fn regist_generics_type(&mut self, generics_id: &TypeId) -> Result<(), Error> {
         match self.typeids.insert(generics_id.clone(), StructDefinitionInfo::Generics) {
-            Some(_) => Err(ErrorComment::boxed(format!("duplicate generics definition: {:?}", generics_id))),
+            Some(_) => Err(ErrorComment::empty(format!("duplicate generics definition: {:?}", generics_id))),
             None => Ok(()),
         }
     }
@@ -106,7 +106,7 @@ impl<'a> TraitsInfo<'a> {
         }*/
     }
 
-    pub fn get_struct_definition_info(&self, id: &TypeId) -> Result<&StructDefinitionInfo, Box<dyn NiuError>> {
+    pub fn get_struct_definition_info(&self, id: &TypeId) -> Result<&StructDefinitionInfo, Error> {
         if let Some(def_info) = self.typeids.get(id) {
             Ok(def_info)
         }
@@ -114,7 +114,7 @@ impl<'a> TraitsInfo<'a> {
             trs.get_struct_definition_info(id)
         }
         else {
-            Err(ErrorComment::boxed(format!("type id {:?} is not found", id)))
+            Err(ErrorComment::empty(format!("type id {:?} is not found", id)))
         }
     }
     
@@ -140,7 +140,7 @@ impl<'a> TraitsInfo<'a> {
                         Ok(Type::Generics(id, gens))
                     }
                     else {
-                        Err(ErrorComment::boxed(format!("type {:?} has {:?} generics but not match to {:?}", id, def.get_generics_len(), gens)))
+                        Err(ErrorComment::empty(format!("type {:?} has {:?} generics but not match to {:?}", id, def.get_generics_len(), gens)))
                     }
                 }
                 StructDefinitionInfo::Primitive => {
@@ -148,7 +148,7 @@ impl<'a> TraitsInfo<'a> {
                         Ok(Type::Generics(id, gens))
                     }
                     else {
-                        Err(ErrorComment::boxed(format!("primitive type {:?} doesnt have generics argument", id)))
+                        Err(ErrorComment::empty(format!("primitive type {:?} doesnt have generics argument", id)))
                     }
                 }
                 StructDefinitionInfo::Generics => {
@@ -156,7 +156,7 @@ impl<'a> TraitsInfo<'a> {
                         Ok(Type::Generics(id, gens))
                     }
                     else {
-                        Err(ErrorComment::boxed(format!("primitive type {:?} doesnt have generics argument", id)))
+                        Err(ErrorComment::empty(format!("primitive type {:?} doesnt have generics argument", id)))
                     }
                 }
             }
@@ -165,7 +165,7 @@ impl<'a> TraitsInfo<'a> {
             trs.check_typeid_with_generics(equs, id, gens, top_trs)
         }
         else {
-            Err(ErrorComment::boxed(format!("not exist definition: {:?}", id)))
+            Err(ErrorComment::empty(format!("not exist definition: {:?}", id)))
         }
     }
 
@@ -179,7 +179,7 @@ impl<'a> TraitsInfo<'a> {
                         Ok(Type::Generics(id, gens))
                     }
                     else {
-                        Err(ErrorComment::boxed(format!("type {:?} has {:?} generics but not match to {:?}", id, def.get_generics_len(), gens)))
+                        Err(ErrorComment::empty(format!("type {:?} has {:?} generics but not match to {:?}", id, def.get_generics_len(), gens)))
                     }
                 }
                 StructDefinitionInfo::Primitive => {
@@ -187,7 +187,7 @@ impl<'a> TraitsInfo<'a> {
                         Ok(Type::Generics(id, gens))
                     }
                     else {
-                        Err(ErrorComment::boxed(format!("primitive type {:?} doesnt have generics argument", id)))
+                        Err(ErrorComment::empty(format!("primitive type {:?} doesnt have generics argument", id)))
                     }
                 }
                 StructDefinitionInfo::Generics => {
@@ -195,7 +195,7 @@ impl<'a> TraitsInfo<'a> {
                         Ok(Type::Generics(id, gens))
                     }
                     else {
-                        Err(ErrorComment::boxed(format!("primitive type {:?} doesnt have generics argument", id)))
+                        Err(ErrorComment::empty(format!("primitive type {:?} doesnt have generics argument", id)))
                     }
                 }
             }
@@ -204,18 +204,18 @@ impl<'a> TraitsInfo<'a> {
             trs.check_typeid_no_auto_generics(id, gens, top_trs)
         }
         else {
-            Err(ErrorComment::boxed(format!("not exist definition: {:?}", id)))
+            Err(ErrorComment::empty(format!("not exist definition: {:?}", id)))
         }
     }
 
-    pub fn check_trait(&self, tr: &TraitSpec) -> Result<(), Box<dyn NiuError>> {
+    pub fn check_trait(&self, tr: &TraitSpec) -> Result<(), Error> {
         match self.traits.get(&tr.trait_id) {
             None => {
                 if let Some(trs) = self.upper_info {
                     trs.check_trait(tr)
                 }
                 else {
-                    Err(ErrorComment::boxed(format!("trait {:?} not found", tr)))
+                    Err(ErrorComment::empty(format!("trait {:?} not found", tr)))
                 }
             }
             Some(tr_def) => {
@@ -223,13 +223,13 @@ impl<'a> TraitsInfo<'a> {
                     Ok(())
                 }
                 else {
-                    Err(ErrorComment::boxed(format!("Generics of {:?} is not match to trait {:?}", tr, tr.trait_id)))
+                    Err(ErrorComment::empty(format!("Generics of {:?} is not match to trait {:?}", tr, tr.trait_id)))
                 }
             }
         }
     }
 
-    pub fn regist_trait(&mut self, tr: &TraitDefinition) -> Result<(), Box<dyn NiuError>> {
+    pub fn regist_trait(&mut self, tr: &TraitDefinition) -> Result<(), Error> {
         let (trait_id, trait_def) = tr.get_trait_id_pair();
         for (id, _) in trait_def.required_methods.iter() {
             match self.member_to_traits.get_mut(&id.id) {
@@ -242,7 +242,7 @@ impl<'a> TraitsInfo<'a> {
             }
         }
         self.traits.insert(trait_id.clone(), trait_def)
-            .map_or(Ok(()), |_| Err(ErrorComment::boxed(format!("trait {:?} is already defined", trait_id))))
+            .map_or(Ok(()), |_| Err(ErrorComment::empty(format!("trait {:?} is already defined", trait_id))))
     }
 
     fn regist_selection_candidate(&mut self, trait_id: &TraitId, cand: SelectionCandidate) {
@@ -256,7 +256,7 @@ impl<'a> TraitsInfo<'a> {
         }
     }
 
-    pub fn regist_self_impl(&mut self, def: &ImplSelfDefinition) -> Result<(), Box<dyn NiuError>> {
+    pub fn regist_self_impl(&mut self, def: &ImplSelfDefinition) -> Result<(), Error> {
         let info = def.get_info();
         let typeid = info.impl_ty.get_type_id()?;
         match self.get_struct_definition_info(&typeid)? {
@@ -281,8 +281,8 @@ impl<'a> TraitsInfo<'a> {
                 }
                 Ok(())
             }
-            StructDefinitionInfo::Primitive => Err(ErrorComment::boxed(format!("cant impl self for primitive type"))),
-            StructDefinitionInfo::Generics => Err(ErrorComment::boxed(format!("cant impl self for primitive type"))),
+            StructDefinitionInfo::Primitive => Err(ErrorComment::empty(format!("cant impl self for primitive type"))),
+            StructDefinitionInfo::Generics => Err(ErrorComment::empty(format!("cant impl self for primitive type"))),
         }
     }
 
@@ -302,7 +302,7 @@ impl<'a> TraitsInfo<'a> {
         self.regist_selection_candidate(&trait_id, cand);
     }
 
-    pub fn regist_impl_candidate(&self, equs: &mut TypeEquations, ti: &ImplDefinition) -> Result<(), Box<dyn NiuError>> {
+    pub fn regist_impl_candidate(&self, equs: &mut TypeEquations, ti: &ImplDefinition) -> Result<(), Error> {
         let (trait_id, _) = ti.get_impl_trait_pair();
         let mut gen_trs = self.into_scope();
         for id in ti.generics.iter() {
@@ -314,25 +314,25 @@ impl<'a> TraitsInfo<'a> {
         self.check_trait(&ti.trait_spec)?;
 
         match self.get_traitinfo(&trait_id) {
-            None => Err(ErrorComment::boxed(format!("trait {:?} is not defined", trait_id))),
+            None => Err(ErrorComment::empty(format!("trait {:?} is not defined", trait_id))),
             Some(tr) => {
                 let empty_gen_map = GenericsTypeMap::empty();
                 let tr_gen_map = tr.generics.iter().zip(ti.trait_spec.generics.iter())
                     .map(|(id, param)| Ok((id.clone(), param.generate_type_no_auto_generics(&equs, &gen_trs)?)))
-                    .collect::<Result<HashMap<_, _>, Box<dyn NiuError>>>()?;
+                    .collect::<Result<HashMap<_, _>, Error>>()?;
                 let tr_gen_map = empty_gen_map.next(tr_gen_map);
                 log::debug!("{:?}", tr_gen_map);
                 {
                     tr.where_sec.regist_equations(&GenericsTypeMap::empty(), equs, &gen_trs)?;
                     match equs.unify(&gen_trs) {
                         Ok(_) => Ok(()),
-                        Err(UnifyErr::Deficiency(s)) => Err(ErrorComment::boxed(format!("trait {:?} where section error, {:?}", tr.trait_id, s))),
-                        Err(UnifyErr::Contradiction(s)) => Err(ErrorComment::boxed(format!("trait {:?} where section error, {:?}", tr.trait_id, s))),
+                        Err(UnifyErr::Deficiency(s)) => Err(ErrorComment::empty(format!("trait {:?} where section error, {:?}", tr.trait_id, s))),
+                        Err(UnifyErr::Contradiction(s)) => Err(ErrorComment::empty(format!("trait {:?} where section error, {:?}", tr.trait_id, s))),
                     }?;
                 }
                 for (id, info) in tr.required_methods.iter() {
                     match ti.require_methods.get(id) {
-                        None => Err(ErrorComment::boxed(format!("method {:?}::{:?} is not defined for {:?}", tr, id, ti.impl_ty)))?,
+                        None => Err(ErrorComment::empty(format!("method {:?}::{:?} is not defined for {:?}", tr, id, ti.impl_ty)))?,
                         Some(impl_method) => {
                             {
                                 equs.clear_equations();
@@ -346,10 +346,10 @@ impl<'a> TraitsInfo<'a> {
             }
         }
     }
-    pub fn regist_param_candidate(&mut self, ty: Type, trait_gen: &TraitGenerics, mut asso_mp: HashMap<AssociatedTypeIdentifier, Type>) -> Result<(), Box<dyn NiuError>> {
+    pub fn regist_param_candidate(&mut self, ty: Type, trait_gen: &TraitGenerics, mut asso_mp: HashMap<AssociatedTypeIdentifier, Type>) -> Result<(), Error> {
         log::debug!("param {:?}, {:?}", ty, trait_gen);
         match self.get_traitinfo(&trait_gen.trait_id).cloned() {
-            None => Err(ErrorComment::boxed(format!("trait {:?} is not defined", trait_gen))),
+            None => Err(ErrorComment::empty(format!("trait {:?} is not defined", trait_gen))),
             Some(tr_def) => {
                 let mut equs = TypeEquations::new();
                 equs.set_self_type(Some(ty.clone()));
@@ -369,7 +369,7 @@ impl<'a> TraitsInfo<'a> {
                     (asso_id.clone(), asso_ty)
                 }).collect::<HashMap<_, _>>();
                 if asso_mp.len() > 0 {
-                    Err(ErrorComment::boxed(format!("undefined associated type speficier: {:?}", asso_mp)))
+                    Err(ErrorComment::empty(format!("undefined associated type speficier: {:?}", asso_mp)))
                 }
                 else {
                     let cand = ParamCandidate::new(trait_gen.clone(), tr_def.generics.clone(), ty.clone(), asso_tys, tr_def.required_methods.clone());

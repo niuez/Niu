@@ -241,7 +241,7 @@ impl Type {
         match *self {
             Type::Ref(ref ty) | Type::MutRef(ref ty) => {
                 if ty.is_reference() {
-                    Err(UnifyErr::Contradiction(ErrorComment::boxed(format!("double reference is not allowed, {:?}", self))))
+                    Err(UnifyErr::Contradiction(ErrorComment::empty(format!("double reference is not allowed, {:?}", self))))
                 }
                 else {
                     Ok(())
@@ -451,25 +451,25 @@ impl SubstsMap {
     pub fn get(&self, id: &Identifier, label: &'static str, i: usize) -> TResult {
         match self.mp.get(&(id.get_tag_number(), label, i)) {
             Some(t) => Ok(t.clone()),
-            None => Err(ErrorComment::boxed(format!("undefined TypeVariable({:?}, {:?})", id, i))),
+            None => Err(ErrorComment::empty(format!("undefined TypeVariable({:?}, {:?})", id, i))),
         }
     }
     pub fn get_from_tag(&self, tag: &Tag, label: &'static str, i: usize) -> TResult {
         match self.mp.get(&(tag.get_num(), label, i)) {
             Some(t) => Ok(t.clone()),
-            None => Err(ErrorComment::boxed(format!("undefined TypeVariable({:?}, {:?})", tag, i))),
+            None => Err(ErrorComment::empty(format!("undefined TypeVariable({:?}, {:?})", tag, i))),
         }
     }
 }
 
-pub type TResult = Result<Type, Box<dyn NiuError>>;
+pub type TResult = Result<Type, Error>;
 
 pub trait GenType {
     fn gen_type(&self, equs: &mut TypeEquations, trs: &TraitsInfo) -> TResult;
 }
 
 pub enum UnifyErr {
-    Contradiction(Box<dyn NiuError>),
+    Contradiction(Error),
     Deficiency(String),
 }
 
@@ -482,10 +482,10 @@ impl UnifyErr {
         }
     }
     */
-    pub fn into_err(self) -> Box<dyn NiuError> {
+    pub fn into_err(self) -> Error {
         match self {
             Self::Contradiction(err) => err,
-            Self::Deficiency(st) => ErrorComment::boxed(st),
+            Self::Deficiency(st) => ErrorComment::empty(st),
         }
     }
 }
@@ -554,7 +554,7 @@ impl TypeEquations {
     pub fn get_self_type(&self) -> TResult {
         match self.self_type.clone() {
             Some(ty) => Ok(ty),
-            None => Err(ErrorComment::boxed(format!("cant use Self"))),
+            None => Err(ErrorComment::empty(format!("cant use Self"))),
         }
     }
     pub fn add_has_trait(&mut self, ty: Type, tr: TraitGenerics) {
@@ -595,7 +595,7 @@ impl TypeEquations {
                 return Ok(t.clone())
             }
         }
-        Err(ErrorComment::boxed(format!("Variable {:?} is not found", var)))
+        Err(ErrorComment::empty(format!("Variable {:?} is not found", var)))
     }
     pub fn clear_equations(&mut self) {
         self.equs.clear();
@@ -670,10 +670,10 @@ impl TypeEquations {
                         Err(len) => {
                             if inner_ty.is_solved_type() {
                                 if len == 0 { 
-                                    Err(UnifyErr::Contradiction(ErrorComment::boxed(format!("type {:?} is not implemented trait {:?}", inner_ty, tr))))
+                                    Err(UnifyErr::Contradiction(ErrorComment::empty(format!("type {:?} is not implemented trait {:?}", inner_ty, tr))))
                                 }
                                 else if len > 1 {
-                                    Err(UnifyErr::Contradiction(ErrorComment::boxed(format!("type {:?} is implemented too many trait {:?}", inner_ty, substs))))
+                                    Err(UnifyErr::Contradiction(ErrorComment::empty(format!("type {:?} is implemented too many trait {:?}", inner_ty, substs))))
                                 }
                                 else {
                                     unreachable!();
@@ -726,10 +726,10 @@ impl TypeEquations {
                     Err(len) => {
                         if inner_ty.is_solved_type() {
                             if len == 0 { 
-                                Err(UnifyErr::Contradiction(ErrorComment::boxed(format!("type {:?} is not implemented trait {:?}", inner_ty, trait_gen))))
+                                Err(UnifyErr::Contradiction(ErrorComment::empty(format!("type {:?} is not implemented trait {:?}", inner_ty, trait_gen))))
                             }
                             else if len > 1 {
-                                Err(UnifyErr::Contradiction(ErrorComment::boxed(format!("type {:?} is implemented too many trait {:?}", inner_ty, substs))))
+                                Err(UnifyErr::Contradiction(ErrorComment::empty(format!("type {:?} is implemented too many trait {:?}", inner_ty, substs))))
                             }
                             else {
                                 unreachable!();
@@ -758,10 +758,10 @@ impl TypeEquations {
                 }
                 else if inner_ty.is_solved_type() {
                     if substs.len() == 0 { 
-                        Err(UnifyErr::Contradiction(ErrorComment::boxed(format!("type {:?} is not implemented function {:?}", inner_ty, method_id))))
+                        Err(UnifyErr::Contradiction(ErrorComment::empty(format!("type {:?} is not implemented function {:?}", inner_ty, method_id))))
                     }
                     else if substs.len() > 1 {
-                        Err(UnifyErr::Contradiction(ErrorComment::boxed(format!("type {:?} is implemented too many trait {:?}", inner_ty, substs))))
+                        Err(UnifyErr::Contradiction(ErrorComment::empty(format!("type {:?} is implemented too many trait {:?}", inner_ty, substs))))
                     }
                     else {
                         unreachable!();
@@ -789,7 +789,7 @@ impl TypeEquations {
                 self.set_self_type(before);
                 if let Type::Func(args, returns, info) = res {
                     let mut iter = args.into_iter();
-                    let self_ty = iter.next().ok_or(UnifyErr::Contradiction(ErrorComment::boxed(format!("trait method {:?} have no argument", mem_id))))?;
+                    let self_ty = iter.next().ok_or(UnifyErr::Contradiction(ErrorComment::empty(format!("trait method {:?} have no argument", mem_id))))?;
                     self.add_equation(self_ty.clone(), inner_ty.clone());
                     let res = Type::Func(iter.collect(), returns, info);
                     self.solve_relations(res, trs).map(|(ty, _)| (ty, SolveChange::Changed))
@@ -797,50 +797,50 @@ impl TypeEquations {
                 else { unreachable!() }
             }
             else if let Type::Generics(ref id, ref gens) = inner_ty {
-                match trs.search_typeid(id).map_err(|st| UnifyErr::Contradiction(ErrorComment::boxed(st)))? {
+                match trs.search_typeid(id).map_err(|st| UnifyErr::Contradiction(ErrorComment::empty(st)))? {
                     StructDefinitionInfo::Def(def)  => {
                         let res = def.get_member_type(self, trs, gens, &mem_id).map_err(|st| UnifyErr::Contradiction(st))?;
                         self.solve_relations(res, trs).map(|(ty, _)| (ty, SolveChange::Changed))
                     }
-                    StructDefinitionInfo::Generics  => Err(UnifyErr::Contradiction(ErrorComment::boxed(format!("generics type has no member: {:?}", id)))),
-                    StructDefinitionInfo::Primitive => Err(UnifyErr::Contradiction(ErrorComment::boxed(format!("primitive type has no member: {:?}", id)))),
+                    StructDefinitionInfo::Generics  => Err(UnifyErr::Contradiction(ErrorComment::empty(format!("generics type has no member: {:?}", id)))),
+                    StructDefinitionInfo::Primitive => Err(UnifyErr::Contradiction(ErrorComment::empty(format!("primitive type has no member: {:?}", id)))),
                 }
             }
             else if let Type::Ref(ty) = inner_ty {
                 if let Type::Generics(ref id, ref gens) = ty.as_ref() {
-                    match trs.search_typeid(id).map_err(|st| UnifyErr::Contradiction(ErrorComment::boxed(st)))? {
+                    match trs.search_typeid(id).map_err(|st| UnifyErr::Contradiction(ErrorComment::empty(st)))? {
                         StructDefinitionInfo::Def(def)  => {
                             let res = def.get_member_type(self, trs, gens, &mem_id).map_err(|st| UnifyErr::Contradiction(st))?;
                             self.solve_relations(res, trs).map(|(ty, _)| (ty, SolveChange::Changed))
                         }
-                        StructDefinitionInfo::Generics  => Err(UnifyErr::Contradiction(ErrorComment::boxed(format!("generics type has no member: {:?}", id)))),
-                        StructDefinitionInfo::Primitive => Err(UnifyErr::Contradiction(ErrorComment::boxed(format!("primitive type has no member: {:?}", id)))),
+                        StructDefinitionInfo::Generics  => Err(UnifyErr::Contradiction(ErrorComment::empty(format!("generics type has no member: {:?}", id)))),
+                        StructDefinitionInfo::Primitive => Err(UnifyErr::Contradiction(ErrorComment::empty(format!("primitive type has no member: {:?}", id)))),
                     }
                 }
                 else {
-                    Err(UnifyErr::Contradiction(ErrorComment::boxed(format!("cant solve member ref({:?})", ty))))
+                    Err(UnifyErr::Contradiction(ErrorComment::empty(format!("cant solve member ref({:?})", ty))))
                 }
             }
             else if let Type::MutRef(ty) = inner_ty {
                 if let Type::Generics(ref id, ref gens) = ty.as_ref() {
-                    match trs.search_typeid(id).map_err(|st| UnifyErr::Contradiction(ErrorComment::boxed(st)))? {
+                    match trs.search_typeid(id).map_err(|st| UnifyErr::Contradiction(ErrorComment::empty(st)))? {
                         StructDefinitionInfo::Def(def)  => {
                             let res = def.get_member_type(self, trs, gens, &mem_id).map_err(|st| UnifyErr::Contradiction(st))?;
                             self.solve_relations(res, trs).map(|(ty, _)| (ty, SolveChange::Changed))
                         }
-                        StructDefinitionInfo::Generics  => Err(UnifyErr::Contradiction(ErrorComment::boxed(format!("generics type has no member: {:?}", id)))),
-                        StructDefinitionInfo::Primitive => Err(UnifyErr::Contradiction(ErrorComment::boxed(format!("primitive type has no member: {:?}", id)))),
+                        StructDefinitionInfo::Generics  => Err(UnifyErr::Contradiction(ErrorComment::empty(format!("generics type has no member: {:?}", id)))),
+                        StructDefinitionInfo::Primitive => Err(UnifyErr::Contradiction(ErrorComment::empty(format!("primitive type has no member: {:?}", id)))),
                     }
                 }
                 else {
-                    Err(UnifyErr::Contradiction(ErrorComment::boxed(format!("cant solve member mutref({:?})", ty))))
+                    Err(UnifyErr::Contradiction(ErrorComment::empty(format!("cant solve member mutref({:?})", ty))))
                 }
             }
             else if let Type::SolvedAssociatedType(_, _, _) = inner_ty {
-                Err(UnifyErr::Contradiction(ErrorComment::boxed(format!("SolvedAssociatedType has no member: {:?}", inner_ty))))
+                Err(UnifyErr::Contradiction(ErrorComment::empty(format!("SolvedAssociatedType has no member: {:?}", inner_ty))))
             }
             else if inner_ty.is_solved_type() {
-                Err(UnifyErr::Contradiction(ErrorComment::boxed(format!("{:?} cant solve member {:?}", inner_ty, mem_id))))
+                Err(UnifyErr::Contradiction(ErrorComment::empty(format!("{:?} cant solve member {:?}", inner_ty, mem_id))))
             }
             else {
                 Ok((Type::Member(Box::new(inner_ty), mem_id), inner_changed))
@@ -926,7 +926,7 @@ impl TypeEquations {
                     Ok((params.swap_remove(idx), SolveChange::Changed))
                 }
                 else {
-                    Err(UnifyErr::Contradiction(ErrorComment::boxed(format!("tuple {:?} cannot index {}", params, idx))))
+                    Err(UnifyErr::Contradiction(ErrorComment::empty(format!("tuple {:?} cannot index {}", params, idx))))
                 }
             }
             else if let Type::Ref(ty) = ty {
@@ -935,7 +935,7 @@ impl TypeEquations {
                         Ok((params.swap_remove(idx), SolveChange::Changed))
                     }
                     else {
-                        Err(UnifyErr::Contradiction(ErrorComment::boxed(format!("ref tuple {:?} cannot index {}", params, idx))))
+                        Err(UnifyErr::Contradiction(ErrorComment::empty(format!("ref tuple {:?} cannot index {}", params, idx))))
                     }
                 }
                 else {
@@ -948,7 +948,7 @@ impl TypeEquations {
                         Ok((params.swap_remove(idx), SolveChange::Changed))
                     }
                     else {
-                        Err(UnifyErr::Contradiction(ErrorComment::boxed(format!("mut ref tuple {:?} cannot index {}", params, idx))))
+                        Err(UnifyErr::Contradiction(ErrorComment::empty(format!("mut ref tuple {:?} cannot index {}", params, idx))))
                     }
                 }
                 else {
@@ -981,10 +981,10 @@ impl TypeEquations {
                     if left.is_solved_type() && tr.is_solved_type() {
                         let solve_cnt = self.solve_has_trait(&left, &tr, trs);
                         if solve_cnt == 0 {
-                            Err(UnifyErr::Contradiction(ErrorComment::boxed(format!("type {:?} is not implemented trait {:?}", left, tr))))?;
+                            Err(UnifyErr::Contradiction(ErrorComment::empty(format!("type {:?} is not implemented trait {:?}", left, tr))))?;
                         }
                         else if solve_cnt > 1{
-                            Err(UnifyErr::Contradiction(ErrorComment::boxed(format!("type {:?} is too many implemented traits {:?}", left, tr))))?;
+                            Err(UnifyErr::Contradiction(ErrorComment::empty(format!("type {:?} is too many implemented traits {:?}", left, tr))))?;
                         }
                     }
                     else {
@@ -1103,7 +1103,7 @@ impl TypeEquations {
                             //log::debug!("AUTOREF {:?} : {:?} {:?}", left, ty, tag);
                             //log::debug!("oks = {:?}", oks);
                             if oks.len() == 0 {
-                                Err(UnifyErr::Contradiction(ErrorComment::boxed(format!("not equal {:?}, auto ref {:?}", left, ty))))?;
+                                Err(UnifyErr::Contradiction(ErrorComment::empty(format!("not equal {:?}, auto ref {:?}", left, ty))))?;
                             }
                             if oks.len() == 1 {
                                 //log::debug!("OK");
@@ -1132,10 +1132,10 @@ impl TypeEquations {
                         }
                         (Type::Generics(l_id, l_gens), Type::Generics(r_id, r_gens)) => {
                             if l_id != r_id {
-                                Err(UnifyErr::Contradiction(ErrorComment::boxed(format!("generics type id is not equal. {:?} != {:?}", l_id, r_id))))?;
+                                Err(UnifyErr::Contradiction(ErrorComment::empty(format!("generics type id is not equal. {:?} != {:?}", l_id, r_id))))?;
                             }
                             else if l_gens.len() != r_gens.len() {
-                                Err(UnifyErr::Contradiction(ErrorComment::boxed(format!("unreachable, generics lengths are checked"))))?;
+                                Err(UnifyErr::Contradiction(ErrorComment::empty(format!("unreachable, generics lengths are checked"))))?;
                             }
                             else {
                                 for (l, r) in l_gens.into_iter().zip(r_gens.into_iter()) {
@@ -1151,7 +1151,7 @@ impl TypeEquations {
                         }
                         (Type::Tuple(lp), Type::Tuple(rp)) => {
                             if lp.len() != rp.len() {
-                                Err(UnifyErr::Contradiction(ErrorComment::boxed(format!("lengths of tuples are not match, {:?}, {:?}", lp, rp))))?;
+                                Err(UnifyErr::Contradiction(ErrorComment::empty(format!("lengths of tuples are not match, {:?}, {:?}", lp, rp))))?;
                             }
                             for (l, r) in lp.into_iter().zip(rp.into_iter()) {
                                 self.add_equation(l, r)
@@ -1159,7 +1159,7 @@ impl TypeEquations {
                         }
                         (Type::TypeVariable(lv), rt) if self.remove_want_solve(&lv) => {
                             if rt.occurs(&lv) {
-                                Err(UnifyErr::Contradiction(ErrorComment::boxed(format!("unification failed, occurs"))))?;
+                                Err(UnifyErr::Contradiction(ErrorComment::empty(format!("unification failed, occurs"))))?;
                             }
                             let th = TypeSubst { tv: lv.clone(), t: rt.clone() };
                             self.subst(&th);
@@ -1167,7 +1167,7 @@ impl TypeEquations {
                         }
                         (rt, Type::TypeVariable(lv)) if self.remove_want_solve(&lv) => {
                             if rt.occurs(&lv) {
-                                Err(UnifyErr::Contradiction(ErrorComment::boxed(format!("unification failed, occurs"))))?;
+                                Err(UnifyErr::Contradiction(ErrorComment::empty(format!("unification failed, occurs"))))?;
                             }
                             let th = TypeSubst { tv: lv.clone(), t: rt.clone() };
                             self.subst(&th);
@@ -1175,7 +1175,7 @@ impl TypeEquations {
                         }
                         (Type::TypeVariable(lv), rt) => {
                             if rt.occurs(&lv) {
-                                Err(UnifyErr::Contradiction(ErrorComment::boxed(format!("unification failed, occurs"))))?;
+                                Err(UnifyErr::Contradiction(ErrorComment::empty(format!("unification failed, occurs"))))?;
                             }
                             let th = TypeSubst { tv: lv.clone(), t: rt.clone() };
                             self.subst(&th);
@@ -1183,7 +1183,7 @@ impl TypeEquations {
                         }
                         (rt, Type::TypeVariable(lv)) => {
                             if rt.occurs(&lv) {
-                                Err(UnifyErr::Contradiction(ErrorComment::boxed(format!("unification failed, occurs"))))?;
+                                Err(UnifyErr::Contradiction(ErrorComment::empty(format!("unification failed, occurs"))))?;
                             }
                             let th = TypeSubst { tv: lv.clone(), t: rt.clone() };
                             self.subst(&th);
@@ -1202,7 +1202,7 @@ impl TypeEquations {
                             }
                         }*/
                         (l, r) => {
-                            Err(UnifyErr::Contradiction(ErrorComment::boxed(format!("unfication failed, {:?} != {:?}", l, r))))?
+                            Err(UnifyErr::Contradiction(ErrorComment::empty(format!("unfication failed, {:?} != {:?}", l, r))))?
                         }
                     }
                 }
@@ -1220,7 +1220,7 @@ impl TypeEquations {
             Err(UnifyErr::Deficiency(format!("want_solve {:?} cant solve now", self.want_solve)))
         }
         else if voids.len() > 0 {
-            Err(UnifyErr::Contradiction(ErrorComment::boxed(format!("voids appear {:?}", voids))))
+            Err(UnifyErr::Contradiction(ErrorComment::empty(format!("voids appear {:?}", voids))))
         }
         else {
             Ok(())

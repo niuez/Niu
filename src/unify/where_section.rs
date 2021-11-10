@@ -28,7 +28,7 @@ impl WhereSection {
     pub fn is_empty(&self) -> bool {
         self.has_traits.is_empty()
     }
-    pub fn regist_equations(&self, mp: &GenericsTypeMap, equs: &mut TypeEquations, trs: &TraitsInfo) -> Result<(), Box<dyn NiuError>> {
+    pub fn regist_equations(&self, mp: &GenericsTypeMap, equs: &mut TypeEquations, trs: &TraitsInfo) -> Result<(), Error> {
         for (spec, _, tr_spec, asso_eqs) in self.has_traits.iter() {
             let ty = spec.generics_to_type(mp, equs, trs)?;
             let tr_gen = tr_spec.generate_trait_generics(equs, trs, mp)?;
@@ -46,7 +46,7 @@ impl WhereSection {
         Ok(())
     }
 
-    pub fn regist_candidate(&self, equs: &TypeEquations, trs: &mut TraitsInfo) -> Result<(), Box<dyn NiuError>> {
+    pub fn regist_candidate(&self, equs: &TypeEquations, trs: &mut TraitsInfo) -> Result<(), Error> {
         for (spec, _, tr_spec, asso_eqs) in self.has_traits.iter() {
 
 
@@ -70,7 +70,7 @@ impl WhereSection {
             let asso_mp = asso_eqs.iter().map(|(asso_id, _)| {
                     let asso_spec_ty = substs.get(&asso_id.id, "AssociatedType", 0)?;
                     Ok((asso_id.clone(), asso_spec_ty))
-                }).collect::<Result<HashMap<_, _>, Box<dyn NiuError>>>()?;
+                }).collect::<Result<HashMap<_, _>, Error>>()?;
             
             trs.regist_param_candidate(param_ty, &tr_gen, asso_mp)?;
             
