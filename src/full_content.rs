@@ -100,7 +100,7 @@ impl FullContent {
         let res = self.inner_type_check();
         res.map_err(|(err, name)| {
                 let data = ErrorData { statement: self.programs.get(name).unwrap() };
-                err.what(&data)
+                format!("unify error\n{}", err.what(&data))
             }
         )
     }
@@ -154,32 +154,32 @@ impl FullContent {
             }
         }
         // structs definition
-        for (t, name) in self.structs.iter() {
+        for (t, _name) in self.structs.iter() {
             ta.self_type = Some(t.transpile_self_type());
             let s = t.transpile_definition(ta);
             res.push_str(&s);
             ta.self_type = None;
         }
         // traits definition
-        for (t, name) in self.traits.iter() {
+        for (t, _name) in self.traits.iter() {
             let s = t.transpile(ta);
             res.push_str(&s);
         }
         // impls definition
-        for (i, name) in self.impls.iter() {
+        for (i, _name) in self.impls.iter() {
             ta.self_type = Some(i.impl_ty.transpile(ta));
             let s = i.transpile(ta);
             res.push_str(&s);
             ta.self_type = None;
         }
         // functions definition
-        for (f, name) in self.funcs.iter() {
+        for (f, _name) in self.funcs.iter() {
             let s = f.transpile_definition_only(ta, "", false);
             res.push_str(&s);
             res.push_str(";\n");
         }
         // structs implementation
-        for (t, name) in self.structs.iter().rev() {
+        for (t, _name) in self.structs.iter().rev() {
             ta.self_type = Some(t.transpile_self_type());
             let st_id = t.get_id();
             let opes = operators.iter()
@@ -190,13 +190,13 @@ impl FullContent {
             ta.self_type = None;
         }
         // functions of impls implementation
-        for (i, name) in self.impls.iter() {
+        for (i, _name) in self.impls.iter() {
             ta.self_type = Some(i.impl_ty.transpile(ta));
             let s = i.transpile_functions(ta);
             res.push_str(&s);
             ta.self_type = None;
         }
-        for (f, name) in self.funcs.iter() {
+        for (f, _name) in self.funcs.iter() {
             let s = f.transpile(ta, false);
             res.push_str(&s);
         }
@@ -281,7 +281,7 @@ pub fn parse_full_content<'a>(s: &'a str, name: &str) -> IResult<&'a str, (Vec<(
             ContentElement::UnitTest(unit_test) => unit_tests.push(unit_test),
         }
     }
-    let programs = std::iter::once((s.to_string(), name.to_string())).collect();
+    let programs = std::iter::once((name.to_string(), s.to_string())).collect();
     Ok((ss, (imports, FullContent { programs, structs, funcs, traits, impls, includes, unit_tests, })))
 }
 

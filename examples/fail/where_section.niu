@@ -1,0 +1,9 @@
+import "std/opes.niu"
+struct Hoge {} {}
+
+fn can_clone<T>(t: T) -> void where T: Clone {}
+
+fn main() -> void {
+  let a = Hoge {};
+  can_clone(a);
+}

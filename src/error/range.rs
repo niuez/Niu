@@ -43,6 +43,6 @@ impl RangeHint {
 
 impl NiuError for RangeHint {
     fn what(&self, data: &ErrorData) -> String {
-        format!("{}\n{} in\n|| {}", self.hint, self.range.get_range_str(data.statement).to_string(), self.prev.as_ref().what(data))
+        format!("hint: {}\n    | {}\n{}", self.hint, self.range.get_range_str(data.statement).to_string(), self.prev.as_ref().what(data))
     }
 }

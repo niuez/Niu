@@ -981,10 +981,14 @@ impl TypeEquations {
                     if left.is_solved_type() && tr.is_solved_type() {
                         let solve_cnt = self.solve_has_trait(&left, &tr, trs);
                         if solve_cnt == 0 {
-                            Err(UnifyErr::Contradiction(ErrorComment::empty(format!("type {:?} is not implemented trait {:?}", left, tr))))?;
+                            Err(UnifyErr::Contradiction(
+                                    ErrorComment::new(format!("type {:?} is not implemented trait {:?}", left, tr), hint.err())
+                            ))?;
                         }
                         else if solve_cnt > 1{
-                            Err(UnifyErr::Contradiction(ErrorComment::empty(format!("type {:?} is too many implemented traits {:?}", left, tr))))?;
+                            Err(UnifyErr::Contradiction(
+                                    ErrorComment::new(format!("type {:?} is too many implemented traits {:?}", left, tr), hint.err())
+                            ))?;
                         }
                     }
                     else {

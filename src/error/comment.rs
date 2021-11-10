@@ -23,7 +23,7 @@ impl ErrorComment {
 
 impl NiuError for ErrorComment {
     fn what(&self, data: &ErrorData) -> String {
-        format!("{}\n", self.comment)
+        format!("{}\nerror: {}", self.err.as_ref().what(data), self.comment)
     }
 }
 
