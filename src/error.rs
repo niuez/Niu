@@ -10,7 +10,7 @@ pub struct ErrorData<'a> {
     pub statement: &'a str,
 }
 
-pub trait NiuError {
+pub trait NiuError: std::fmt::Debug {
     fn what(&self, data: &ErrorData) -> String;
 }
 

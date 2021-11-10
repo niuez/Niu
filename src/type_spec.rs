@@ -13,6 +13,7 @@ use crate::traits::*;
 
 use crate::unify::*;
 use crate::trans::*;
+use crate::error::*;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct TypeSign {
@@ -52,7 +53,7 @@ impl TypeSign {
         match mp.get(&self.id).cloned() {
             Some(t) => {
                 if self.gens.len() == 0 { Ok(t) }
-                else { Err(format!("generics type cant have generics argument")) }
+                else { Err(ErrorComment::boxed(format!("generics type cant have generics argument"))) }
             }
             _ => {
                 if self.id == TypeId::from_str("Self") {
@@ -61,7 +62,7 @@ impl TypeSign {
                        Ok(self_type)
                     }
                     else {
-                        Err(format!("Self cant have generics arg"))
+                        Err(ErrorComment::boxed(format!("Self cant have generics arg")))
                     }
                 }
                 else  {
@@ -81,7 +82,7 @@ impl TypeSign {
                 equs.get_self_type()
             }
             else {
-                Err(format!("Self cant have generics arg"))
+                Err(ErrorComment::boxed(format!("Self cant have generics arg")))
             }
         }
         else  {
@@ -229,18 +230,18 @@ impl TypeSpec {
         }
     }
 
-    pub fn get_type_id(&self) -> Result<TypeId, String> {
+    pub fn get_type_id(&self) -> Result<TypeId, Box<dyn NiuError>> {
         match self {
             TypeSpec::TypeSign(sign) => Ok(sign.get_type_id()),
             TypeSpec::Pointer(_) => {
-                Err(format!("cant get typeid from pointer {:?}", self))
+                Err(ErrorComment::boxed(format!("cant get typeid from pointer {:?}", self)))
             }
             TypeSpec::MutPointer(_) => {
-                Err(format!("cant get typeid from pointer {:?}", self))
+                Err(ErrorComment::boxed(format!("cant get typeid from pointer {:?}", self)))
             }
-            TypeSpec::Associated(_, _) => Err(format!("cant get typeid from {:?}", self)),
+            TypeSpec::Associated(_, _) => Err(ErrorComment::boxed(format!("cant get typeid from {:?}", self))),
             TypeSpec::Tuple(_) => {
-                Err(format!("cant get typeid from tuple {:?}", self))
+                Err(ErrorComment::boxed(format!("cant get typeid from tuple {:?}", self)))
             }
         }
     }

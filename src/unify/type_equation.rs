@@ -451,18 +451,18 @@ impl SubstsMap {
     pub fn get(&self, id: &Identifier, label: &'static str, i: usize) -> TResult {
         match self.mp.get(&(id.get_tag_number(), label, i)) {
             Some(t) => Ok(t.clone()),
-            None => Err(format!("undefined TypeVariable({:?}, {:?})", id, i)),
+            None => Err(ErrorComment::boxed(format!("undefined TypeVariable({:?}, {:?})", id, i))),
         }
     }
     pub fn get_from_tag(&self, tag: &Tag, label: &'static str, i: usize) -> TResult {
         match self.mp.get(&(tag.get_num(), label, i)) {
             Some(t) => Ok(t.clone()),
-            None => Err(format!("undefined TypeVariable({:?}, {:?})", tag, i)),
+            None => Err(ErrorComment::boxed(format!("undefined TypeVariable({:?}, {:?})", tag, i))),
         }
     }
 }
 
-pub type TResult = Result<Type, String>;
+pub type TResult = Result<Type, Box<dyn NiuError>>;
 
 pub trait GenType {
     fn gen_type(&self, equs: &mut TypeEquations, trs: &TraitsInfo) -> TResult;
@@ -554,7 +554,7 @@ impl TypeEquations {
     pub fn get_self_type(&self) -> TResult {
         match self.self_type.clone() {
             Some(ty) => Ok(ty),
-            None => Err(format!("cant use Self")),
+            None => Err(ErrorComment::boxed(format!("cant use Self"))),
         }
     }
     pub fn add_has_trait(&mut self, ty: Type, tr: TraitGenerics) {
@@ -595,7 +595,7 @@ impl TypeEquations {
                 return Ok(t.clone())
             }
         }
-        Err(format!("Variable {:?} is not found", var))
+        Err(ErrorComment::boxed(format!("Variable {:?} is not found", var)))
     }
     pub fn clear_equations(&mut self) {
         self.equs.clear();
@@ -799,7 +799,7 @@ impl TypeEquations {
             else if let Type::Generics(ref id, ref gens) = inner_ty {
                 match trs.search_typeid(id).map_err(|st| UnifyErr::Contradiction(ErrorComment::boxed(st)))? {
                     StructDefinitionInfo::Def(def)  => {
-                        let res = def.get_member_type(self, trs, gens, &mem_id).map_err(|st| UnifyErr::Contradiction(ErrorComment::boxed(st)))?;
+                        let res = def.get_member_type(self, trs, gens, &mem_id).map_err(|st| UnifyErr::Contradiction(st))?;
                         self.solve_relations(res, trs).map(|(ty, _)| (ty, SolveChange::Changed))
                     }
                     StructDefinitionInfo::Generics  => Err(UnifyErr::Contradiction(ErrorComment::boxed(format!("generics type has no member: {:?}", id)))),
@@ -810,7 +810,7 @@ impl TypeEquations {
                 if let Type::Generics(ref id, ref gens) = ty.as_ref() {
                     match trs.search_typeid(id).map_err(|st| UnifyErr::Contradiction(ErrorComment::boxed(st)))? {
                         StructDefinitionInfo::Def(def)  => {
-                            let res = def.get_member_type(self, trs, gens, &mem_id).map_err(|st| UnifyErr::Contradiction(ErrorComment::boxed(st)))?;
+                            let res = def.get_member_type(self, trs, gens, &mem_id).map_err(|st| UnifyErr::Contradiction(st))?;
                             self.solve_relations(res, trs).map(|(ty, _)| (ty, SolveChange::Changed))
                         }
                         StructDefinitionInfo::Generics  => Err(UnifyErr::Contradiction(ErrorComment::boxed(format!("generics type has no member: {:?}", id)))),
@@ -825,7 +825,7 @@ impl TypeEquations {
                 if let Type::Generics(ref id, ref gens) = ty.as_ref() {
                     match trs.search_typeid(id).map_err(|st| UnifyErr::Contradiction(ErrorComment::boxed(st)))? {
                         StructDefinitionInfo::Def(def)  => {
-                            let res = def.get_member_type(self, trs, gens, &mem_id).map_err(|st| UnifyErr::Contradiction(ErrorComment::boxed(st)))?;
+                            let res = def.get_member_type(self, trs, gens, &mem_id).map_err(|st| UnifyErr::Contradiction(st))?;
                             self.solve_relations(res, trs).map(|(ty, _)| (ty, SolveChange::Changed))
                         }
                         StructDefinitionInfo::Generics  => Err(UnifyErr::Contradiction(ErrorComment::boxed(format!("generics type has no member: {:?}", id)))),

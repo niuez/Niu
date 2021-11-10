@@ -13,6 +13,7 @@ use crate::traits::*;
 
 use crate::unify::*;
 use crate::trans::*;
+use crate::error::*;
 
 #[derive(Debug, Clone)]
 pub struct WhereSection {
@@ -27,7 +28,7 @@ impl WhereSection {
     pub fn is_empty(&self) -> bool {
         self.has_traits.is_empty()
     }
-    pub fn regist_equations(&self, mp: &GenericsTypeMap, equs: &mut TypeEquations, trs: &TraitsInfo) -> Result<(), String> {
+    pub fn regist_equations(&self, mp: &GenericsTypeMap, equs: &mut TypeEquations, trs: &TraitsInfo) -> Result<(), Box<dyn NiuError>> {
         for (spec, _, tr_spec, asso_eqs) in self.has_traits.iter() {
             let ty = spec.generics_to_type(mp, equs, trs)?;
             let tr_gen = tr_spec.generate_trait_generics(equs, trs, mp)?;
@@ -45,7 +46,7 @@ impl WhereSection {
         Ok(())
     }
 
-    pub fn regist_candidate(&self, equs: &TypeEquations, trs: &mut TraitsInfo) -> Result<(), String> {
+    pub fn regist_candidate(&self, equs: &TypeEquations, trs: &mut TraitsInfo) -> Result<(), Box<dyn NiuError>> {
         for (spec, _, tr_spec, asso_eqs) in self.has_traits.iter() {
 
 
@@ -62,14 +63,14 @@ impl WhereSection {
                 let alpha = asso_id.id.generate_type_variable("AssociatedType", 0, &mut tmp_equs);
                 tmp_equs.add_equation(asso_spec_ty, alpha);
             }
-            tmp_equs.unify(trs).map_err(|err| err.to_string())?;
+            tmp_equs.unify(trs).map_err(|err| err.into_err())?;
             let substs = SubstsMap::new(tmp_equs.take_substs().clone());
 
             let param_ty = substs.get_from_tag(&tr_spec.get_tag(), "ParamType", 0)?;
             let asso_mp = asso_eqs.iter().map(|(asso_id, _)| {
                     let asso_spec_ty = substs.get(&asso_id.id, "AssociatedType", 0)?;
                     Ok((asso_id.clone(), asso_spec_ty))
-                }).collect::<Result<HashMap<_, _>, String>>()?;
+                }).collect::<Result<HashMap<_, _>, Box<dyn NiuError>>>()?;
             
             trs.regist_param_candidate(param_ty, &tr_gen, asso_mp)?;
             

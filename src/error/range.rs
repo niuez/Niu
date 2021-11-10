@@ -3,6 +3,7 @@ use nom::error::ParseError;
 
 use crate::error::*;
 
+#[derive(Debug)]
 pub struct SourceRange {
     start: usize,
     end: usize,
@@ -21,6 +22,7 @@ impl SourceRange {
     }
 }
 
+#[derive(Debug)]
 pub struct ErrorRange {
     range: SourceRange,
     err: Box<dyn NiuError>,

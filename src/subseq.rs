@@ -34,7 +34,7 @@ pub fn subseq_gen_type(uexpr: &UnaryExpr, subseq: &Subseq, equs: &mut TypeEquati
                     let args =
                             std::iter::once(Ok(Type::AutoRef(Box::new(caller.clone()), AutoRefTag::Tag(call.tag.clone()))))
                             //std::iter::once(Ok(caller.clone()))
-                            .chain(call.args.iter().map(|arg| arg.gen_type(equs, trs))).collect::<Result<Vec<_>, String>>()?;
+                            .chain(call.args.iter().map(|arg| arg.gen_type(equs, trs))).collect::<Result<Vec<_>, _>>()?;
                     Ok(Type::CallEquation(CallEquation {
                         caller_type: None,
                         trait_gen: None,
@@ -45,7 +45,7 @@ pub fn subseq_gen_type(uexpr: &UnaryExpr, subseq: &Subseq, equs: &mut TypeEquati
                 }
                 UnaryExpr::TraitMethod(spec, trait_op, func_id) => {
                     let caller = spec.generics_to_type(&GenericsTypeMap::empty(), equs, trs)?;
-                    let args = call.args.iter().map(|arg| arg.gen_type(equs, trs)).collect::<Result<Vec<_>, String>>()?;
+                    let args = call.args.iter().map(|arg| arg.gen_type(equs, trs)).collect::<Result<Vec<_>, _>>()?;
                     Ok(Type::CallEquation(CallEquation {
                         caller_type: Some(Box::new(caller)),
                         trait_gen: match trait_op {
@@ -59,7 +59,7 @@ pub fn subseq_gen_type(uexpr: &UnaryExpr, subseq: &Subseq, equs: &mut TypeEquati
                 }
                 uexpr => {
                     let caller = uexpr.gen_type(equs, trs)?;
-                    let args = call.args.iter().map(|arg| arg.gen_type(equs, trs)).collect::<Result<Vec<_>, String>>()?;
+                    let args = call.args.iter().map(|arg| arg.gen_type(equs, trs)).collect::<Result<Vec<_>, _>>()?;
                     let return_type = call.tag.generate_type_variable("ReturnType", 0, equs);
                     let func_type = call.tag.generate_type_variable("FuncTypeInfo", 0, equs);
                     equs.add_equation(caller, func_type.clone());

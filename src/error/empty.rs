@@ -1,5 +1,6 @@
 use crate::error::*;
 
+#[derive(Debug)]
 pub struct ErrorEmpty;
 
 impl ErrorEmpty {
