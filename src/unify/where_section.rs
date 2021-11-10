@@ -49,7 +49,7 @@ impl WhereSection {
         Ok(())
     }
 
-    pub fn regist_candidate(&self, equs: &TypeEquations, trs: &mut TraitsInfo) -> Result<(), Error> {
+    pub fn regist_candidate(&self, equs: &TypeEquations, trs: &mut TraitsInfo, define_hint: &ErrorHint) -> Result<(), Error> {
         for (spec, _, tr_spec, asso_eqs, _range) in self.has_traits.iter() {
 
 
@@ -75,7 +75,7 @@ impl WhereSection {
                     Ok((asso_id.clone(), asso_spec_ty))
                 }).collect::<Result<HashMap<_, _>, Error>>()?;
             
-            trs.regist_param_candidate(param_ty, &tr_gen, asso_mp)?;
+            trs.regist_param_candidate(param_ty, &tr_gen, asso_mp, define_hint)?;
             
         }
         Ok(())

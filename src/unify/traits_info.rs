@@ -310,7 +310,7 @@ impl<'a> TraitsInfo<'a> {
         }
         let impl_ty = ti.impl_ty.generics_to_type(&GenericsTypeMap::empty(), equs, &gen_trs)?;
         let before_self_type = equs.set_self_type(Some(impl_ty));
-        ti.where_sec.regist_candidate(equs, &mut gen_trs)?;
+        ti.where_sec.regist_candidate(equs, &mut gen_trs, &ti.without_member_range.hint("impl definition", ErrorHint::None))?;
         self.check_trait(&ti.trait_spec)?;
 
         match self.get_traitinfo(&trait_id) {
@@ -346,14 +346,14 @@ impl<'a> TraitsInfo<'a> {
             }
         }
     }
-    pub fn regist_param_candidate(&mut self, ty: Type, trait_gen: &TraitGenerics, mut asso_mp: HashMap<AssociatedTypeIdentifier, Type>) -> Result<(), Error> {
+    pub fn regist_param_candidate(&mut self, ty: Type, trait_gen: &TraitGenerics, mut asso_mp: HashMap<AssociatedTypeIdentifier, Type>, define_hint: &ErrorHint) -> Result<(), Error> {
         log::debug!("param {:?}, {:?}", ty, trait_gen);
         match self.get_traitinfo(&trait_gen.trait_id).cloned() {
             None => Err(ErrorComment::empty(format!("trait {:?} is not defined", trait_gen))),
             Some(tr_def) => {
                 let mut equs = TypeEquations::new();
                 equs.set_self_type(Some(ty.clone()));
-                tr_def.where_sec.regist_candidate(&equs, self)?;
+                tr_def.where_sec.regist_candidate(&equs, self, &tr_def.without_member_range.hint(&format!("regist candidate by where section of {:?}", trait_gen), define_hint.clone()))?;
                 //dbg!(&tr_def.asso_ids);
                 let asso_tys = tr_def.asso_ids.iter().map(|asso_id| {
                     let asso_ty = match asso_mp.remove(asso_id) {
@@ -372,7 +372,7 @@ impl<'a> TraitsInfo<'a> {
                     Err(ErrorComment::empty(format!("undefined associated type speficier: {:?}", asso_mp)))
                 }
                 else {
-                    let cand = ParamCandidate::new(trait_gen.clone(), tr_def.generics.clone(), ty.clone(), asso_tys, tr_def.required_methods.clone());
+                    let cand = ParamCandidate::new(trait_gen.clone(), tr_def.generics.clone(), ty.clone(), asso_tys, tr_def.required_methods.clone(), define_hint);
                     self.regist_selection_candidate(&trait_gen.trait_id, cand);
                     Ok(())
                 }

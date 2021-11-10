@@ -154,11 +154,11 @@ impl ImplDefinition {
         for ty_id in self.generics.iter() {
             trs.regist_generics_type(ty_id)?;
         }
-        self.where_sec.regist_candidate(equs, &mut trs)?;
+        self.where_sec.regist_candidate(equs, &mut trs, &self.without_member_range.hint("impl definition", ErrorHint::None))?;
         let next_self_type = Some(self.impl_ty.generate_type_no_auto_generics(equs, &trs)?);
         let before_self_type = equs.set_self_type(next_self_type);
         for def in self.require_methods.values() {
-            def.unify_definition(equs, &trs)?;
+            def.unify_definition(equs, &trs, &self.without_member_range.hint("impl definition", ErrorHint::None))?;
         }
         equs.set_self_type(before_self_type);
         Ok(())
@@ -510,7 +510,7 @@ impl ImplCandidate {
         let func_ty = self.require_methods
             .get(&TraitMethodIdentifier { id: call_eq.func_id.clone() })
             .ok_or(ErrorComment::empty(format!("require methods doesnt have {:?}", call_eq.func_id)))?
-            .generate_type(&gen_mp, &mut equs, trs, &call_eq.func_id)?;
+            .generate_type(&gen_mp, &mut equs, trs, &call_eq.func_id, &self.without_member_range.hint("impl defined", ErrorHint::None))?;
         match func_ty {
             Type::Func(args, ret, info) => {
                 let alpha = call_eq.tag.generate_type_variable("FuncTypeInfo", 0, &mut equs);
@@ -583,7 +583,7 @@ impl ImplCandidate {
         let mp = GenericsTypeMap::empty();
         let gen_mp = mp.next(gen_mp);
         let before_self_type = equs.set_self_type(Some(ty.clone()));
-        let func_ty = self.require_methods.get(&method_id).unwrap().generate_type(&gen_mp, equs, trs, &method_id.id).unwrap();
+        let func_ty = self.require_methods.get(&method_id).unwrap().generate_type(&gen_mp, equs, trs, &method_id.id, &self.without_member_range.hint("impl defined", ErrorHint::None)).unwrap();
         let res = match func_ty {
             Type::Func(args, ret, FuncTypeInfo::None) => {
                 let tag = Tag::new();
@@ -618,14 +618,15 @@ pub struct ParamCandidate {
     pub trait_gen: TraitGenerics,
     pub trait_generics_arg: Vec<TypeId>,
     pub impl_ty: Type,
+    pub define_hint: ErrorHint,
     pub asso_defs: HashMap<AssociatedTypeIdentifier, Type>,
     pub require_methods: HashMap<TraitMethodIdentifier, FuncDefinitionInfo>,
 }
 
 impl ParamCandidate {
-    pub fn new(trait_gen: TraitGenerics, trait_generics_arg: Vec<TypeId>, impl_ty: Type, asso_defs: HashMap<AssociatedTypeIdentifier, Type>, require_methods: HashMap<TraitMethodIdentifier, FuncDefinitionInfo>) -> SelectionCandidate {
+    pub fn new(trait_gen: TraitGenerics, trait_generics_arg: Vec<TypeId>, impl_ty: Type, asso_defs: HashMap<AssociatedTypeIdentifier, Type>, require_methods: HashMap<TraitMethodIdentifier, FuncDefinitionInfo>, define_hint: &ErrorHint) -> SelectionCandidate {
         SelectionCandidate::ParamCandidate(ParamCandidate {
-            trait_gen, trait_generics_arg, impl_ty, asso_defs, require_methods,
+            trait_gen, trait_generics_arg, impl_ty, asso_defs, require_methods, define_hint: define_hint.clone(),
         })
     }
     pub fn generate_equations_for_call_equation(&self, call_eq: &CallEquation, trs: &TraitsInfo) -> Result<TypeEquations, Error> {
@@ -655,7 +656,7 @@ impl ParamCandidate {
         let func_ty = self.require_methods
             .get(&TraitMethodIdentifier { id: call_eq.func_id.clone() })
             .ok_or(ErrorComment::empty(format!("require methods doesnt have {:?}", call_eq.func_id)))?
-            .generate_type(&gen_mp, &mut equs, trs, &call_eq.func_id)?;
+            .generate_type(&gen_mp, &mut equs, trs, &call_eq.func_id, &self.define_hint)?;
         match func_ty {
             Type::Func(args, ret, info) => {
                 let alpha = call_eq.tag.generate_type_variable("FuncTypeInfo", 0, &mut equs);
@@ -705,7 +706,7 @@ impl ParamCandidate {
 
     pub fn get_trait_method_from_id(&self, equs: &mut TypeEquations, trs: &TraitsInfo, method_id: &TraitMethodIdentifier, subst: &SubstsMap, ty: &Type) -> Type {
         let before_self_type = equs.set_self_type(Some(subst.get_from_tag(&self.trait_gen.get_tag(), "ImplType", 0).unwrap()));
-        let func_ty = self.require_methods.get(method_id).unwrap().generate_type(&GenericsTypeMap::empty(), equs, trs, &method_id.id).unwrap();
+        let func_ty = self.require_methods.get(method_id).unwrap().generate_type(&GenericsTypeMap::empty(), equs, trs, &method_id.id, &self.define_hint).unwrap();
         let res = match func_ty {
             Type::Func(args, ret, FuncTypeInfo::None) => {
                 let tag = Tag::new();

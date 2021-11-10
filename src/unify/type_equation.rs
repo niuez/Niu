@@ -588,7 +588,7 @@ impl TypeEquations {
     }
     pub fn get_type_from_variable(&mut self, trs: &TraitsInfo, var: &Variable) -> TResult {
         if let Some(func) = self.func.get(var).cloned() {
-            return func.generate_type(&GenericsTypeMap::empty(), self, trs, &var.id);
+            return func.generate_type(&GenericsTypeMap::empty(), self, trs, &var.id, &ErrorHint::None);
         }
         for mp in self.variables.iter().rev() {
             if let Some(t) = mp.get(var) {

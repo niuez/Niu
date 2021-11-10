@@ -86,7 +86,7 @@ impl FullContent {
         for f in self.funcs.iter() {
             equs.regist_func_info(&f.0);
             ta.regist_func_info(&f.0);
-            name_errmap(f, |f| f.unify_definition(&mut equs, &mut trs))?;
+            name_errmap(f, |f| f.unify_definition(&mut equs, &mut trs, &ErrorHint::None))?;
         }
 
         for TypeSubst { tv, t } in equs.take_substs() {

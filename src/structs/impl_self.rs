@@ -47,12 +47,12 @@ impl ImplSelfDefinition {
         for ty_id in self.generics.iter() {
             trs.regist_generics_type(ty_id)?;
         }
-        self.where_sec.regist_candidate(equs, &mut trs)?;
+        self.where_sec.regist_candidate(equs, &mut trs, &self.without_member_range.hint("implself definition", ErrorHint::None))?;
         let next_self_type = self.impl_ty.generate_type_no_auto_generics(equs, &trs)?;
         let next_self_type = Some(next_self_type);
         let before_self_type = equs.set_self_type(next_self_type);
         for def in self.require_methods.values() {
-            def.unify_definition(equs, &trs)?;
+            def.unify_definition(equs, &trs, &self.without_member_range.hint("implself definition", ErrorHint::None))?;
         }
         equs.set_self_type(before_self_type);
         Ok(())
@@ -88,7 +88,7 @@ impl ImplSelfCandidate {
         let func_ty = self.require_methods
             .get(&call_eq.func_id)
             .ok_or(ErrorComment::empty(format!("require methods doesnt have {:?}", call_eq.func_id)))?
-            .generate_type(&gen_mp, &mut equs, trs, &call_eq.func_id)?;
+            .generate_type(&gen_mp, &mut equs, trs, &call_eq.func_id, &self.without_member_range.hint("selfimpl defined", ErrorHint::None))?;
         match func_ty {
             Type::Func(args, ret, info) => {
                 let alpha = call_eq.tag.generate_type_variable("FuncTypeInfo", 0, &mut equs);
@@ -139,7 +139,7 @@ impl ImplSelfCandidate {
         let mp = GenericsTypeMap::empty();
         let gen_mp = mp.next(gen_hashmp);
         let before_self_type = equs.set_self_type(Some(ty.clone()));
-        let func_ty = self.require_methods.get(&method_id.id).unwrap().generate_type(&gen_mp, equs, trs, &method_id.id).unwrap();
+        let func_ty = self.require_methods.get(&method_id.id).unwrap().generate_type(&gen_mp, equs, trs, &method_id.id, &self.without_member_range.hint("selfimpl defined", ErrorHint::None)).unwrap();
         let res = match func_ty {
             Type::Func(args, ret, FuncTypeInfo::None) => {
                 let tag = Tag::new();

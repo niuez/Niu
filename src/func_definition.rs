@@ -50,14 +50,14 @@ pub struct FuncDefinitionInfo {
 }
 
 impl FuncDefinitionInfo {
-    pub fn generate_type(&self, before_mp: &GenericsTypeMap, equs: &mut TypeEquations, trs: &TraitsInfo, call_id: &Identifier) -> TResult {
+    pub fn generate_type(&self, before_mp: &GenericsTypeMap, equs: &mut TypeEquations, trs: &TraitsInfo, call_id: &Identifier, define_hint: &ErrorHint) -> TResult {
         let mut gen_mp = HashMap::new();
         for (i, g_id) in self.generics.iter().enumerate() {
             let ty_var = call_id.generate_type_variable("Generics", i, equs);
             gen_mp.insert(g_id.clone(), ty_var.clone());
         }
         let mp = before_mp.next(gen_mp);
-        self.where_sec.regist_equations(&mp, equs, trs, &self.range.hint("function defined", ErrorHint::None))?;
+        self.where_sec.regist_equations(&mp, equs, trs, &self.range.hint("function defined", define_hint.clone()))?;
         let args = self.args.iter().map(|(_, t, _)| t.generics_to_type(&mp, equs, trs)).collect::<Result<Vec<Type>, _>>()?;
         let return_type = self.return_type.generics_to_type(&mp, equs, trs)?;
 
@@ -128,7 +128,7 @@ impl FuncDefinition {
          }
          )
     }
-    pub fn unify_definition(&self, equs: &mut TypeEquations, trs: &TraitsInfo) -> Result<(), Error> {
+    pub fn unify_definition(&self, equs: &mut TypeEquations, trs: &TraitsInfo, define_hint: &ErrorHint) -> Result<(), Error> {
         if let FuncBlock::Block(ref block) = self.block {
             if self.func_id == Identifier::from_str("main") {
                 if self.generics.len() > 0 {
@@ -159,7 +159,7 @@ impl FuncDefinition {
                    }*/
             }
 
-            self.where_sec.regist_candidate(equs, &mut trs)?;
+            self.where_sec.regist_candidate(equs, &mut trs, &self.def_range.hint("function define", define_hint.clone()))?;
 
             for (i, t, _) in self.args.iter() {
                 let alpha = i.generate_not_void_type_variable("ForRegist", 0, equs);
