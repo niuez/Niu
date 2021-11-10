@@ -14,7 +14,7 @@ pub trait NiuError: std::fmt::Debug {
 
 #[derive(Debug, Clone)]
 pub enum Error {
-    Range(ErrorRange),
+    Range(RangeHint),
     Comment(ErrorComment),
     None,
 }

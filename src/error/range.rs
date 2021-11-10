@@ -25,20 +25,21 @@ impl SourceRange {
 }
 
 #[derive(Debug, Clone)]
-pub struct ErrorRange {
+pub struct RangeHint {
     range: SourceRange,
+    hint: String,
     err: Box<Error>,
 }
 
-impl ErrorRange {
-    pub fn boxed(range: SourceRange, err: Error) -> Error {
-        Error::Range(Self { range, err: Box::new(err) })
+impl RangeHint {
+    pub fn new(range: SourceRange, hint: String, err: Error) -> Error {
+        Error::Range(Self { range, hint, err: Box::new(err) })
     }
 }
 
 
-impl NiuError for ErrorRange {
+impl NiuError for RangeHint {
     fn what(&self, data: &ErrorData) -> String {
-        format!("{}\n{}", self.range.get_range_str(data.statement).to_string(), self.err.as_ref().what(data))
+        format!("{} in\n|| {}\n{}", self.hint, self.range.get_range_str(data.statement).to_string(), self.err.as_ref().what(data))
     }
 }
