@@ -32,8 +32,8 @@ pub struct RangeHint {
 }
 
 impl RangeHint {
-    pub fn new(range: SourceRange, hint: String, err: Error) -> Error {
-        Error::Range(Self { range, hint, err: Box::new(err) })
+    pub fn new(range: SourceRange, hint: String, err: Error) -> ErrorHint {
+        ErrorHint::Range(Self { range, hint, err: Box::new(err) })
     }
 }
 
