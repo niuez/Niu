@@ -524,13 +524,13 @@ impl ImplCandidate {
 
         let impl_ty = self.impl_ty.generics_to_type(&gen_mp, &mut impl_equs, trs).unwrap();
         impl_equs.add_equation(impl_ty, self_type.clone());
-        self.where_sec.regist_equations(&gen_mp, &mut impl_equs, trs, &self.without_member_range.hint("impl defined", ErrorHint::None))
+        self.where_sec.regist_equations(&gen_mp, &mut impl_equs, trs, &self.hint())
             .map_err(|e| CallEquationSolveError::Error(e))?;
         let func_ty = self.require_methods
             .get(&TraitMethodIdentifier { id: call_eq.func_id.clone() })
             .ok_or(ErrorComment::empty(format!("require methods doesnt have {:?}", call_eq.func_id)))
                 .map_err(|e| CallEquationSolveError::Error(e))?
-            .generate_type(&gen_mp, &mut func_equs, trs, &call_eq.func_id, &self.without_member_range.hint("impl defined", ErrorHint::None))
+            .generate_type(&gen_mp, &mut func_equs, trs, &call_eq.func_id, &self.hint())
                 .map_err(|e| CallEquationSolveError::Error(e))?;
         let mut not_same_args_length = false;
         match func_ty {
@@ -569,7 +569,7 @@ impl ImplCandidate {
         }
         match impl_equs.unify(trs) {
             Err(UnifyErr::Contradiction(err)) => {
-                Err(CallEquationSolveError::Error(err))
+                Err(CallEquationSolveError::Error(ErrorUnify::new(format!(""), self.hint(), err)))
             }
             Ok(_) | Err(UnifyErr::Deficiency(_)) => {
                 if not_same_args_length {
@@ -579,7 +579,7 @@ impl ImplCandidate {
                     func_equs.take_over_equations(impl_equs);
                     match func_equs.unify(trs) {
                         Err(UnifyErr::Contradiction(err)) => {
-                            Err(CallEquationSolveError::ImplOk(err))
+                            Err(CallEquationSolveError::ImplOk(ErrorUnify::new(format!(""), self.hint(), err)))
                         }
                         Ok(_) | Err(UnifyErr::Deficiency(_)) => {
                             Ok(func_equs)
@@ -747,7 +747,7 @@ impl ParamCandidate {
 
         match impl_equs.unify(trs) {
             Err(UnifyErr::Contradiction(err)) => {
-                Err(CallEquationSolveError::Error(err))
+                Err(CallEquationSolveError::ImplOk(ErrorUnify::new(format!(""), self.hint(), err)))
             }
             Ok(_) | Err(UnifyErr::Deficiency(_)) => {
                 if not_same_args_length {
@@ -757,7 +757,7 @@ impl ParamCandidate {
                     func_equs.take_over_equations(impl_equs);
                     match func_equs.unify(trs) {
                         Err(UnifyErr::Contradiction(err)) => {
-                            Err(CallEquationSolveError::ImplOk(err))
+                            Err(CallEquationSolveError::ImplOk(ErrorUnify::new(format!(""), self.hint(), err)))
                         }
                         Ok(_) | Err(UnifyErr::Deficiency(_)) => {
                             Ok(func_equs)

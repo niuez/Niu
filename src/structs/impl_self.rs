@@ -128,7 +128,7 @@ impl ImplSelfCandidate {
         }
         match impl_equs.unify(trs) {
             Err(UnifyErr::Contradiction(err)) => {
-                Err(CallEquationSolveError::Error(err))
+                Err(CallEquationSolveError::Error(ErrorUnify::new(format!(""), self.hint(), err)))
             }
             Ok(_) | Err(UnifyErr::Deficiency(_)) => {
                 if not_same_args_length {
@@ -138,7 +138,7 @@ impl ImplSelfCandidate {
                     func_equs.take_over_equations(impl_equs);
                     match func_equs.unify(trs) {
                         Err(UnifyErr::Contradiction(err)) => {
-                            Err(CallEquationSolveError::ImplOk(err))
+                            Err(CallEquationSolveError::ImplOk(ErrorUnify::new(format!(""), self.hint(), err)))
                         }
                         Ok(_) | Err(UnifyErr::Deficiency(_)) => {
                             Ok(func_equs)
