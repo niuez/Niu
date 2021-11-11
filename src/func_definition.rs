@@ -50,6 +50,9 @@ pub struct FuncDefinitionInfo {
 }
 
 impl FuncDefinitionInfo {
+    pub fn hint(&self, define_hint: &ErrorHint) -> ErrorHint {
+        self.range.hint("function define", define_hint.clone())
+    }
     pub fn generate_type(&self, before_mp: &GenericsTypeMap, equs: &mut TypeEquations, trs: &TraitsInfo, call_id: &Identifier, define_hint: &ErrorHint) -> TResult {
         let mut gen_mp = HashMap::new();
         for (i, g_id) in self.generics.iter().enumerate() {
@@ -57,7 +60,7 @@ impl FuncDefinitionInfo {
             gen_mp.insert(g_id.clone(), ty_var.clone());
         }
         let mp = before_mp.next(gen_mp);
-        self.where_sec.regist_equations(&mp, equs, trs, &self.range.hint("function defined", define_hint.clone()))?;
+        self.where_sec.regist_equations(&mp, equs, trs, &self.hint(define_hint))?;
         let args = self.args.iter().map(|(_, t, _)| t.generics_to_type(&mp, equs, trs)).collect::<Result<Vec<Type>, _>>()?;
         let return_type = self.return_type.generics_to_type(&mp, equs, trs)?;
 

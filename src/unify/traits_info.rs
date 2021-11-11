@@ -473,7 +473,7 @@ impl<'a> TraitsInfo<'a> {
         self.match_to_self_impls(typeid, ty, self)
     }
 
-    fn generate_call_equations_for_trait(&self, trait_id: &TraitId, call_eq: &CallEquation, top_trs: &Self, solve_errs: &mut CallEquationSolveErrors) -> Vec<(TypeEquations, &SelectionCandidate, usize)> {
+    fn generate_call_equations_for_trait(&self, trait_id: &TraitId, call_eq: &CallEquation, top_trs: &Self, solve_errs: &mut CallEquationSolveErrors) -> Vec<(TypeEquations, ErrorHint, usize)> {
         let mut ans = Vec::new();
         if let Some(impls) = self.impls.get(trait_id) {
             let mut vs = impls.iter().enumerate()
@@ -481,8 +481,8 @@ impl<'a> TraitsInfo<'a> {
                     let res = impl_trait.generate_equations_for_call_equation(call_eq, top_trs);
                     log::debug!("{:?}", res.as_ref().map(|_| impl_trait.debug_str()));
                     match res {
-                        Ok(eq) => {
-                            Some((eq, impl_trait, i * self.depth + self.depth * 10000))
+                        Ok((eq, hint)) => {
+                            Some((eq, hint, i * self.depth + self.depth * 10000))
                         }
                         Err(err) => {
                             solve_errs.push(err);
@@ -504,7 +504,7 @@ impl<'a> TraitsInfo<'a> {
         ans
     }
 
-    fn generate_call_equations_for_self_type(&self, typeid: &TypeId, call_eq: &CallEquation, top_trs: &Self, solve_errs: &mut CallEquationSolveErrors) -> Vec<(TypeEquations, &SelectionCandidate)> {
+    fn generate_call_equations_for_self_type(&self, typeid: &TypeId, call_eq: &CallEquation, top_trs: &Self, solve_errs: &mut CallEquationSolveErrors) -> Vec<(TypeEquations, ErrorHint)> {
         let mut ans = Vec::new();
         if let Some(impls) = self.self_impls.get(typeid) {
             let mut vs = impls.iter()
@@ -512,8 +512,8 @@ impl<'a> TraitsInfo<'a> {
                     let res = impl_trait.generate_equations_for_call_equation(call_eq, top_trs);
                     log::debug!("{:?}", res.as_ref().map(|_| impl_trait.debug_str()));
                     match res {
-                        Ok(eq) => {
-                            Some((eq, impl_trait))
+                        Ok((eq, hint)) => {
+                            Some((eq, hint))
                         }
                         Err(err) => {
                             solve_errs.push(err);
@@ -545,17 +545,7 @@ impl<'a> TraitsInfo<'a> {
         let mut unify_res = Vec::new();
         let mut solve_errs = CallEquationSolveErrors::new();
         for t in st.into_iter() {
-            let vs = self.generate_call_equations_for_trait(&t, call_eq, self, &mut solve_errs);
-            let mut vs = vs.into_iter().filter_map(|(mut equs, cand, pri)| {
-                //log::debug!("{:?}", equs);
-                let res = equs.unify(self);
-                //log::info!("\n[{}] {}\n{:?}", pri, cand.debug_str(), res.as_ref());
-                match res {
-                    Ok(_) => Some((equs, cand, pri)),
-                    Err(UnifyErr::Deficiency(_)) => Some((equs, cand, pri)),
-                    Err(UnifyErr::Contradiction(_)) => None
-                }
-            }).collect::<Vec<_>>();
+            let mut vs = self.generate_call_equations_for_trait(&t, call_eq, self, &mut solve_errs);
             let idx = select_impls_by_priority(vs.iter().map(|(_, _, i)| *i), vs.len());
             if let Some(idx) = idx {
                 let (equs, cand, _) = vs.swap_remove(idx);
@@ -569,24 +559,12 @@ impl<'a> TraitsInfo<'a> {
         let mut st = HashSet::new();
         self.search_typeid_for_member(&call_eq.func_id, &mut st);
         for t in st.into_iter() {
-            let vs = self.generate_call_equations_for_self_type(&t, call_eq, self, &mut solve_errs);
-            for (mut gen_equ, cand) in vs.into_iter() {
-                let res = gen_equ.unify(self);
-                //log::debug!("\n{}\n{:?}", cand.debug_str(), res.as_ref().err());
-                match res {
-                    Ok(_) => {
-                        unify_res.push((gen_equ, cand));
-                    }
-                    Err(UnifyErr::Deficiency(_)) => {
-                        unify_res.push((gen_equ, cand));
-                    }
-                    Err(UnifyErr::Contradiction(_st)) => {}
-                }
-            }
+            let mut vs = self.generate_call_equations_for_self_type(&t, call_eq, self, &mut solve_errs);
+            unify_res.append(&mut vs);
         }
         if unify_res.len() == 1 {
-            let (gen_equ, cand) = unify_res.pop().unwrap();
-            log::debug!("OK {}\n-------------------------------", cand.debug_str());
+            let (gen_equ, _hint) = unify_res.pop().unwrap();
+            log::debug!("OK\n-------------------------------");
             let ret_ty = gen_equ.try_get_substs(TypeVariable::Counter(call_eq.tag.get_num(), "ReturnType", 0));
 
             //log::debug!("take over by call >> ");
@@ -601,9 +579,7 @@ impl<'a> TraitsInfo<'a> {
             Err(solve_errs.unify_err(Error::None))
         }
         else {
-            let errs = unify_res.iter().map(|(_, cand)| {
-                cand.hint().err()
-            }).collect();
+            let errs = unify_res.into_iter().map(|(_, cand)| { cand.err() }).collect();
             Err(UnifyErr::Deficiency(ErrorDetails::new(format!("try solve(many candidate)"), errs, Error::None)))
         }
     }

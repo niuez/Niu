@@ -28,7 +28,7 @@ pub enum SelectionCandidate {
 }
 
 impl SelectionCandidate {
-    pub fn generate_equations_for_call_equation(&self, call_eq: &CallEquation, trs: &TraitsInfo) -> Result<TypeEquations, CallEquationSolveError> {
+    pub fn generate_equations_for_call_equation(&self, call_eq: &CallEquation, trs: &TraitsInfo) -> Result<(TypeEquations, ErrorHint), CallEquationSolveError> {
         match *self {
             SelectionCandidate::ImplCandidate(ref cand) => {
                 cand.generate_equations_for_call_equation(call_eq, trs)
@@ -494,7 +494,7 @@ impl ImplCandidate {
     pub fn hint(&self) -> ErrorHint {
         self.without_member_range.hint("impl defined", ErrorHint::None)
     }
-    pub fn generate_equations_for_call_equation(&self, call_eq: &CallEquation, trs: &TraitsInfo) -> Result<TypeEquations, CallEquationSolveError> {
+    pub fn generate_equations_for_call_equation(&self, call_eq: &CallEquation, trs: &TraitsInfo) -> Result<(TypeEquations, ErrorHint), CallEquationSolveError> {
         if let Some(trait_spec) = &call_eq.trait_gen {
             if trait_spec.trait_id != self.get_trait_id() {
                 return Err(CallEquationSolveError::Error(ErrorComment::empty(format!("trait_id is not matched"))))
@@ -526,10 +526,12 @@ impl ImplCandidate {
         impl_equs.add_equation(impl_ty, self_type.clone());
         self.where_sec.regist_equations(&gen_mp, &mut impl_equs, trs, &self.hint())
             .map_err(|e| CallEquationSolveError::Error(e))?;
-        let func_ty = self.require_methods
+        let func_def = self.require_methods
             .get(&TraitMethodIdentifier { id: call_eq.func_id.clone() })
             .ok_or(ErrorComment::empty(format!("require methods doesnt have {:?}", call_eq.func_id)))
-                .map_err(|e| CallEquationSolveError::Error(e))?
+                .map_err(|e| CallEquationSolveError::Error(e))?;
+        let func_hint = func_def.hint(&self.hint());
+        let func_ty = func_def
             .generate_type(&gen_mp, &mut func_equs, trs, &call_eq.func_id, &self.hint())
                 .map_err(|e| CallEquationSolveError::Error(e))?;
         let mut not_same_args_length = false;
@@ -579,10 +581,10 @@ impl ImplCandidate {
                     func_equs.take_over_equations(impl_equs);
                     match func_equs.unify(trs) {
                         Err(UnifyErr::Contradiction(err)) => {
-                            Err(CallEquationSolveError::ImplOk(ErrorUnify::new(format!(""), self.hint(), err)))
+                            Err(CallEquationSolveError::ImplOk(ErrorUnify::new(format!(""), func_hint, err)))
                         }
                         Ok(_) | Err(UnifyErr::Deficiency(_)) => {
-                            Ok(func_equs)
+                            Ok((func_equs, func_hint))
                         }
                     }
                 }
@@ -678,7 +680,7 @@ impl ParamCandidate {
             trait_gen, trait_generics_arg, impl_ty, asso_defs, require_methods, define_hint: define_hint.clone(),
         })
     }
-    pub fn generate_equations_for_call_equation(&self, call_eq: &CallEquation, trs: &TraitsInfo) -> Result<TypeEquations, CallEquationSolveError> {
+    pub fn generate_equations_for_call_equation(&self, call_eq: &CallEquation, trs: &TraitsInfo) -> Result<(TypeEquations, ErrorHint), CallEquationSolveError> {
         if let Some(trait_spec) = &call_eq.trait_gen {
             if trait_spec.trait_id != self.trait_gen.trait_id {
                 return Err(CallEquationSolveError::Error(ErrorComment::empty(format!("trait_id is not matched"))))
@@ -705,10 +707,12 @@ impl ParamCandidate {
         }
 
         impl_equs.add_equation(self.impl_ty.clone(), self_type.clone());
-        let func_ty = self.require_methods
+        let func_def = self.require_methods
             .get(&TraitMethodIdentifier { id: call_eq.func_id.clone() })
             .ok_or(ErrorComment::empty(format!("require methods doesnt have {:?}", call_eq.func_id)))
-                .map_err(|e| CallEquationSolveError::Error(e))?
+                .map_err(|e| CallEquationSolveError::Error(e))?;
+        let func_hint = func_def.hint(&self.hint());
+        let func_ty = func_def
             .generate_type(&gen_mp, &mut func_equs, trs, &call_eq.func_id, &self.define_hint)
                 .map_err(|e| CallEquationSolveError::Error(e))?;
         let mut not_same_args_length = false;
@@ -757,10 +761,10 @@ impl ParamCandidate {
                     func_equs.take_over_equations(impl_equs);
                     match func_equs.unify(trs) {
                         Err(UnifyErr::Contradiction(err)) => {
-                            Err(CallEquationSolveError::ImplOk(ErrorUnify::new(format!(""), self.hint(), err)))
+                            Err(CallEquationSolveError::ImplOk(ErrorUnify::new(format!(""), func_hint, err)))
                         }
                         Ok(_) | Err(UnifyErr::Deficiency(_)) => {
-                            Ok(func_equs)
+                            Ok((func_equs, func_hint))
                         }
                     }
                 }
