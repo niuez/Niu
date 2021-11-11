@@ -27,6 +27,13 @@ pub struct TraitsInfo<'a> {
     upper_info: Option<&'a TraitsInfo<'a>>,
 }
 
+#[derive(Debug, Clone)]
+pub enum CallEquationSolveError {
+    Error(Error),
+    ImplOk(Error),
+    Ok(Error),
+}
+
 
 pub fn select_impls_by_priority<I: Iterator<Item=usize>>(priorities: I, len: usize) -> Option<usize> {
     let idx = priorities.into_iter().enumerate().max_by_key(|(_, x)| *x);
@@ -448,7 +455,7 @@ impl<'a> TraitsInfo<'a> {
             let mut vs = impls.iter().enumerate()
                 .map(|(i, impl_trait)| {
                     let res = impl_trait.generate_equations_for_call_equation(call_eq, top_trs);
-                    log::info!("{:?}", res.as_ref().map(|_| impl_trait.debug_str()));
+                    log::debug!("{:?}", res.as_ref().map(|_| impl_trait.debug_str()));
                     res.ok().map(|eq| (eq, impl_trait, i * self.depth + self.depth * 10000))
                 })
                 .filter_map(|x| {
@@ -471,7 +478,7 @@ impl<'a> TraitsInfo<'a> {
             let mut vs = impls.iter()
                 .map(|impl_trait| {
                     let res = impl_trait.generate_equations_for_call_equation(call_eq, top_trs);
-                    log::info!("{:?}", res.as_ref().map(|_| impl_trait.debug_str()));
+                    log::debug!("{:?}", res.as_ref().map(|_| impl_trait.debug_str()));
                     res.ok().map(|eq| (eq, impl_trait))
                 })
                 .filter_map(|x| {
