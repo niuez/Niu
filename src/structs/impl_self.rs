@@ -66,54 +66,87 @@ impl ImplSelfDefinition {
 }
 
 impl ImplSelfCandidate {
-    pub fn generate_equations_for_call_equation(&self, call_eq: &CallEquation, trs: &TraitsInfo) -> Result<TypeEquations, Error> {
+    pub fn hint(&self) -> ErrorHint {
+        self.without_member_range.hint("impl defined", ErrorHint::None)
+    }
+    pub fn generate_equations_for_call_equation(&self, call_eq: &CallEquation, trs: &TraitsInfo) -> Result<TypeEquations, CallEquationSolveError> {
         if call_eq.trait_gen != None {
-            return Err(ErrorComment::empty(format!("trait_id is not matched")))
+            return Err(CallEquationSolveError::Error(ErrorComment::empty(format!("trait_id is not matched"))))
         }
-        let mut equs = TypeEquations::new();
-        let self_type = call_eq.tag.generate_type_variable("SelfType", 0, &mut equs);
-        equs.set_self_type(Some(self_type.clone()));
+        let mut impl_equs = TypeEquations::new();
+        let mut func_equs = TypeEquations::new();
+        let self_type = call_eq.tag.generate_type_variable("SelfType", 0, &mut impl_equs);
+        func_equs.set_self_type(Some(self_type.clone()));
+        impl_equs.set_self_type(Some(self_type.clone()));
 
         if let Some(ref caller_type) = call_eq.caller_type {
-            equs.add_equation(self_type.clone(), caller_type.as_ref().clone());
+            impl_equs.add_equation(self_type.clone(), caller_type.as_ref().clone());
         }
 
-        let gen_mp = self.generics.iter().enumerate().map(|(i, id)| (id.clone(), call_eq.tag.generate_type_variable("Generics", i, &mut equs)))
+        let gen_mp = self.generics.iter().enumerate().map(|(i, id)| (id.clone(), call_eq.tag.generate_type_variable("Generics", i, &mut impl_equs)))
             .collect::<HashMap<_, _>>();
         let mp = GenericsTypeMap::empty();
         let gen_mp = mp.next(gen_mp);
-        let impl_ty = self.impl_ty.generics_to_type(&gen_mp, &mut equs, trs)?;
-        equs.add_equation(impl_ty, self_type.clone());
-        self.where_sec.regist_equations(&gen_mp, &mut equs, trs, &self.without_member_range.hint("selfimpl defined", ErrorHint::None))?;
+        let impl_ty = self.impl_ty.generics_to_type(&gen_mp, &mut impl_equs, trs)
+            .map_err(|e| CallEquationSolveError::Error(e))?;
+        impl_equs.add_equation(impl_ty, self_type.clone());
+        self.where_sec.regist_equations(&gen_mp, &mut impl_equs, trs, &self.without_member_range.hint("selfimpl defined", ErrorHint::None))
+            .map_err(|e| CallEquationSolveError::Error(e))?;
         let func_ty = self.require_methods
             .get(&call_eq.func_id)
-            .ok_or(ErrorComment::empty(format!("require methods doesnt have {:?}", call_eq.func_id)))?
-            .generate_type(&gen_mp, &mut equs, trs, &call_eq.func_id, &self.without_member_range.hint("selfimpl defined", ErrorHint::None))?;
+            .ok_or(ErrorComment::empty(format!("require methods doesnt have {:?}", call_eq.func_id)))
+                .map_err(|e| CallEquationSolveError::Error(e))?
+            .generate_type(&gen_mp, &mut func_equs, trs, &call_eq.func_id, &self.without_member_range.hint("selfimpl defined", ErrorHint::None))
+                .map_err(|e| CallEquationSolveError::Error(e))?;
+        let mut not_same_args_length = false;
         match func_ty {
             Type::Func(args, ret, info) => {
-                let alpha = call_eq.tag.generate_type_variable("FuncTypeInfo", 0, &mut equs);
+                let alpha = call_eq.tag.generate_type_variable("FuncTypeInfo", 0, &mut func_equs);
                 let info = match info {
                     FuncTypeInfo::None => {
                         let tag = Tag::new();
-                        let alpha = tag.generate_type_variable("SelfType", 0, &mut equs);
-                        equs.add_equation(alpha, self_type.clone());
+                        let alpha = tag.generate_type_variable("SelfType", 0, &mut func_equs);
+                        func_equs.add_equation(alpha, self_type.clone());
                         FuncTypeInfo::SelfFunc(tag)
                     }
                     info => info,
                 };
-                equs.add_equation(alpha, Type::Func(args.clone(), ret.clone(), info));
+                func_equs.add_equation(alpha, Type::Func(args.clone(), ret.clone(), info));
                 if args.len() != call_eq.args.len() {
-                    return Err(ErrorComment::empty(format!("args len is not matched {:?} != {:?}", args, call_eq.args)))
+                    not_same_args_length = true;
+                }
+                if call_eq.caller_type.is_none() {
+                    impl_equs.add_equation(args[0].clone(), call_eq.args[0].clone());
                 }
                 for (l, r) in args.into_iter().zip(call_eq.args.iter()) {
-                    equs.add_equation(l, r.clone())
+                    func_equs.add_equation(l, r.clone())
                 }
-                let return_ty = call_eq.tag.generate_type_variable("ReturnType", 0, &mut equs);
-                equs.add_equation(*ret, return_ty);
+                let return_ty = call_eq.tag.generate_type_variable("ReturnType", 0, &mut func_equs);
+                func_equs.add_equation(*ret, return_ty);
             }
             _ => unreachable!()
         }
-        Ok(equs)
+        match impl_equs.unify(trs) {
+            Err(UnifyErr::Contradiction(err)) => {
+                Err(CallEquationSolveError::Error(err))
+            }
+            Ok(_) | Err(UnifyErr::Deficiency(_)) => {
+                if not_same_args_length {
+                    Err(CallEquationSolveError::ImplOk(ErrorComment::empty(format!("args len is not match"))))
+                }
+                else {
+                    func_equs.take_over_equations(impl_equs);
+                    match func_equs.unify(trs) {
+                        Err(UnifyErr::Contradiction(err)) => {
+                            Err(CallEquationSolveError::ImplOk(err))
+                        }
+                        Ok(_) | Err(UnifyErr::Deficiency(_)) => {
+                            Ok(func_equs)
+                        }
+                    }
+                }
+            }
+        }
     }
     pub fn match_impl_for_ty(&self, ty: &Type, trs: &TraitsInfo) -> Option<SubstsMap> {
         let mut equs = TypeEquations::new();

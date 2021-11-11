@@ -75,8 +75,8 @@ impl TraitGenerics {
     }
     fn solve(self, equs: &mut TypeEquations, trs: &TraitsInfo) -> Result<(Self, SolveChange), UnifyErr> {
         let generics = self.generics.into_iter().map(|g| equs.solve_relations(g, trs)).collect::<Result<Vec<_>, _>>()?;
-        let solve_change = generics.iter().fold(SolveChange::Not, |a, (_, b)| a & *b);
-        let generics = generics.into_iter().map(|(g, _)| g).collect();
+        let (generics, changes): (Vec<_>, Vec<_>) = generics.into_iter().unzip();
+        let solve_change = changes.into_iter().fold(SolveChange::Not, |a, b| a & b);
         Ok((TraitGenerics { trait_id: self.trait_id, generics, }, solve_change))
     }
     fn is_solved_type(&self) -> bool {
@@ -319,7 +319,7 @@ pub enum TypeVariable {
     Counter(usize, &'static str, usize),
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum SolveChange {
     Changed,
     Not,
@@ -346,7 +346,11 @@ impl std::ops::BitAnd for SolveChange {
 
 impl std::ops::BitAndAssign for SolveChange {
     fn bitand_assign(&mut self, right: Self) {
-        *self = *self & right;
+        let res = match (self.cnt(), right) {
+            (0, Self::Not) => Self::Not,
+            _ => Self::Changed,
+        };
+        *self = res;
     }
 }
 
@@ -400,8 +404,9 @@ impl CallEquation {
         };
         self.trait_gen = trait_gen;
         let args = self.args.into_iter().map(|arg| equs.solve_relations(arg, trs)).collect::<Result<Vec<_>, UnifyErr>>()?;
-        let args_changed = args.iter().map(|(_, c)| *c).fold(SolveChange::Not, |b, a| b & a);
-        self.args = args.into_iter().map(|(a, _)| a).collect();
+        let (args, changes): (Vec<_>, Vec<_>) = args.into_iter().unzip();
+        let args_changed = changes.into_iter().fold(SolveChange::Not, |b, a| b & a);
+        self.args = args;
 
         let next_change = caller_changed & trait_changed & args_changed;
 
@@ -409,7 +414,11 @@ impl CallEquation {
             Ok(ret_ty) => {
                 Ok((ret_ty, SolveChange::Changed))
             }
-            Err(_cands) => {
+            Err(UnifyErr::Contradiction(err)) => {
+                Err(UnifyErr::Contradiction(err))
+                //Ok((Type::CallEquation(self), next_change))
+            }
+            Err(UnifyErr::Deficiency(err)) => {
                 Ok((Type::CallEquation(self), next_change))
             }
         }
@@ -470,7 +479,7 @@ pub trait GenType {
 
 pub enum UnifyErr {
     Contradiction(Error),
-    Deficiency(String),
+    Deficiency(Error),
 }
 
 impl UnifyErr {
@@ -485,7 +494,7 @@ impl UnifyErr {
     pub fn into_err(self) -> Error {
         match self {
             Self::Contradiction(err) => err,
-            Self::Deficiency(st) => ErrorComment::empty(st),
+            Self::Deficiency(err) => err,
         }
     }
 }
@@ -854,8 +863,8 @@ impl TypeEquations {
     fn solve_generics(&mut self, ty: Type, trs: &TraitsInfo) -> Result<(Type, SolveChange), UnifyErr> {
         if let Type::Generics(id, gens) = ty {
             let try_solve = gens.into_iter().map(|gen| { self.solve_relations(gen, trs) }).collect::<Result<Vec<_>, _>>()?;
-            let inner_changed = try_solve.iter().map(|(_, changed)| *changed).fold(SolveChange::Not, |b, c| b & c);
-            let gens = try_solve.into_iter().map(|(ty, _)| ty).collect();
+            let (gens, changes): (Vec<_>, Vec<_>) = try_solve.into_iter().unzip();
+            let inner_changed = changes.into_iter().fold(SolveChange::Not, |b, c| b & c);
             Ok((Type::Generics(id, gens), inner_changed))
         }
         else {
@@ -992,8 +1001,8 @@ impl TypeEquations {
                         }
                     }
                     else {
-                        self.equs.push_back(TypeEquation::HasTrait(left, tr, hint, changed));
                         self.change_cnt += changed.cnt();
+                        self.equs.push_back(TypeEquation::HasTrait(left, tr, hint, changed));
                     }
                 }
                 TypeEquation::TupleTrait(left, tr, hint, before_changed) => {
@@ -1006,8 +1015,8 @@ impl TypeEquations {
                         }
                     }
                     else {
-                        self.equs.push_back(TypeEquation::TupleTrait(left, tr, hint, left_changed));
                         self.change_cnt += left_changed.cnt();
+                        self.equs.push_back(TypeEquation::TupleTrait(left, tr, hint, left_changed));
                     }
                 }
                 TypeEquation::CopyTrait(tag, ty, before_changed) => {
@@ -1024,8 +1033,8 @@ impl TypeEquations {
                         }
                     }
                     else {
-                        self.equs.push_back(TypeEquation::CopyTrait(tag, ty, ty_changed));
                         self.change_cnt += ty_changed.cnt();
+                        self.equs.push_back(TypeEquation::CopyTrait(tag, ty, ty_changed));
                     }
                 }
                 TypeEquation::Equal(left, right, before_changed) => {
@@ -1039,52 +1048,52 @@ impl TypeEquations {
                     match (left, right) {
                         (l, r) if l == r => {}
                         (Type::AssociatedType(a, b, c), right) => {
-                            self.equs.push_back(TypeEquation::Equal(Type::AssociatedType(a, b, c), right, changed));
                             self.change_cnt += changed.cnt();
+                            self.equs.push_back(TypeEquation::Equal(Type::AssociatedType(a, b, c), right, changed));
                         }
                         (left, Type::AssociatedType(a, b, c)) => {
-                            self.equs.push_back(TypeEquation::Equal(left, Type::AssociatedType(a, b, c), changed));
                             self.change_cnt += changed.cnt();
+                            self.equs.push_back(TypeEquation::Equal(left, Type::AssociatedType(a, b, c), changed));
                         }
                         (Type::TraitMethod(a, b, c), right) => {
-                            self.equs.push_back(TypeEquation::Equal(Type::TraitMethod(a, b, c), right, changed));
                             self.change_cnt += changed.cnt();
+                            self.equs.push_back(TypeEquation::Equal(Type::TraitMethod(a, b, c), right, changed));
                         }
                         (left, Type::TraitMethod(a, b, c)) => {
-                            self.equs.push_back(TypeEquation::Equal(left, Type::TraitMethod(a, b, c), changed));
                             self.change_cnt += changed.cnt();
+                            self.equs.push_back(TypeEquation::Equal(left, Type::TraitMethod(a, b, c), changed));
                         }
                         (Type::Member(b, a), right) => {
-                            self.equs.push_back(TypeEquation::Equal(Type::Member(b, a), right, changed));
                             self.change_cnt += changed.cnt();
+                            self.equs.push_back(TypeEquation::Equal(Type::Member(b, a), right, changed));
                         }
                         (left, Type::Member(b, a)) => {
-                            self.equs.push_back(TypeEquation::Equal(left, Type::Member(b, a), changed));
                             self.change_cnt += changed.cnt();
+                            self.equs.push_back(TypeEquation::Equal(left, Type::Member(b, a), changed));
                         }
                         (Type::TupleMember(b, a), right) => {
-                            self.equs.push_back(TypeEquation::Equal(Type::TupleMember(b, a), right, changed));
                             self.change_cnt += changed.cnt();
+                            self.equs.push_back(TypeEquation::Equal(Type::TupleMember(b, a), right, changed));
                         }
                         (left, Type::TupleMember(b, a)) => {
-                            self.equs.push_back(TypeEquation::Equal(left, Type::TupleMember(b, a), changed));
                             self.change_cnt += changed.cnt();
+                            self.equs.push_back(TypeEquation::Equal(left, Type::TupleMember(b, a), changed));
                         }
                         (Type::CallEquation(call), right) => {
-                            self.equs.push_back(TypeEquation::Equal(Type::CallEquation(call), right, changed));
                             self.change_cnt += changed.cnt();
+                            self.equs.push_back(TypeEquation::Equal(Type::CallEquation(call), right, changed));
                         }
                         (left, Type::CallEquation(call)) => {
-                            self.equs.push_back(TypeEquation::Equal(left, Type::CallEquation(call), changed));
                             self.change_cnt += changed.cnt();
+                            self.equs.push_back(TypeEquation::Equal(left, Type::CallEquation(call), changed));
                         }
                         (Type::Deref(ty), right) => {
-                            self.equs.push_back(TypeEquation::Equal(Type::Deref(ty), right, changed));
                             self.change_cnt += changed.cnt();
+                            self.equs.push_back(TypeEquation::Equal(Type::Deref(ty), right, changed));
                         }
                         (left, Type::Deref(ty)) => {
-                            self.equs.push_back(TypeEquation::Equal(left, Type::Deref(ty), changed));
                             self.change_cnt += changed.cnt();
+                            self.equs.push_back(TypeEquation::Equal(left, Type::Deref(ty), changed));
                         }
                         (left, Type::AutoRef(ty, AutoRefTag::Tag(tag))) | (Type::AutoRef(ty, AutoRefTag::Tag(tag)), left) => {
                             let (ty, ty_changed) = self.solve_relations(*ty, trs)?;
@@ -1125,9 +1134,9 @@ impl TypeEquations {
                         }
                         (Type::Func(l_args, l_return, _), Type::Func(r_args, r_return, _)) => {
                             if l_args.len() != r_args.len() {
-                                Err(UnifyErr::Deficiency(format!("length of args is not equal. {:?}, {:?} vs {:?}, {:?}",
+                                Err(UnifyErr::Contradiction(ErrorComment::empty(format!("length of args is not equal. {:?}, {:?} vs {:?}, {:?}",
                                             l_args, l_return, r_args, r_return
-                                            )))?;
+                                            ))))?;
                             }
                             for (l, r) in l_args.into_iter().zip(r_args.into_iter()) {
                                 self.add_equation(l, r);
@@ -1212,7 +1221,8 @@ impl TypeEquations {
                 }
             }
             if self.change_cnt == 0 && self.equs.len() > 0 {
-                return Err(UnifyErr::Deficiency(format!("change cnt = 0 \n{}", self.equs.iter().map(|equ| format!("{:?}", equ)).collect::<Vec<_>>().join("\n"))));
+                return Err(UnifyErr::Deficiency(ErrorComment::empty(format!("change cnt = 0 \n{}", self.equs.iter().map(|equ| format!("{:?}", equ)).collect::<Vec<_>>().join("\n")))));
+
             }
         }
 
@@ -1221,7 +1231,7 @@ impl TypeEquations {
             .filter(|TypeSubst{ t, .. }| *t == Type::from_str("void"))
             .collect::<Vec<_>>();
         if !self.want_solve.is_empty() {
-            Err(UnifyErr::Deficiency(format!("want_solve {:?} cant solve now", self.want_solve)))
+            Err(UnifyErr::Deficiency(ErrorComment::empty(format!("want_solve {:?} cant solve now", self.want_solve))))
         }
         else if voids.len() > 0 {
             Err(UnifyErr::Contradiction(ErrorComment::empty(format!("voids appear {:?}", voids))))

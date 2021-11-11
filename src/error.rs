@@ -1,8 +1,10 @@
 pub mod range;
 pub mod comment;
+pub mod details;
 
 pub use range::*;
 pub use comment::*;
+pub use details::*;
 
 pub struct ErrorData<'a> {
     pub statement: &'a str,
@@ -37,6 +39,7 @@ impl NiuError for ErrorHint {
 pub enum Error {
     Hint(ErrorHint),
     Comment(ErrorComment),
+    Details(ErrorDetails),
     None,
 }
 
@@ -45,6 +48,7 @@ impl NiuError for Error {
         match *self {
             Self::Hint(ref a) => a.what(data),
             Self::Comment(ref a) => a.what(data),
+            Self::Details(ref a) => a.what(data),
             Self::None => format!(""),
         }
     }
