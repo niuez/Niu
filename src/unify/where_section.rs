@@ -89,7 +89,7 @@ impl WhereSection {
     pub fn transpile(&self, ta: &TypeAnnotation) -> String {
         let mut conds = Vec::new();
         //let bin_opes = BINARY_OPERATOR_TRAITS.iter().cloned().collect::<HashMap<_, _>>();
-        for (ty, _, tr, assos, range) in self.has_traits.iter() {
+        for (ty, _, tr, assos, _range) in self.has_traits.iter() {
             match find_operator(tr.trait_id.id.into_string().as_str()) {
                 Some(ResultFindOperator::Binary((_, ope))) => {
                     let assos = assos.iter().map(|(id, asso_ty)| (id.id.into_string(), asso_ty.clone())).collect::<HashMap<_, _>>();
@@ -152,7 +152,7 @@ impl WhereSection {
 }
 
 fn parse_associated_type_specifier_elem(s: &str) -> IResult<&str, (AssociatedTypeIdentifier, TypeSpec)> {
-    let (s, ((id, _, _, _, spec), range)) = with_range(tuple((parse_associated_type_identifier, multispace0, char('='), multispace0, parse_type_spec)))(s)?;
+    let (s, ((id, _, _, _, spec), _range)) = with_range(tuple((parse_associated_type_identifier, multispace0, char('='), multispace0, parse_type_spec)))(s)?;
     Ok((s, (id, spec)))
 }
 

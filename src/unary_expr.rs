@@ -194,7 +194,7 @@ impl MutCheck for Variable {
 }
 
 impl MoveCheck for Variable {
-    fn move_check(&self, mc: &mut VariablesMoveChecker, ta: &TypeAnnotation) -> Result<MoveResult, String> {
+    fn move_check(&self, _mc: &mut VariablesMoveChecker, ta: &TypeAnnotation) -> Result<MoveResult, String> {
         if ta.is_copyable(&self.id.tag) {
             Ok(MoveResult::Right)
         }

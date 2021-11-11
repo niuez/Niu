@@ -337,7 +337,7 @@ pub fn subseq_move_check(uexpr: &UnaryExpr, subseq: &Subseq, mc: &mut VariablesM
     match *subseq {
         Subseq::Call(ref call) => {
             match uexpr {
-                UnaryExpr::Subseq(mem_caller, Subseq::Member(mem)) => {
+                UnaryExpr::Subseq(mem_caller, Subseq::Member(_mem)) => {
                     let mem_res = mem_caller.move_check(mc, ta)?;
                     match ta.annotation(call.tag.get_num(), "AutoRefType", 0) {
                         Type::AutoRef(_, AutoRefTag::MutRef) | Type::AutoRef(_, AutoRefTag::Ref) => {}
@@ -352,7 +352,7 @@ pub fn subseq_move_check(uexpr: &UnaryExpr, subseq: &Subseq, mc: &mut VariablesM
                     }
                     Ok(MoveResult::Right)
                 }
-                uexpr => {
+                _uexpr => {
                     for arg in call.args.iter() {
                         let res = arg.move_check(mc, ta)?;
                         mc.move_result(res)?;
@@ -388,7 +388,7 @@ pub fn subseq_move_check(uexpr: &UnaryExpr, subseq: &Subseq, mc: &mut VariablesM
             }
         }
         Subseq::Index(ref index) => {
-            let uexpr = uexpr.move_check(mc, ta)?;
+            let _uexpr = uexpr.move_check(mc, ta)?;
             let arg = index.arg.as_ref().move_check(mc, ta)?;
             mc.move_result(arg)?;
             if ta.is_copyable(&index.tag) {

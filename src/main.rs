@@ -66,7 +66,7 @@ fn get_import_path() -> Result<Vec<PathBuf>, String> {
 
 fn type_check(filename: &str) -> Result<String, String> {
     let import_path = get_import_path()?;
-    let mut t = crate::full_content::parse_full_content_from_file(&filename, &import_path).map_err(|e| format!("{:?}", e))?;
+    let t = crate::full_content::parse_full_content_from_file(&filename, &import_path).map_err(|e| format!("{:?}", e))?;
     //log::debug!("{:?}", t);
     let mut ta = t.type_check()?;
     t.mut_check(&ta)?;
@@ -77,7 +77,7 @@ fn type_check(filename: &str) -> Result<String, String> {
 
 pub fn type_check_with_tests(filename: &str) -> Result<(String, Vec<UnitTestTranspiled>), String> {
     let import_path = get_import_path()?;
-    let mut t = crate::full_content::parse_full_content_from_file(&filename, &import_path).map_err(|e| format!("{:?}", e))?;
+    let t = crate::full_content::parse_full_content_from_file(&filename, &import_path).map_err(|e| format!("{:?}", e))?;
     //log::debug!("{:?}", t);
     let mut ta = t.type_check()?;
     t.mut_check(&ta)?;
