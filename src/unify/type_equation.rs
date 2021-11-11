@@ -362,8 +362,13 @@ impl std::ops::BitAnd for SolveChange {
 
 impl std::ops::BitAndAssign for SolveChange {
     fn bitand_assign(&mut self, right: Self) {
-        if let (Self::Not(ref mut e1), Self::Not(mut e2)) = (self, right) {
-            e1.append(&mut e2);
+        match (self, right) {
+            (Self::Not(ref mut e1), Self::Not(mut e2)) => {
+                e1.append(&mut e2);
+            }
+            (s, _) => {
+                *s = Self::Changed;
+            }
         }
     }
 }
@@ -375,6 +380,19 @@ pub enum TypeEquation {
     HasTrait(Type, TraitGenerics, ErrorHint, SolveChange),
     TupleTrait(Type, TraitId, ErrorHint, SolveChange),
     Equal(Type, Type, SolveChange),
+}
+
+impl TypeEquation {
+    pub fn replace_solve_change(&mut self, new_change: SolveChange) -> SolveChange {
+        match *self {
+            TypeEquation::Equal(_, _, ref mut change) |
+                TypeEquation::HasTrait(_, _, _, ref mut change) |
+                TypeEquation::CopyTrait(_, _, ref mut change) |
+                TypeEquation::TupleTrait(_, _, _, ref mut change) => {
+                    std::mem::replace(change, new_change)
+                }
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -557,6 +575,9 @@ impl TypeEquations {
         }
         for TypeSubst { tv, .. } in gen_equs.substs.iter() {
             self.want_solve.remove(tv);
+        }
+        for e in gen_equs.equs.iter_mut() {
+            e.replace_solve_change(SolveChange::not());
         }
         self.equs.append(&mut gen_equs.equs);
         self.substs.append(&mut gen_equs.substs);
@@ -1001,6 +1022,7 @@ impl TypeEquations {
                     let (left, left_changed) = self.solve_relations(left, trs)?;
                     let (tr, tr_changed) = tr.solve(self, trs)?;
                     let changed = left_changed & tr_changed;
+                    log::debug!("{:?} {:?} {:?} {:?}", left, left.is_solved_type(), tr, tr.is_solved_type());
                     if left.is_solved_type() && tr.is_solved_type() {
                         let solve_cnt = self.solve_has_trait(&left, &tr, trs);
                         if solve_cnt == 0 {
@@ -1235,15 +1257,9 @@ impl TypeEquations {
                 }
             }
             if self.change_cnt == 0 && self.equs.len() > 0 {
+                log::debug!("{:?}", self.equs);
                 let change = self.equs.iter_mut().map(|e| {
-                    match *e {
-                        TypeEquation::Equal(_, _, ref mut change) |
-                        TypeEquation::HasTrait(_, _, _, ref mut change) |
-                        TypeEquation::CopyTrait(_, _, ref mut change) |
-                        TypeEquation::TupleTrait(_, _, _, ref mut change) => {
-                            std::mem::replace(change, SolveChange::Changed)
-                        }
-                    }
+                    e.replace_solve_change(SolveChange::not())
                 }).fold(SolveChange::not(), |a, b| a & b);
                 return Err(UnifyErr::Deficiency(change.into_detail(format!("solve cnt = 0"), Error::None)));
             }
