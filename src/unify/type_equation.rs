@@ -71,12 +71,12 @@ impl TraitGenerics {
         self.generics.iter().map(|g| g.occurs(t)).any(|b| b)
     }
     fn subst(&mut self, theta: &TypeSubst) -> SolveChange {
-        self.generics.iter_mut().map(|g| g.subst(theta)).fold(SolveChange::Not, |a, b| a & b)
+        self.generics.iter_mut().map(|g| g.subst(theta)).fold(SolveChange::not(), |a, b| a & b)
     }
     fn solve(self, equs: &mut TypeEquations, trs: &TraitsInfo) -> Result<(Self, SolveChange), UnifyErr> {
         let generics = self.generics.into_iter().map(|g| equs.solve_relations(g, trs)).collect::<Result<Vec<_>, _>>()?;
         let (generics, changes): (Vec<_>, Vec<_>) = generics.into_iter().unzip();
-        let solve_change = changes.into_iter().fold(SolveChange::Not, |a, b| a & b);
+        let solve_change = changes.into_iter().fold(SolveChange::not(), |a, b| a & b);
         Ok((TraitGenerics { trait_id: self.trait_id, generics, }, solve_change))
     }
     fn is_solved_type(&self) -> bool {
@@ -175,7 +175,7 @@ impl Type {
     fn subst(&mut self, theta: &TypeSubst) -> SolveChange {
         match *self {
             Type::Func(ref mut args, ref mut ret, ref mut _info) => {
-                let mut changed = SolveChange::Not;
+                let mut changed = SolveChange::not();
                 for arg in args.iter_mut() {
                     changed &= arg.subst(theta);
                 }
@@ -183,9 +183,9 @@ impl Type {
                 changed
             }
             Type::Generics(ref _ty, ref mut gens) => {
-                gens.iter_mut().map(|gen| gen.subst(theta)).fold(SolveChange::Not, |a, b| a & b)
+                gens.iter_mut().map(|gen| gen.subst(theta)).fold(SolveChange::not(), |a, b| a & b)
             }
-            Type::SolvedAssociatedType(_, _, _) => { SolveChange::Not },
+            Type::SolvedAssociatedType(_, _, _) => { SolveChange::not() },
             Type::AssociatedType(ref mut ty, ref mut tr, _) => {
                 ty.as_mut().subst(theta) & tr.subst(theta)
             }
@@ -211,12 +211,12 @@ impl Type {
                 ty.as_mut().subst(theta)
             }
             Type::Tuple(ref mut params) => {
-                params.iter_mut().map(|p| p.subst(theta)).fold(SolveChange::Not, |a, b| a & b)
+                params.iter_mut().map(|p| p.subst(theta)).fold(SolveChange::not(), |a, b| a & b)
             }
             Type::TupleMember(ref mut ty, _) => {
                 ty.as_mut().subst(theta)
             }
-            Type::End => { SolveChange::Not },
+            Type::End => { SolveChange::not() },
             // TypeVariable
             ref mut ty => {
                 let TypeSubst { tv: y, t: into_t } = theta;
@@ -225,7 +225,7 @@ impl Type {
                     SolveChange::Changed
                 }
                 else {
-                    SolveChange::Not
+                    SolveChange::not()
                 }
             }
         }
@@ -319,18 +319,31 @@ pub enum TypeVariable {
     Counter(usize, &'static str, usize),
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug)]
 pub enum SolveChange {
     Changed,
-    Not,
+    Not(Vec<Error>),
 }
 
 impl SolveChange {
+    pub fn not() -> Self {
+        SolveChange::Not(Vec::new())
+    }
+    pub fn err(err: Error) -> Self {
+        SolveChange::Not(vec![err])
+    }
     pub fn cnt(&self) -> usize {
         match self {
             Self::Changed => 1,
-            Self::Not => 0,
+            Self::Not(_) => 0,
         }
+    }
+    pub fn into_detail(self, comment: String, prev: Error) -> Error {
+        let errs = match self {
+            Self::Changed => Vec::new(),
+            Self::Not(errs) => errs,
+        };
+        ErrorDetails::new(comment, errs, prev)
     }
 }
 
@@ -338,7 +351,10 @@ impl std::ops::BitAnd for SolveChange {
     type Output = Self;
     fn bitand(self, right: Self) -> Self {
         match (self, right) {
-            (Self::Not, Self::Not) => Self::Not,
+            (Self::Not(mut e1), Self::Not(mut e2)) => {
+                e1.append(&mut e2);
+                Self::Not(e1)
+            }
             _ => Self::Changed,
         }
     }
@@ -346,11 +362,9 @@ impl std::ops::BitAnd for SolveChange {
 
 impl std::ops::BitAndAssign for SolveChange {
     fn bitand_assign(&mut self, right: Self) {
-        let res = match (self.cnt(), right) {
-            (0, Self::Not) => Self::Not,
-            _ => Self::Changed,
-        };
-        *self = res;
+        if let (Self::Not(ref mut e1), Self::Not(mut e2)) = (self, right) {
+            e1.append(&mut e2);
+        }
     }
 }
 
@@ -379,9 +393,9 @@ impl CallEquation {
     }
     pub fn subst(&mut self, theta: &TypeSubst) -> SolveChange {
         //log::info!("subst {:?}", theta);
-        let mut changed = SolveChange::Not;
-        changed &= self.caller_type.as_mut().map_or(SolveChange::Not, |t| t.subst(theta));
-        changed &= self.trait_gen.as_mut().map_or(SolveChange::Not, |t| t.subst(theta));
+        let mut changed = SolveChange::not();
+        changed &= self.caller_type.as_mut().map_or(SolveChange::not(), |t| t.subst(theta));
+        changed &= self.trait_gen.as_mut().map_or(SolveChange::not(), |t| t.subst(theta));
         self.args.iter_mut().map(|arg| arg.subst(theta))
             .fold(changed, |a, b| a & b)
     }
@@ -393,10 +407,10 @@ impl CallEquation {
             caller_changed
         }
         else {
-            SolveChange::Not
+            SolveChange::not()
         };
         let (trait_gen, trait_changed) = match self.trait_gen {
-            None => (None, SolveChange::Not),
+            None => (None, SolveChange::not()),
             Some(t) => {
                 let (t, changed) = t.solve(equs, trs)?;
                 (Some(t), changed)
@@ -405,7 +419,7 @@ impl CallEquation {
         self.trait_gen = trait_gen;
         let args = self.args.into_iter().map(|arg| equs.solve_relations(arg, trs)).collect::<Result<Vec<_>, UnifyErr>>()?;
         let (args, changes): (Vec<_>, Vec<_>) = args.into_iter().unzip();
-        let args_changed = changes.into_iter().fold(SolveChange::Not, |b, a| b & a);
+        let args_changed = changes.into_iter().fold(SolveChange::not(), |b, a| b & a);
         self.args = args;
 
         let next_change = caller_changed & trait_changed & args_changed;
@@ -419,7 +433,7 @@ impl CallEquation {
                 //Ok((Type::CallEquation(self), next_change))
             }
             Err(UnifyErr::Deficiency(err)) => {
-                Ok((Type::CallEquation(self), next_change))
+                Ok((Type::CallEquation(self), next_change & SolveChange::err(err)))
             }
         }
     }
@@ -658,7 +672,7 @@ impl TypeEquations {
     fn solve_call_equation(&mut self, ty: Type, trs: &TraitsInfo) -> Result<(Type, SolveChange), UnifyErr> {
         match ty {
             Type::CallEquation(call) => call.solve(self, trs),
-            _ => Ok((ty, SolveChange::Not)),
+            _ => Ok((ty, SolveChange::not())),
         }
     }
     fn solve_associated_type(&mut self, ty: Type, trs: &TraitsInfo) -> Result<(Type, SolveChange), UnifyErr> {
@@ -695,7 +709,7 @@ impl TypeEquations {
                     }
                 }
             }
-            _ => Ok((ty, SolveChange::Not)),
+            _ => Ok((ty, SolveChange::not())),
         }
     }
 
@@ -782,7 +796,7 @@ impl TypeEquations {
             }
         }
         else {
-            Ok((ty, SolveChange::Not))
+            Ok((ty, SolveChange::not()))
         }
     }
 
@@ -856,7 +870,7 @@ impl TypeEquations {
             }
         }
         else {
-            Ok((ty, SolveChange::Not))
+            Ok((ty, SolveChange::not()))
         }
     }
 
@@ -864,11 +878,11 @@ impl TypeEquations {
         if let Type::Generics(id, gens) = ty {
             let try_solve = gens.into_iter().map(|gen| { self.solve_relations(gen, trs) }).collect::<Result<Vec<_>, _>>()?;
             let (gens, changes): (Vec<_>, Vec<_>) = try_solve.into_iter().unzip();
-            let inner_changed = changes.into_iter().fold(SolveChange::Not, |b, c| b & c);
+            let inner_changed = changes.into_iter().fold(SolveChange::not(), |b, c| b & c);
             Ok((Type::Generics(id, gens), inner_changed))
         }
         else {
-            Ok((ty, SolveChange::Not))
+            Ok((ty, SolveChange::not()))
         }
     }
 
@@ -882,7 +896,7 @@ impl TypeEquations {
             }
         }
         else {
-            Ok((ty, SolveChange::Not))
+            Ok((ty, SolveChange::not()))
         }
     }
 
@@ -892,13 +906,13 @@ impl TypeEquations {
             Ok((Type::AutoRef(Box::new(ty), tag), change))
         }
         else {
-            Ok((ty, SolveChange::Not))
+            Ok((ty, SolveChange::not()))
         }
     }
 
     fn solve_func(&mut self, ty: Type, trs: &TraitsInfo) -> Result<(Type, SolveChange), UnifyErr> {
         if let Type::Func(args, ret, info) = ty {
-            let mut change = SolveChange::Not;
+            let mut change = SolveChange::not();
             let args = args.into_iter().map(|ty| {
                 let (ty, ch) = self.solve_relations(ty, trs)?;
                 change &= ch;
@@ -908,13 +922,13 @@ impl TypeEquations {
             Ok((Type::Func(args, Box::new(ret), info), change & ret_change))
         }
         else {
-            Ok((ty, SolveChange::Not))
+            Ok((ty, SolveChange::not()))
         }
     }
 
     fn solve_tuple(&mut self, ty: Type, trs: &TraitsInfo) -> Result<(Type, SolveChange), UnifyErr> {
         if let Type::Tuple(params) = ty {
-            let mut change = SolveChange::Not;
+            let mut change = SolveChange::not();
             let params = params.into_iter().map(|ty| {
                 let (ty, ch) = self.solve_relations(ty, trs)?;
                 change &= ch;
@@ -923,7 +937,7 @@ impl TypeEquations {
             Ok((Type::Tuple(params), change))
         }
         else {
-            Ok((ty, SolveChange::Not))
+            Ok((ty, SolveChange::not()))
         }
     }
 
@@ -970,7 +984,7 @@ impl TypeEquations {
             }
         }
         else {
-            Ok((ty, SolveChange::Not))
+            Ok((ty, SolveChange::not()))
         }
     }
 
@@ -1221,8 +1235,17 @@ impl TypeEquations {
                 }
             }
             if self.change_cnt == 0 && self.equs.len() > 0 {
-                return Err(UnifyErr::Deficiency(ErrorComment::empty(format!("change cnt = 0 \n{}", self.equs.iter().map(|equ| format!("{:?}", equ)).collect::<Vec<_>>().join("\n")))));
-
+                let change = self.equs.iter_mut().map(|e| {
+                    match *e {
+                        TypeEquation::Equal(_, _, ref mut change) |
+                        TypeEquation::HasTrait(_, _, _, ref mut change) |
+                        TypeEquation::CopyTrait(_, _, ref mut change) |
+                        TypeEquation::TupleTrait(_, _, _, ref mut change) => {
+                            std::mem::replace(change, SolveChange::Changed)
+                        }
+                    }
+                }).fold(SolveChange::not(), |a, b| a & b);
+                return Err(UnifyErr::Deficiency(change.into_detail(format!("solve cnt = 0"), Error::None)));
             }
         }
 
