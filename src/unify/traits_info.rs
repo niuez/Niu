@@ -21,6 +21,7 @@ pub struct TraitsInfo<'a> {
     pub traits: HashMap<TraitId, TraitDefinitionInfo>,
     pub impls: HashMap<TraitId, Vec<SelectionCandidate>>,
     self_impls: HashMap<TypeId, Vec<SelectionCandidate>>,
+    associated_type_to_traits: HashMap<AssociatedTypeIdentifier, HashSet<TraitId>>,
     member_to_traits: HashMap<Identifier, HashSet<TraitId>>,
     member_to_self_impls: HashMap<Identifier, HashSet<TypeId>>,
     depth: usize,
@@ -82,6 +83,7 @@ impl<'a> TraitsInfo<'a> {
             traits: HashMap::new(),
             impls: HashMap::new(),
             self_impls: HashMap::new(),
+            associated_type_to_traits: HashMap::new(),
             member_to_traits: HashMap::new(),
             member_to_self_impls: HashMap::new(),
             depth: 0,
@@ -94,6 +96,7 @@ impl<'a> TraitsInfo<'a> {
             traits: HashMap::new(),
             impls: HashMap::new(),
             self_impls: HashMap::new(),
+            associated_type_to_traits: HashMap::new(),
             member_to_traits: HashMap::new(),
             member_to_self_impls: HashMap::new(),
             depth: self.depth + 1,
@@ -269,6 +272,16 @@ impl<'a> TraitsInfo<'a> {
                 }
                 None => {
                     self.member_to_traits.insert(id.id.clone(), vec![trait_id.clone()].into_iter().collect());
+                }
+            }
+        }
+        for asso_id in trait_def.asso_ids.iter() {
+            match self.associated_type_to_traits.get_mut(asso_id) {
+                Some(st) => {
+                    st.insert(trait_id.clone());
+                }
+                None => {
+                    self.associated_type_to_traits.insert(asso_id.clone(), vec![trait_id.clone()].into_iter().collect());
                 }
             }
         }
@@ -581,6 +594,81 @@ impl<'a> TraitsInfo<'a> {
         else {
             let errs = unify_res.into_iter().map(|(_, cand)| { cand.err() }).collect();
             Err(UnifyErr::Deficiency(ErrorDetails::new(format!("try solve(many candidate)"), errs, call_eq.caller_range.clone().err())))
+        }
+    }
+
+    fn generate_associated_type_equation_for_trait(&self, trait_id: &TraitId, associated_eq: &AssociatedTypeEquation, top_trs: &Self, solve_errs: &mut CallEquationSolveErrors) -> Vec<(TypeEquations, ErrorHint, usize)> {
+        let mut ans = Vec::new();
+        if let Some(impls) = self.impls.get(trait_id) {
+            let mut vs = impls.iter().enumerate()
+                .map(|(i, impl_trait)| {
+                    let res = impl_trait.generate_equations_for_associated_type_equation(associated_eq, top_trs);
+                    log::debug!("{:?}", res.as_ref().map(|_| impl_trait.debug_str()));
+                    match res {
+                        Ok((eq, hint)) => {
+                            Some((eq, hint, i * self.depth + self.depth * 10000))
+                        }
+                        Err(err) => {
+                            solve_errs.push(err);
+                            None
+                        }
+                    }
+                })
+                .filter_map(|x| {
+                    x
+                })
+                .collect::<Vec<_>>();
+            ans.append(&mut vs);
+        }
+
+        if let Some(trs) = self.upper_info {
+            let mut vs = trs.generate_associated_type_equation_for_trait(trait_id, associated_eq, top_trs, solve_errs);
+            ans.append(&mut vs);
+        }
+        ans
+    }
+
+    pub fn regist_for_associated_type_equation(&self, equs: &mut TypeEquations, associated_eq: &AssociatedTypeEquation) -> Result<Type, UnifyErr> {
+        let mut st = HashSet::new();
+        self.search_traits_for_associated_type(&associated_eq.associated_type_id, &mut st);
+        let mut unify_res = Vec::new();
+        let mut solve_errs = CallEquationSolveErrors::new();
+        for tr in st.into_iter() {
+            let mut vs = self.generate_associated_type_equation_for_trait(&tr, associated_eq, self, &mut solve_errs);
+            let idx = select_impls_by_priority(vs.iter().map(|(_, _, i)| *i), vs.len());
+            if let Some(idx) = idx {
+                let (equs, hint, _) = vs.swap_remove(idx);
+                unify_res.push((equs, hint));
+            }
+        }
+
+        if unify_res.len() == 1 {
+            let (gen_equ, _hint) = unify_res.pop().unwrap();
+            log::debug!("OK\n-------------------------------");
+            let ret_ty = gen_equ.try_get_substs(TypeVariable::Counter(associated_eq.tag.get_num(), "ReturnType", 0));
+
+            //log::debug!("take over by call >> ");
+            //log::debug!("{:?}", call_eq);
+            //log::debug!("ret = {:?}", ret_ty);
+            //log::debug!(">> ");
+            equs.take_over_equations(gen_equ);
+            Ok(ret_ty)
+        }
+        else if unify_res.len() == 0 {
+            Err(solve_errs.unify_err(associated_eq.caller_range.clone().err()))
+        }
+        else {
+            let errs = unify_res.into_iter().map(|(_, cand)| { cand.err() }).collect();
+            Err(UnifyErr::Deficiency(ErrorDetails::new(format!("try solve(many candidate)"), errs, associated_eq.caller_range.clone().err())))
+        }
+    }
+
+    fn search_traits_for_associated_type(&self, asso_id: &AssociatedTypeIdentifier, st: &mut HashSet<TraitId>) {
+        if let Some(traits) = self.associated_type_to_traits.get(asso_id) {
+            for t in traits { st.insert(t.clone()); }
+        }
+        if let Some(trs) = self.upper_info {
+            trs.search_traits_for_associated_type(asso_id, st);
         }
     }
 

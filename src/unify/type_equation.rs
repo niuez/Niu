@@ -96,7 +96,7 @@ pub enum Type {
     Func(Vec<Type>, Box<Type>, FuncTypeInfo),
     TypeVariable(TypeVariable),
     Generics(TypeId, Vec<Type>),
-    AssociatedType(Box<Type>, TraitGenerics, AssociatedTypeIdentifier),
+    AssociatedType(AssociatedTypeEquation),
     TraitMethod(Box<Type>, Option<TraitGenerics>, Identifier),
     Member(Box<Type>, Identifier),
     CallEquation(CallEquation),
@@ -141,8 +141,8 @@ impl Type {
                 }
                 false
             }
-            Type::AssociatedType(ref ty, ref tr, _) => {
-                ty.as_ref().occurs(t) || tr.occurs(t)
+            Type::AssociatedType(ref eq) => {
+                eq.occurs(t)
             }
             Type::SolvedAssociatedType(ref ty, ref tr, _) => {
                 ty.as_ref().occurs(t) || tr.occurs(t)
@@ -192,8 +192,8 @@ impl Type {
                 gens.iter_mut().map(|gen| gen.subst(theta)).fold(SolveChange::not(), |a, b| a & b)
             }
             Type::SolvedAssociatedType(_, _, _) => { SolveChange::not() },
-            Type::AssociatedType(ref mut ty, ref mut tr, _) => {
-                ty.as_mut().subst(theta) & tr.subst(theta)
+            Type::AssociatedType(ref mut eq) => {
+                eq.subst(theta)
             }
             Type::TraitMethod(ref mut ty, _, _) => {
                 ty.as_mut().subst(theta)
@@ -643,38 +643,7 @@ impl TypeEquations {
     }
     fn solve_associated_type(&mut self, ty: Type, trs: &TraitsInfo) -> Result<(Type, SolveChange), UnifyErr> {
         match ty {
-            Type::AssociatedType(inner_ty, tr, asso_id) => {
-                let (inner_ty, inner_changed) = self.solve_relations(*inner_ty, trs)?;
-                let (tr, tr_changed) = tr.solve(self, trs)?;
-                //if inner_ty.is_solved_type() {
-                {
-                    let substs = trs.match_to_impls_for_type(&tr, &inner_ty);
-                    match substs {
-                        Ok((subst, impl_trait)) => {
-                            let before = self.set_self_type(Some(inner_ty));
-                            let res = impl_trait.get_associated_from_id(self, trs, &asso_id, &subst);
-                            self.set_self_type(before);
-                            self.solve_relations(res, trs).map(|(ty, _)| (ty, SolveChange::Changed))
-                        }
-                        Err(len) => {
-                            if inner_ty.is_solved_type() {
-                                if len == 0 { 
-                                    Err(UnifyErr::Contradiction(ErrorComment::empty(format!("type {:?} is not implemented trait {:?}", inner_ty, tr))))
-                                }
-                                else if len > 1 {
-                                    Err(UnifyErr::Contradiction(ErrorComment::empty(format!("type {:?} is implemented too many trait {:?}", inner_ty, substs))))
-                                }
-                                else {
-                                    unreachable!();
-                                }
-                            }
-                            else {
-                                Ok((Type::AssociatedType(Box::new(inner_ty), tr, asso_id), inner_changed & tr_changed))
-                            }
-                        }
-                    }
-                }
-            }
+            Type::AssociatedType(eq) => eq.solve(self, trs),
             _ => Ok((ty, SolveChange::not())),
         }
     }
@@ -1028,13 +997,13 @@ impl TypeEquations {
                     let changed = left_changed & right_changed;
                     match (left, right) {
                         (l, r) if l == r => {}
-                        (Type::AssociatedType(a, b, c), right) => {
+                        (Type::AssociatedType(a), right) => {
                             self.change_cnt += changed.cnt();
-                            self.equs.push_back(TypeEquation::Equal(Type::AssociatedType(a, b, c), right, changed));
+                            self.equs.push_back(TypeEquation::Equal(Type::AssociatedType(a), right, changed));
                         }
-                        (left, Type::AssociatedType(a, b, c)) => {
+                        (left, Type::AssociatedType(a)) => {
                             self.change_cnt += changed.cnt();
-                            self.equs.push_back(TypeEquation::Equal(left, Type::AssociatedType(a, b, c), changed));
+                            self.equs.push_back(TypeEquation::Equal(left, Type::AssociatedType(a), changed));
                         }
                         (Type::TraitMethod(a, b, c), right) => {
                             self.change_cnt += changed.cnt();

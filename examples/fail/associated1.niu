@@ -1,0 +1,17 @@
+import "std/opes.niu"
+struct Hoge {} {}
+
+trait Tr {
+  type Output;
+}
+
+impl Tr for Hoge {
+  type Output = u64;
+}
+
+fn solve<T>(t: T) -> void where T: Tr(Output=u64) {
+}
+
+fn main() -> void {
+  solve(Hoge {});
+}

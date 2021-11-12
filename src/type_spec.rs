@@ -8,6 +8,7 @@ use nom::multi::*;
 use nom::branch::*;
 use nom::bytes::complete::*;
 
+use crate::identifier::Tag;
 use crate::type_id::*;
 use crate::traits::*;
 
@@ -183,7 +184,13 @@ impl TypeSpec {
             }
             TypeSpec::Associated(ref spec, ref asso) => {
                 let trait_gen = asso.trait_spec.generate_trait_generics(equs, trs, mp)?;
-                Ok(Type::AssociatedType(Box::new(spec.as_ref().generics_to_type(mp, equs, trs)?), trait_gen, asso.type_id.clone()))
+                Ok(Type::AssociatedType(AssociatedTypeEquation {
+                        caller_type: Box::new(spec.as_ref().generics_to_type(mp, equs, trs)?),
+                        trait_gen: Some(trait_gen),
+                        associated_type_id: asso.type_id.clone(),
+                        caller_range: ErrorHint::None,
+                        tag: Tag::new(),
+                }))
             }
             TypeSpec::Tuple(ref params) => {
                 let params = params.iter().map(|p| p.generics_to_type(mp, equs, trs)).collect::<Result<Vec<_>, _>>()?;
@@ -205,7 +212,13 @@ impl TypeSpec {
             }
             TypeSpec::Associated(ref spec, ref asso) => {
                 let trait_gen = asso.trait_spec.generate_trait_generics_with_no_map(equs, trs)?;
-                Ok(Type::AssociatedType(Box::new(spec.as_ref().generate_type_no_auto_generics(equs, trs)?), trait_gen, asso.type_id.clone()))
+                Ok(Type::AssociatedType(AssociatedTypeEquation {
+                    caller_type: Box::new(spec.as_ref().generate_type_no_auto_generics(equs, trs)?),
+                    trait_gen: Some(trait_gen),
+                    associated_type_id: asso.type_id.clone(),
+                    caller_range: ErrorHint::None,
+                    tag: Tag::new(),
+                }))
             }
             TypeSpec::Tuple(ref params) => {
                 let params = params.iter().map(|p| p.generate_type_no_auto_generics(equs, trs)).collect::<Result<Vec<_>, _>>()?;
