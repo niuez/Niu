@@ -576,11 +576,11 @@ impl<'a> TraitsInfo<'a> {
         }
         else if unify_res.len() == 0 {
             log::debug!("NG-------------------------------------------");
-            Err(solve_errs.unify_err(Error::None))
+            Err(solve_errs.unify_err(call_eq.caller_range.clone().err()))
         }
         else {
             let errs = unify_res.into_iter().map(|(_, cand)| { cand.err() }).collect();
-            Err(UnifyErr::Deficiency(ErrorDetails::new(format!("try solve(many candidate)"), errs, Error::None)))
+            Err(UnifyErr::Deficiency(ErrorDetails::new(format!("try solve(many candidate)"), errs, call_eq.caller_range.clone().err())))
         }
     }
 

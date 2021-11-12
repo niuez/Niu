@@ -31,6 +31,9 @@ impl SourceRange {
     pub fn hint(&self, hint: &str, prev: ErrorHint) -> ErrorHint {
         RangeHint::new(self.clone(), hint, prev)
     }
+    pub fn merge(&self, right: &SourceRange) -> SourceRange {
+        SourceRange { start: self.start, end: right.end }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -50,7 +53,7 @@ impl RangeHint {
 impl NiuError for RangeHint {
     fn what(&self, data: &ErrorData) -> String {
         let start_line_num = self.range.get_start_line_number(data.statement);
-        let code = self.range.get_range_str(data.statement).split("\n")
+        let code = self.range.get_range_str(data.statement).lines()
             .enumerate()
             .map(|(i, s)| format!("{:04} |     {}", i + start_line_num, s)).collect::<Vec<_>>().join("\n");
         format!("{}\nhint: {}\n     |\n{}\n     |", self.prev.as_ref().what(data), self.hint, code)

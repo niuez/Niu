@@ -18,6 +18,7 @@ use crate::mut_checker::*;
 use crate::move_checker::*;
 use crate::type_spec::*;
 use crate::traits::*;
+use crate::error::*;
 
 #[derive(Debug)]
 pub enum UnaryExpr {
@@ -25,7 +26,7 @@ pub enum UnaryExpr {
     Literal(Literal),
     Parentheses(Parentheses),
     Block(Block),
-    Subseq(Box<UnaryExpr>, Subseq),
+    Subseq(Box<UnaryExpr>, Subseq, SourceRange),
     StructInst(StructInstantiation),
     TraitMethod(TypeSpec, Option<TraitSpec>, Identifier),
     Tuple(Vec<Expression>, Tag),
@@ -38,7 +39,7 @@ impl GenType for UnaryExpr {
             UnaryExpr::Literal(ref l) => l.gen_type(equs, trs),
             UnaryExpr::Parentheses(ref p) => p.gen_type(equs, trs),
             UnaryExpr::Block(ref b) => b.gen_type(equs, trs),
-            UnaryExpr::Subseq(ref expr, ref s) => subseq_gen_type(expr.as_ref(), s, equs, trs),
+            UnaryExpr::Subseq(ref expr, ref s, ref range) => subseq_gen_type(expr.as_ref(), s, range, equs, trs),
             UnaryExpr::StructInst(ref inst) => inst.gen_type(equs, trs),
             UnaryExpr::TraitMethod(ref spec, ref trait_spec, ref mem_id) => {
                 let alpha = mem_id.generate_type_variable("FuncTypeInfo", 0, equs);
@@ -77,7 +78,7 @@ impl Transpile for UnaryExpr {
             UnaryExpr::Literal(ref l) => l.transpile(ta),
             UnaryExpr::Parentheses(ref p) => p.transpile(ta),
             UnaryExpr::Block(ref b) => format!("[&](){{ {} }}()", b.transpile(ta)),
-            UnaryExpr::Subseq(ref expr, ref s) => subseq_transpile(expr.as_ref(), s, ta),
+            UnaryExpr::Subseq(ref expr, ref s, _) => subseq_transpile(expr.as_ref(), s, ta),
             UnaryExpr::StructInst(ref inst) => inst.transpile(ta),
             UnaryExpr::TraitMethod(ref spec, Some(ref trait_spec), ref method_id) => {
                 format!("{}<{}>::{}", trait_spec.trait_id.transpile(ta), spec.transpile(ta), method_id.into_string())
@@ -99,7 +100,7 @@ impl MutCheck for UnaryExpr {
             UnaryExpr::Literal(ref l) => l.mut_check(ta, vars),
             UnaryExpr::Parentheses(ref p) => p.mut_check(ta, vars),
             UnaryExpr::Block(ref b) => b.mut_check(ta, vars),
-            UnaryExpr::Subseq(ref expr, ref s) => subseq_mut_check(expr.as_ref(), s, ta, vars),
+            UnaryExpr::Subseq(ref expr, ref s, _) => subseq_mut_check(expr.as_ref(), s, ta, vars),
             UnaryExpr::StructInst(ref inst) => inst.mut_check(ta, vars),
             UnaryExpr::TraitMethod(ref _spec, Some(ref _trait_id), ref _method_id) => {
                 Ok(MutResult::NotMut)
@@ -124,7 +125,7 @@ impl MoveCheck for UnaryExpr {
             UnaryExpr::Literal(ref l) => l.move_check(mc, ta),
             UnaryExpr::Parentheses(ref p) => p.move_check(mc, ta),
             UnaryExpr::Block(ref b) => b.move_check(mc, ta),
-            UnaryExpr::Subseq(ref expr, ref s) => subseq_move_check(expr.as_ref(), s, mc, ta),
+            UnaryExpr::Subseq(ref expr, ref s, _) => subseq_move_check(expr.as_ref(), s, mc, ta),
             UnaryExpr::StructInst(ref inst) => inst.move_check(mc, ta),
             UnaryExpr::TraitMethod(ref _spec, Some(ref _trait_id), ref _method_id) => {
                 Ok(MoveResult::Right)
@@ -144,7 +145,7 @@ impl MoveCheck for UnaryExpr {
 }
 
 pub fn parse_unary_expr(s: &str) -> IResult<&str, UnaryExpr> {
-    let (s, x) = alt((
+    let (s, (x, mut range)) = with_range(alt((
             parse_unary_trait_method,
             parse_struct_instantiation,
             parse_literal,
@@ -152,12 +153,13 @@ pub fn parse_unary_expr(s: &str) -> IResult<&str, UnaryExpr> {
             parse_unaryexpr_tuple,
             parse_bracket_block,
             parse_variable,
-            ))(s)?;
+            )))(s)?;
     let mut now = s;
     let mut prec = x;
-    while let Ok((s, sub)) = parse_subseq(now) {
+    while let Ok((s, (sub, sub_range))) = with_range(parse_subseq)(now) {
+        range = range.merge(&sub_range);
         now = s;
-        prec = UnaryExpr::Subseq(Box::new(prec), sub);
+        prec = UnaryExpr::Subseq(Box::new(prec), sub, range.clone());
     }
     Ok((now, prec))
 }

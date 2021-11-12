@@ -16,6 +16,7 @@ use crate::trans::*;
 use crate::mut_checker::*;
 use crate::move_checker::*;
 use crate::identifier::*;
+use crate::error::*;
 
 #[derive(Debug)]
 pub enum Subseq {
@@ -25,11 +26,11 @@ pub enum Subseq {
     Index(IndexCall),
 }
 
-pub fn subseq_gen_type(uexpr: &UnaryExpr, subseq: &Subseq, equs: &mut TypeEquations, trs: &TraitsInfo) -> TResult {
+pub fn subseq_gen_type(uexpr: &UnaryExpr, subseq: &Subseq, range: &SourceRange, equs: &mut TypeEquations, trs: &TraitsInfo) -> TResult {
     match *subseq {
         Subseq::Call(ref call) => {
             match uexpr {
-                UnaryExpr::Subseq(mem_caller, Subseq::Member(mem)) => {
+                UnaryExpr::Subseq(mem_caller, Subseq::Member(mem), _) => {
                     let caller = mem_caller.gen_type(equs, trs)?;
                     let args =
                             std::iter::once(Ok(Type::AutoRef(Box::new(caller.clone()), AutoRefTag::Tag(call.tag.clone()))))
@@ -40,6 +41,7 @@ pub fn subseq_gen_type(uexpr: &UnaryExpr, subseq: &Subseq, equs: &mut TypeEquati
                         trait_gen: None,
                         func_id: mem.mem_id.clone(),
                         args,
+                        caller_range: range.hint("call here", ErrorHint::None),
                         tag: call.tag.clone(),
                     }))
                 }
@@ -54,6 +56,7 @@ pub fn subseq_gen_type(uexpr: &UnaryExpr, subseq: &Subseq, equs: &mut TypeEquati
                         },
                         func_id: func_id.clone(),
                         args,
+                        caller_range: range.hint("call here", ErrorHint::None),
                         tag: call.tag.clone(),
                     }))
                 }
@@ -99,6 +102,7 @@ pub fn subseq_gen_type(uexpr: &UnaryExpr, subseq: &Subseq, equs: &mut TypeEquati
                             trait_gen: Some(TraitGenerics { trait_id: TraitId { id: Identifier::from_str("Index") }, generics: Vec::new() }),
                             func_id: Identifier::from_str("index"),
                             args: vec![arg0, arg1],
+                            caller_range: range.hint("call here", ErrorHint::None),
                             tag: index.tag.clone(),
                         }
             ))));
@@ -112,7 +116,7 @@ pub fn subseq_gen_type(uexpr: &UnaryExpr, subseq: &Subseq, equs: &mut TypeEquati
 pub fn subseq_transpile(uexpr: &UnaryExpr, subseq: &Subseq, ta: &TypeAnnotation) -> String {
     match *subseq {
         Subseq::Call(ref call) => {
-            if let UnaryExpr::Subseq(mem_caller, Subseq::Member(mem)) = uexpr {
+            if let UnaryExpr::Subseq(mem_caller, Subseq::Member(mem), _) = uexpr {
                 if mem.mem_id.into_string() == "clone" {
                     format!("{}", mem_caller.transpile(ta))
                 }
@@ -253,7 +257,7 @@ pub fn subseq_mut_check(uexpr: &UnaryExpr, subseq: &Subseq, ta: &TypeAnnotation,
     match *subseq {
         Subseq::Call(ref call) => {
             match uexpr {
-                UnaryExpr::Subseq(mem_caller, Subseq::Member(_mem)) => {
+                UnaryExpr::Subseq(mem_caller, Subseq::Member(_mem), _) => {
                     for arg in call.args.iter() {
                         arg.mut_check(ta, vars)?;
                     }
@@ -337,7 +341,7 @@ pub fn subseq_move_check(uexpr: &UnaryExpr, subseq: &Subseq, mc: &mut VariablesM
     match *subseq {
         Subseq::Call(ref call) => {
             match uexpr {
-                UnaryExpr::Subseq(mem_caller, Subseq::Member(_mem)) => {
+                UnaryExpr::Subseq(mem_caller, Subseq::Member(_mem), _) => {
                     let mem_res = mem_caller.move_check(mc, ta)?;
                     match ta.annotation(call.tag.get_num(), "AutoRefType", 0) {
                         Type::AutoRef(_, AutoRefTag::MutRef) | Type::AutoRef(_, AutoRefTag::Ref) => {}

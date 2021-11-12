@@ -36,6 +36,7 @@ fn expr_gen_type<'a, EI: Iterator<Item=Type>, O: 'a, OI: Iterator<Item=&'a O>, F
             trait_gen: Some(TraitGenerics { trait_id: tr, generics: vec![right.clone()] }),
             func_id: method,
             args: vec![left, right],
+            caller_range: ErrorHint::None,
             tag: Tag::new()
         });
         left = tag.generate_type_variable("Operators", cnt, equs);
@@ -1029,6 +1030,7 @@ impl GenType for ExpUnaryOpe {
                     trait_gen: Some(TraitGenerics { trait_id: TraitId { id: Identifier::from_str("Neg") } , generics: Vec::new() }),
                     func_id: Identifier::from_str("operator-"),
                     args: vec![exp.gen_type(equs, trs)?],
+                    caller_range: ErrorHint::None,
                     tag: tag.clone(),
                 }))
             }
@@ -1038,6 +1040,7 @@ impl GenType for ExpUnaryOpe {
                     trait_gen: Some(TraitGenerics { trait_id: TraitId { id: Identifier::from_str("Not") } , generics: Vec::new() }),
                     func_id: Identifier::from_str("operator!"),
                     args: vec![exp.gen_type(equs, trs)?],
+                    caller_range: ErrorHint::None,
                     tag: tag.clone(),
                 }))
             }
