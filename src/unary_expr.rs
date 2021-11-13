@@ -257,11 +257,10 @@ pub fn parse_unary_trait_method(ss: &str) -> IResult<&str, UnaryExpr> {
     let (tail_tr_op, tail_id) = elems.pop().unwrap();
     let mut ty = TypeSpec::TypeSign(typesign);
     for (op, ty_id) in elems.into_iter() {
-        // TODO: remove unwrap
         ty = TypeSpec::Associated(Box::new(ty), AssociatedType { 
-            trait_spec: op.unwrap(),
+            trait_spec: op,
             type_id: AssociatedTypeIdentifier { id: ty_id },
-        });
+        }, Tag::new());
     }
     Ok((s, UnaryExpr::TraitMethod(ty, tail_tr_op, tail_id)))
 }

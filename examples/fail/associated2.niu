@@ -10,5 +10,5 @@ impl<T> Tr for T where T: Clone {
 }
 
 fn main() -> void {
-  let a: Hoge::TrAsso = 0;
+  let a: Hoge::Output = 0;
 }

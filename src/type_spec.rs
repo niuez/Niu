@@ -166,7 +166,7 @@ pub enum TypeSpec {
     TypeSign(TypeSign),
     Pointer(Box<TypeSpec>),
     MutPointer(Box<TypeSpec>),
-    Associated(Box<TypeSpec>, AssociatedType),
+    Associated(Box<TypeSpec>, AssociatedType, Tag),
     Tuple(Vec<TypeSpec>),
 }
 
@@ -182,14 +182,17 @@ impl TypeSpec {
             TypeSpec::MutPointer(ref spec) => {
                 Ok(Type::MutRef(Box::new(spec.as_ref().generics_to_type(mp, equs, trs)?)))
             }
-            TypeSpec::Associated(ref spec, ref asso) => {
-                let trait_gen = asso.trait_spec.generate_trait_generics(equs, trs, mp)?;
+            TypeSpec::Associated(ref spec, ref asso, ref tag) => {
+                let trait_gen = match asso.trait_spec {
+                    Some(ref tr) => Some(tr.generate_trait_generics(equs, trs, mp)?),
+                    None => None,
+                };
                 Ok(Type::AssociatedType(AssociatedTypeEquation {
                         caller_type: Box::new(spec.as_ref().generics_to_type(mp, equs, trs)?),
-                        trait_gen: Some(trait_gen),
+                        trait_gen,
                         associated_type_id: asso.type_id.clone(),
                         caller_range: ErrorHint::None,
-                        tag: Tag::new(),
+                        tag: tag.clone(),
                 }))
             }
             TypeSpec::Tuple(ref params) => {
@@ -210,11 +213,14 @@ impl TypeSpec {
             TypeSpec::MutPointer(ref spec) => {
                 Ok(Type::Ref(Box::new(spec.as_ref().generate_type_no_auto_generics(equs, trs)?)))
             }
-            TypeSpec::Associated(ref spec, ref asso) => {
-                let trait_gen = asso.trait_spec.generate_trait_generics_with_no_map(equs, trs)?;
+            TypeSpec::Associated(ref spec, ref asso, _) => {
+                let trait_gen = match asso.trait_spec {
+                    Some(ref tr) => Some(tr.generate_trait_generics_with_no_map(equs, trs)?),
+                    None => None,
+                };
                 Ok(Type::AssociatedType(AssociatedTypeEquation {
                     caller_type: Box::new(spec.as_ref().generate_type_no_auto_generics(equs, trs)?),
-                    trait_gen: Some(trait_gen),
+                    trait_gen,
                     associated_type_id: asso.type_id.clone(),
                     caller_range: ErrorHint::None,
                     tag: Tag::new(),
@@ -236,7 +242,7 @@ impl TypeSpec {
             TypeSpec::MutPointer(spec) => {
                 spec.associated_type_depth()
             }
-            TypeSpec::Associated(spec, _) => 1 + spec.associated_type_depth(),
+            TypeSpec::Associated(spec, _, _) => 1 + spec.associated_type_depth(),
             TypeSpec::Tuple(ref params) => {
                 params.iter().map(|p| p.associated_type_depth()).max().unwrap()
             }
@@ -252,7 +258,7 @@ impl TypeSpec {
             TypeSpec::MutPointer(_) => {
                 Err(ErrorComment::empty(format!("cant get typeid from pointer {:?}", self)))
             }
-            TypeSpec::Associated(_, _) => Err(ErrorComment::empty(format!("cant get typeid from {:?}", self))),
+            TypeSpec::Associated(_, _, _) => Err(ErrorComment::empty(format!("cant get typeid from {:?}", self))),
             TypeSpec::Tuple(_) => {
                 Err(ErrorComment::empty(format!("cant get typeid from tuple {:?}", self)))
             }
@@ -274,8 +280,8 @@ impl TypeSpec {
 }
 
 fn parse_type_spec_subseq(s: &str, prev: TypeSpec) -> IResult<&str, TypeSpec> {
-    if let Ok((ss, (_, _, _, asso_ty))) = tuple((multispace0, char('#'), multispace0, parse_associated_type))(s) {
-        parse_type_spec_subseq(ss, TypeSpec::Associated(Box::new(prev), asso_ty))
+    if let Ok((ss, (_, asso_ty))) = tuple((multispace0, parse_associated_type))(s) {
+        parse_type_spec_subseq(ss, TypeSpec::Associated(Box::new(prev), asso_ty, Tag::new()))
     }
     else {
         Ok((s, prev))
@@ -336,23 +342,8 @@ impl Transpile for TypeSpec {
             TypeSpec::MutPointer(ref spec) => {
                 format!("{}&", spec.transpile(ta))
             }
-            TypeSpec::Associated(ref spec, AssociatedType { ref trait_spec, ref type_id } ) => {
-                match BINARY_OPERATOR_TRAITS.iter().find_map(|(tr_id, (_, ope))| {
-                    if *tr_id == trait_spec.trait_id.id.into_string() { Some(ope.to_string()) }
-                    else { None }
-                }) {
-                    Some(ope) => {
-                        let left = spec.transpile(ta);
-                        let right = trait_spec.generics[0].transpile(ta);
-                        format!("decltype(std::declval<{}>() {} std::declval<{}>())", left, ope, right)
-                    }
-                    None => {
-                        let generics = std::iter::once(spec.transpile(ta)).chain(trait_spec.generics.iter().map(|g| g.transpile(ta)))
-                            .collect::<Vec<_>>().join(", ");
-                        format!("typename {}<{}>::{}", trait_spec.trait_id.transpile(ta), generics, type_id.transpile(ta))
-                    }
-                }
-
+            TypeSpec::Associated(_, _, ref tag ) => {
+                ta.annotation(tag.get_num(), "ReturnType", 0).transpile(ta)
             }
             TypeSpec::Tuple(ref params) => {
                 format!("std::tuple<{}>", params.iter().map(|p| p.transpile(ta)).collect::<Vec<_>>().join(", "))
