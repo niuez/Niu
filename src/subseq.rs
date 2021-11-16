@@ -45,7 +45,7 @@ pub fn subseq_gen_type(uexpr: &UnaryExpr, subseq: &Subseq, range: &SourceRange, 
                         tag: call.tag.clone(),
                     }))
                 }
-                UnaryExpr::TraitMethod(spec, trait_op, func_id) => {
+                UnaryExpr::TraitMethod(spec, trait_op, func_id, _range) => {
                     let caller = spec.generics_to_type(&GenericsTypeMap::empty(), equs, trs)?;
                     let args = call.args.iter().map(|arg| arg.gen_type(equs, trs)).collect::<Result<Vec<_>, _>>()?;
                     Ok(Type::CallEquation(CallEquation {
@@ -161,7 +161,7 @@ pub fn subseq_transpile(uexpr: &UnaryExpr, subseq: &Subseq, ta: &TypeAnnotation)
                     }
                 }
             }
-            else if let UnaryExpr::TraitMethod(_, _, method_id) = uexpr {
+            else if let UnaryExpr::TraitMethod(_, _, method_id, _range) = uexpr {
                 let ty = ta.annotation(call.tag.get_num(), "FuncTypeInfo", 0);
                 //if let Type::Func(_, _, Some((trait_id, ty))) = ty {
                 if let Type::Func(_, _, info) = ty {
@@ -275,7 +275,7 @@ pub fn subseq_mut_check(uexpr: &UnaryExpr, subseq: &Subseq, ta: &TypeAnnotation,
                         _ => unreachable!("it is not AutoRef"),
                     }
                 }
-                UnaryExpr::TraitMethod(_spec, _trait_op, _func_id) => {
+                UnaryExpr::TraitMethod(_spec, _trait_op, _func_id, _range) => {
                     for arg in call.args.iter() {
                         arg.mut_check(ta, vars)?;
                     }
