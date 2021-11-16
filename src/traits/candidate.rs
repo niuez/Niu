@@ -49,6 +49,19 @@ impl SelectionCandidate {
             _ => None,
         }
     }
+    pub fn generate_equations_for_associated_type_equation(&self, associated_eq: &AssociatedTypeEquation, trs: &TraitsInfo) -> Result<(TypeEquations, ErrorHint), CallEquationSolveError> {
+        match *self {
+            SelectionCandidate::ImplCandidate(ref cand) => {
+                cand.generate_equations_for_associated_type_equation(associated_eq, trs)
+            }
+            SelectionCandidate::ParamCandidate(ref cand) => {
+                cand.generate_equations_for_associated_type_equation(associated_eq, trs)
+            }
+            SelectionCandidate::ImplSelfCandidate(_) => {
+                unreachable!("ImplSelfCandidate doesnt have associated type")
+            }
+        }
+    }
     pub fn match_impl_for_ty(&self, trait_gen: &TraitGenerics, ty: &Type, trs: &TraitsInfo) -> Option<(SubstsMap, &Self)> {
         match *self {
             SelectionCandidate::ImplCandidate(ref cand) => {
@@ -592,6 +605,52 @@ impl ImplCandidate {
         }
     }
 
+    pub fn generate_equations_for_associated_type_equation(&self, associated_eq: &AssociatedTypeEquation, trs: &TraitsInfo) -> Result<(TypeEquations, ErrorHint), CallEquationSolveError> {
+        if let Some(trait_spec) = &associated_eq.trait_gen {
+            if trait_spec.trait_id != self.get_trait_id() {
+                return Err(CallEquationSolveError::Error(ErrorComment::empty(format!("trait_id is not matched"))))
+            }
+        }
+        let mut impl_equs = TypeEquations::new();
+        let self_type = associated_eq.tag.generate_type_variable("SelfType", 0, &mut impl_equs);
+        impl_equs.set_self_type(Some(self_type.clone()));
+
+        impl_equs.add_equation(self_type.clone(), associated_eq.caller_type.as_ref().clone());
+
+        let gen_mp = self.generics.iter().enumerate().map(|(i, id)| (id.clone(), associated_eq.tag.generate_type_variable("Generics", i, &mut impl_equs)))
+            .collect::<HashMap<_, _>>();
+        let mp = GenericsTypeMap::empty();
+        let gen_mp = mp.next(gen_mp);
+
+        let self_trait_gen = self.trait_spec.generate_trait_generics(&mut impl_equs, trs, &gen_mp).unwrap();
+        if let Some(ref trait_gen) = associated_eq.trait_gen {
+            for (self_g, right_g) in self_trait_gen.generics.iter().zip(trait_gen.generics.iter()) {
+                impl_equs.add_equation(self_g.clone(), right_g.clone());
+            }
+        }
+
+        let impl_ty = self.impl_ty.generics_to_type(&gen_mp, &mut impl_equs, trs).unwrap();
+        impl_equs.add_equation(impl_ty, self_type.clone());
+        self.where_sec.regist_equations(&gen_mp, &mut impl_equs, trs, &self.hint())
+            .map_err(|e| CallEquationSolveError::Error(e))?;
+        let associated_type = self.asso_defs
+            .get(&associated_eq.associated_type_id)
+            .ok_or(ErrorComment::empty(format!("require methods doesnt have {:?}", associated_eq.associated_type_id)))
+                .map_err(|e| CallEquationSolveError::Error(ErrorUnify::new(format!(""), self.hint(), e)))?
+            .generics_to_type(&gen_mp, &mut impl_equs, trs)
+                .map_err(|e| CallEquationSolveError::Error(e))?;
+        let return_ty = associated_eq.tag.generate_type_variable("ReturnType", 0, &mut impl_equs);
+        impl_equs.add_equation(return_ty, associated_type);
+        match impl_equs.unify(trs) {
+            Err(UnifyErr::Contradiction(err)) => {
+                Err(CallEquationSolveError::Error(ErrorUnify::new(format!(""), self.hint(), err)))
+            }
+            Ok(_) | Err(UnifyErr::Deficiency(_)) => {
+                Ok((impl_equs, self.hint()))
+            }
+        }
+    }
+
     pub fn match_impl_for_ty(&self, trait_gen: &TraitGenerics, ty: &Type, trs: &TraitsInfo) -> Option<SubstsMap> {
         let mut equs = TypeEquations::new();
         equs.set_self_type(Some(ty.clone()));
@@ -768,6 +827,41 @@ impl ParamCandidate {
                         }
                     }
                 }
+            }
+        }
+    }
+
+    pub fn generate_equations_for_associated_type_equation(&self, associated_eq: &AssociatedTypeEquation, trs: &TraitsInfo) -> Result<(TypeEquations, ErrorHint), CallEquationSolveError> {
+        if let Some(trait_spec) = &associated_eq.trait_gen {
+            if trait_spec.trait_id != self.get_trait_id() {
+                return Err(CallEquationSolveError::Error(ErrorComment::empty(format!("trait_id is not matched"))))
+            }
+        }
+        let mut impl_equs = TypeEquations::new();
+        let self_type = associated_eq.tag.generate_type_variable("SelfType", 0, &mut impl_equs);
+        impl_equs.set_self_type(Some(self_type.clone()));
+
+        impl_equs.add_equation(self_type.clone(), associated_eq.caller_type.as_ref().clone());
+
+        if let Some(ref trait_gen) = associated_eq.trait_gen {
+            for (self_g, right_g) in self.trait_gen.generics.iter().zip(trait_gen.generics.iter()) {
+                impl_equs.add_equation(self_g.clone(), right_g.clone());
+            }
+        }
+
+        impl_equs.add_equation(self.impl_ty.clone(), self_type.clone());
+        let associated_type = self.asso_defs
+            .get(&associated_eq.associated_type_id)
+            .ok_or(ErrorComment::empty(format!("require methods doesnt have {:?}", associated_eq.associated_type_id)))
+                .map_err(|e| CallEquationSolveError::Error(ErrorUnify::new(format!(""), self.hint(), e)))?;
+        let return_ty = associated_eq.tag.generate_type_variable("ReturnType", 0, &mut impl_equs);
+        impl_equs.add_equation(return_ty, associated_type.clone());
+        match impl_equs.unify(trs) {
+            Err(UnifyErr::Contradiction(err)) => {
+                Err(CallEquationSolveError::Error(ErrorUnify::new(format!(""), self.hint(), err)))
+            }
+            Ok(_) | Err(UnifyErr::Deficiency(_)) => {
+                Ok((impl_equs, self.hint()))
             }
         }
     }

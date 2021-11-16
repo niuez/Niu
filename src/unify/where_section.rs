@@ -11,6 +11,7 @@ use nom::IResult;
 use crate::type_spec::*;
 use crate::traits::*;
 
+use crate::identifier::Tag;
 use crate::unify::*;
 use crate::trans::*;
 use crate::error::*;
@@ -37,7 +38,13 @@ impl WhereSection {
                 range.hint("param candidate of where section", define_source.clone())
             );
             for (asso_id, asso_spec) in asso_eqs.iter() {
-                let asso_ty = Type::AssociatedType(Box::new(ty.clone()), tr_gen.clone(), asso_id.clone());
+                let asso_ty = Type::AssociatedType(AssociatedTypeEquation {
+                    caller_type: Box::new(ty.clone()),
+                    trait_gen: Some(tr_gen.clone()),
+                    associated_type_id: asso_id.clone(),
+                    caller_range: range.clone().hint("associated type of where section", define_source.clone()),
+                    tag: Tag::new(),
+                });
                 let asso_spec_ty = asso_spec.generics_to_type(mp, equs, trs)?;
                 equs.add_equation(asso_ty, asso_spec_ty)
             }

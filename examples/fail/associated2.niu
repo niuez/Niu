@@ -1,0 +1,14 @@
+import "std/opes.niu"
+struct Hoge {} {}
+
+trait Tr {
+  type TrAsso;
+}
+
+impl<T> Tr for T where T: Clone {
+  type TrAsso = u64;
+}
+
+fn main() -> void {
+  let a: Hoge::Output = 0;
+}
