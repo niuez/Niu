@@ -251,16 +251,19 @@ pub fn parse_bracket_block(s: &str) -> IResult<&str, UnaryExpr> {
 }
 
 pub fn parse_unary_trait_method(ss: &str) -> IResult<&str, UnaryExpr> {
-    let (s, (typesign, _)) = tuple((parse_type_sign, multispace0))(ss)?;
-    let (s, elems) = many1(tuple((opt(tuple((char('#'), multispace0, parse_trait_spec))), multispace0, tag("::"), multispace0, parse_identifier, multispace0)))(s)?;
-    let mut elems = elems.into_iter().map(|(op, _, _, _, id, _)| (op.map(|(_, _, tr_id)| tr_id), id)).collect::<Vec<_>>();
-    let (tail_tr_op, tail_id) = elems.pop().unwrap();
+    let (s, ((typesign, sign_range), _)) = tuple((with_range(parse_type_sign), multispace0))(ss)?;
+    let (s, elems) = many1(tuple((with_range(tuple((opt(tuple((char('#'), multispace0, parse_trait_spec))), multispace0, tag("::"), multispace0, parse_identifier))), multispace0)))(s)?;
+    let mut elems = elems.into_iter().map(|(((op, _, _, _, id), range), _)| (op.map(|(_, _, tr_id)| tr_id), id, range)).collect::<Vec<_>>();
+    let (tail_tr_op, tail_id, _tail_range) = elems.pop().unwrap();
     let mut ty = TypeSpec::TypeSign(typesign);
-    for (op, ty_id) in elems.into_iter() {
-        ty = TypeSpec::Associated(Box::new(ty), AssociatedType { 
+    let mut ty_range = sign_range;
+    for (op, ty_id, associated_range) in elems.into_iter() {
+        let new_ty_range = ty_range.merge(&associated_range);
+        ty = TypeSpec::Associated(AssociatedSpec::new(Box::new(ty), AssociatedType { 
             trait_spec: op,
             type_id: AssociatedTypeIdentifier { id: ty_id },
-        }, Tag::new());
+        }, Tag::new(), new_ty_range.clone()));
+        ty_range = new_ty_range;
     }
     Ok((s, UnaryExpr::TraitMethod(ty, tail_tr_op, tail_id)))
 }
