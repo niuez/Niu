@@ -1,0 +1,7 @@
+struct Hoge {
+  a: u64,
+} {}
+
+fn main() -> void {
+  let hoge = Hoge { b: 91 };
+}

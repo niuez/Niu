@@ -76,9 +76,14 @@ pub fn subseq_gen_type(uexpr: &UnaryExpr, subseq: &Subseq, range: &SourceRange, 
             let st_type = mem.mem_id.generate_type_variable("StructType", 0, equs);
             equs.add_equation(st_type.clone(), st);
             let alpha = mem.mem_id.generate_type_variable("MemberType", 0, equs);
-            equs.add_equation(alpha.clone(), Type::Member(Box::new(st_type.clone()), mem.mem_id.clone()));
+            let member_eq = Type::Member( MemberEquation {
+                caller_type: Box::new(st_type.clone()),
+                id: mem.mem_id.clone(),
+                caller_range: range.merge(&mem.range).hint("member call here", ErrorHint::None),
+            });
+            equs.add_equation(alpha.clone(), member_eq.clone());
             equs.regist_check_copyable(mem.mem_id.tag.clone(), alpha);
-            Ok(Type::Member(Box::new(st_type), mem.mem_id.clone()))
+            Ok(member_eq)
         }
         Subseq::TupleMember(ref mem) => {
             let st = uexpr.gen_type(equs, trs)?;
@@ -452,11 +457,12 @@ pub fn parse_index_call(s: &str) -> IResult<&str, Subseq> {
 #[derive(Debug)]
 pub struct Member {
     pub mem_id: Identifier,
+    pub range: SourceRange,
 }
 
 fn parse_member(s: &str) -> IResult<&str, Subseq> {
-    let (s, (_, _, mem_id)) = tuple((char('.'), multispace0, parse_identifier))(s)?;
-    Ok((s, Subseq::Member(Member { mem_id })))
+    let (s, ((_, _, mem_id), range)) = with_range(tuple((char('.'), multispace0, parse_identifier)))(s)?;
+    Ok((s, Subseq::Member(Member { mem_id, range })))
 }
 
 #[derive(Debug)]
