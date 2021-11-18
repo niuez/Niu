@@ -1,0 +1,4 @@
+fn main() -> void {
+  let x = 0;
+  let a = x.0;
+}
