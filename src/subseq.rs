@@ -90,7 +90,11 @@ pub fn subseq_gen_type(uexpr: &UnaryExpr, subseq: &Subseq, range: &SourceRange, 
             let st_type = mem.id.tag.generate_type_variable("StructType", 0, equs);
             equs.add_equation(st_type.clone(), st);
             let alpha = mem.id.tag.generate_type_variable("MemberType", 0, equs);
-            equs.add_equation(alpha.clone(), Type::TupleMember(Box::new(st_type.clone()), mem.idx));
+            equs.add_equation(alpha.clone(), Type::TupleMember( TupleMemberEquation {
+                ty: Box::new(st_type.clone()),
+                idx: mem.idx,
+                caller_range: range.merge(&mem.range).hint("tuple member call here", ErrorHint::None)
+            }));
             equs.regist_check_copyable(mem.id.tag.clone(), alpha.clone());
             Ok(alpha)
         }
@@ -469,11 +473,12 @@ fn parse_member(s: &str) -> IResult<&str, Subseq> {
 pub struct TupleMember {
     pub idx: usize,
     pub id: Identifier,
+    pub range: SourceRange,
 }
 
 fn parse_tuple_member(s: &str) -> IResult<&str, Subseq> {
-    let (s, (_, _, idx)) = tuple((char('.'), multispace0, nom::character::complete::u64))(s)?;
-    Ok((s, Subseq::TupleMember(TupleMember { idx: idx as usize, id: Identifier::from_str(&idx.to_string()), })))
+    let (s, ((_, _, idx), range)) = with_range(tuple((char('.'), multispace0, nom::character::complete::u64)))(s)?;
+    Ok((s, Subseq::TupleMember(TupleMember { idx: idx as usize, id: Identifier::from_str(&idx.to_string()), range, })))
 }
 
 #[test]

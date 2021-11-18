@@ -1,0 +1,4 @@
+fn main() -> void {
+  let xyz = (0, 1, 2);
+  let a = xyz.3;
+}

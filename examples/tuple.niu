@@ -9,6 +9,17 @@ fn throw_tuple(xyz: (u64, i64, bool)) -> (u64, i64, bool) {
   xyz
 }
 
+fn tuple_move(xyz: (u64, i64, bool)) -> u64 {
+  xyz.0
+}
+
+fn tuple_ref(xyz: &(u64, i64, bool)) -> &u64 {
+  &xyz.0
+}
+
+fn tuple_refmut(xyz: &mut (u64, i64, bool)) -> &mut u64 {
+  &mut xyz.0
+}
 fn main() -> void {
   let (x, y, z) = throw_tuple((91u64, 19i64, false, ));
 
@@ -25,4 +36,9 @@ fn main() -> void {
   let ttt = tt;
 
   let copy_t = t;
+
+  let xyz = (91u64, 19i64, false);
+  let xref = tuple_ref(&xyz);
+  let xrefmut = tuple_refmut(&mut xyz);
+  let x = tuple_move(xyz);
 }

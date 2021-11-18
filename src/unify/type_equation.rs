@@ -1,10 +1,12 @@
 pub mod call_equation;
 pub mod associated_type;
 pub mod member;
+pub mod tuple_member;
 
 pub use call_equation::*;
 pub use associated_type::*;
 pub use member::*;
+pub use tuple_member::*;
 
 use std::collections::{ HashMap, HashSet, VecDeque };
 
@@ -107,7 +109,7 @@ pub enum Type {
     Deref(Box<Type>),
     AutoRef(Box<Type>, AutoRefTag),
     Tuple(Vec<Type>),
-    TupleMember(Box<Type>, usize),
+    TupleMember(TupleMemberEquation),
     End,
 }
 
@@ -173,8 +175,8 @@ impl Type {
             Type::Tuple(ref params) => {
                 params.iter().map(|p| p.occurs(t)).any(|b| b)
             }
-            Type::TupleMember(ref ty, _) => {
-                ty.as_ref().occurs(t)
+            Type::TupleMember(ref ty) => {
+                ty.occurs(t)
             }
             Type::End => false,
         }
@@ -221,8 +223,8 @@ impl Type {
             Type::Tuple(ref mut params) => {
                 params.iter_mut().map(|p| p.subst(theta)).fold(SolveChange::not(), |a, b| a & b)
             }
-            Type::TupleMember(ref mut ty, _) => {
-                ty.as_mut().subst(theta)
+            Type::TupleMember(ref mut ty) => {
+                ty.subst(theta)
             }
             Type::End => { SolveChange::not() },
             // TypeVariable
@@ -814,46 +816,8 @@ impl TypeEquations {
     }
 
     fn solve_tuple_member(&mut self, ty: Type, trs: &TraitsInfo) -> Result<(Type, SolveChange), UnifyErr> {
-        if let Type::TupleMember(ty, idx) = ty {
-            let (ty, change) = self.solve_relations(*ty, trs)?;
-            if let Type::Tuple(mut params) = ty {
-                if idx < params.len() {
-                    Ok((params.swap_remove(idx), SolveChange::Changed))
-                }
-                else {
-                    Err(UnifyErr::Contradiction(ErrorComment::empty(format!("tuple {:?} cannot index {}", params, idx))))
-                }
-            }
-            else if let Type::Ref(ty) = ty {
-                if let Type::Tuple(mut params) = *ty {
-                    if idx < params.len() {
-                        Ok((params.swap_remove(idx), SolveChange::Changed))
-                    }
-                    else {
-                        Err(UnifyErr::Contradiction(ErrorComment::empty(format!("ref tuple {:?} cannot index {}", params, idx))))
-                    }
-                }
-                else {
-                    Ok((Type::Ref(ty), change))
-                }
-            }
-            else if let Type::MutRef(ty) = ty {
-                if let Type::Tuple(mut params) = *ty {
-                    if idx < params.len() {
-                        Ok((params.swap_remove(idx), SolveChange::Changed))
-                    }
-                    else {
-                        Err(UnifyErr::Contradiction(ErrorComment::empty(format!("mut ref tuple {:?} cannot index {}", params, idx))))
-                    }
-                }
-                else {
-                    Ok((Type::Ref(ty), change))
-                }
-            }
-            
-            else {
-                Ok((ty, change))
-            }
+        if let Type::TupleMember(eq) = ty {
+            eq.solve(self, trs)
         }
         else {
             Ok((ty, SolveChange::not()))
@@ -958,13 +922,13 @@ impl TypeEquations {
                             self.change_cnt += changed.cnt();
                             self.equs.push_back(TypeEquation::Equal(left, Type::Member(a), changed));
                         }
-                        (Type::TupleMember(b, a), right) => {
+                        (Type::TupleMember(a), right) => {
                             self.change_cnt += changed.cnt();
-                            self.equs.push_back(TypeEquation::Equal(Type::TupleMember(b, a), right, changed));
+                            self.equs.push_back(TypeEquation::Equal(Type::TupleMember(a), right, changed));
                         }
-                        (left, Type::TupleMember(b, a)) => {
+                        (left, Type::TupleMember(a)) => {
                             self.change_cnt += changed.cnt();
-                            self.equs.push_back(TypeEquation::Equal(left, Type::TupleMember(b, a), changed));
+                            self.equs.push_back(TypeEquation::Equal(left, Type::TupleMember(a), changed));
                         }
                         (Type::CallEquation(call), right) => {
                             self.change_cnt += changed.cnt();
