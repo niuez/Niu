@@ -35,7 +35,12 @@ impl MemberEquation {
             equs.set_self_type(before);
             if let Type::Func(args, returns, info) = res {
                 let mut iter = args.into_iter();
-                let self_ty = iter.next().ok_or(UnifyErr::Contradiction(ErrorComment::empty(format!("trait method {:?} have no argument", self.id))))?;
+                let self_ty = iter.next().ok_or(UnifyErr::Contradiction(
+                        ErrorUnify::new(
+                            format!("solve member error"),
+                            self.caller_range.clone(),
+                            ErrorComment::empty(format!("trait method {:?} have no argument", self.id))
+                        )))?;
                 equs.add_equation(self_ty.clone(), caller_type.clone());
                 let res = Type::Func(iter.collect(), returns, info);
                 equs.solve_relations(res, trs).map(|(ty, _)| (ty, SolveChange::Changed))
@@ -43,13 +48,37 @@ impl MemberEquation {
             else { unreachable!() }
         }
         else if let Type::Generics(ref id, ref gens) = caller_type {
-            match trs.search_typeid(id).map_err(|st| UnifyErr::Contradiction(ErrorComment::empty(st)))? {
-                StructDefinitionInfo::Def(def)  => {
-                    let res = def.get_member_type(equs, trs, gens, &self.id).map_err(|st| UnifyErr::Contradiction(st))?;
-                    equs.solve_relations(res, trs).map(|(ty, _)| (ty, SolveChange::Changed))
+            match trs.search_typeid(id) {
+                Ok(StructDefinitionInfo::Def(def))  => {
+                    match def.get_member_type(equs, trs, gens, &self.id) {
+                        Err(st) => {
+                            Err(UnifyErr::Contradiction(
+                                ErrorUnify::new(
+                                    format!("solve member error"),
+                                    self.caller_range.clone(),
+                                    st
+                            )))
+                        }
+                        Ok(res) => equs.solve_relations(res, trs).map(|(ty, _)| (ty, SolveChange::Changed))
+                    }
                 }
-                StructDefinitionInfo::Generics  => Err(UnifyErr::Contradiction(ErrorComment::empty(format!("generics type has no member: {:?}", id)))),
-                StructDefinitionInfo::Primitive => Err(UnifyErr::Contradiction(ErrorComment::empty(format!("primitive type has no member: {:?}", id)))),
+                Ok(StructDefinitionInfo::Generics)  => {
+                            Err(UnifyErr::Contradiction(
+                                ErrorUnify::new(
+                                    format!("solve member error"),
+                                    self.caller_range.clone(),
+                                    ErrorComment::empty(format!("generics type has no member: {:?}", id))
+                            )))
+                }
+                Ok(StructDefinitionInfo::Primitive) => {
+                            Err(UnifyErr::Contradiction(
+                                ErrorUnify::new(
+                                    format!("solve member error"),
+                                    self.caller_range.clone(),
+                                    ErrorComment::empty(format!("primitive type has no member: {:?}", id))
+                            )))
+                }
+                Err(st) => Err(UnifyErr::Contradiction(ErrorComment::new(st, self.caller_range.err())))
             }
         }
         else if let Type::Ref(caller_type) = caller_type {
@@ -59,7 +88,13 @@ impl MemberEquation {
             Ok((Type::Member( MemberEquation { caller_type, id: self.id, caller_range: self.caller_range }), SolveChange::Changed))
         }
         else if let Type::SolvedAssociatedType(_, _, _) = caller_type {
-            Err(UnifyErr::Contradiction(ErrorComment::empty(format!("SolvedAssociatedType has no member: {:?}", caller_type))))
+            Err(UnifyErr::Contradiction(
+                    ErrorUnify::new(
+                        format!("solve member error"),
+                        self.caller_range.clone(),
+                        ErrorComment::empty(format!("SolvedAssociatedType has no member: {:?}", caller_type))
+                    )
+            ))
         }
         else {
             Ok((Type::Member( MemberEquation { caller_type: Box::new(caller_type), id: self.id, caller_range: self.caller_range, }), caller_changed))
