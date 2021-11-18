@@ -16,6 +16,8 @@ use crate::trans::*;
 use crate::unify::*;
 use crate::mut_checker::*;
 use crate::move_checker::*;
+use crate::error::*;
+use crate::unify::MemberEquation;
 
 #[derive(Debug)]
 pub struct StructInstantiation {
@@ -30,7 +32,11 @@ impl GenType for StructInstantiation {
         for (id, expr) in self.members.iter() {
             let st = Box::new(inst_ty.clone());
             let right = expr.gen_type(equs, trs)?;
-            equs.add_equation(Type::Member(st, id.clone()), right);
+            equs.add_equation(Type::Member( MemberEquation {
+                caller_type: st,
+                id: id.clone(),
+                caller_range: ErrorHint::None
+            }), right);
         }
         let struct_ty = TypeSpec::from_id(&self.struct_id).generics_to_type(&GenericsTypeMap::empty(), equs, trs)?;
         equs.add_equation(inst_ty.clone(), struct_ty);

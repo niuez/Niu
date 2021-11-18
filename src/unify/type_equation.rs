@@ -1,8 +1,10 @@
 pub mod call_equation;
 pub mod associated_type;
+pub mod member;
 
 pub use call_equation::*;
 pub use associated_type::*;
+pub use member::*;
 
 use std::collections::{ HashMap, HashSet, VecDeque };
 
@@ -98,7 +100,7 @@ pub enum Type {
     Generics(TypeId, Vec<Type>),
     AssociatedType(AssociatedTypeEquation),
     TraitMethod(Box<Type>, Option<TraitGenerics>, Identifier),
-    Member(Box<Type>, Identifier),
+    Member(MemberEquation),
     CallEquation(CallEquation),
     Ref(Box<Type>),
     MutRef(Box<Type>),
@@ -150,8 +152,8 @@ impl Type {
             Type::TraitMethod(ref ty, _, _) => {
                 ty.as_ref().occurs(t)
             }
-            Type::Member(ref ty, _) => {
-                ty.as_ref().occurs(t)
+            Type::Member(ref ty) => {
+                ty.occurs(t)
             }
             Type::CallEquation(ref call_eq) => {
                 call_eq.occurs(t)
@@ -198,8 +200,8 @@ impl Type {
             Type::TraitMethod(ref mut ty, _, _) => {
                 ty.as_mut().subst(theta)
             }
-            Type::Member(ref mut ty, _) => {
-                ty.as_mut().subst(theta)
+            Type::Member(ref mut ty) => {
+                ty.subst(theta)
             }
             Type::CallEquation(ref mut call_eq) => {
                 call_eq.subst(theta)
@@ -736,73 +738,8 @@ impl TypeEquations {
     }
 
     fn solve_member(&mut self, ty: Type, trs: &TraitsInfo) -> Result<(Type, SolveChange), UnifyErr> {
-        if let Type::Member(inner_ty, mem_id) = ty {
-            let (inner_ty, inner_changed) = self.solve_relations(*inner_ty, trs)?;
-            let substs = trs.match_to_member_for_type(&mem_id, &inner_ty);
-            if substs.len() == 1 {
-                let mut substs = substs;
-                let (subst, impl_trait) = substs.pop().unwrap();
-                let before = self.set_self_type(Some(inner_ty.clone()));
-                let res = impl_trait.get_trait_method_from_id(self, trs, &TraitMethodIdentifier { id: mem_id.clone() } , &subst, &inner_ty);
-                self.set_self_type(before);
-                if let Type::Func(args, returns, info) = res {
-                    let mut iter = args.into_iter();
-                    let self_ty = iter.next().ok_or(UnifyErr::Contradiction(ErrorComment::empty(format!("trait method {:?} have no argument", mem_id))))?;
-                    self.add_equation(self_ty.clone(), inner_ty.clone());
-                    let res = Type::Func(iter.collect(), returns, info);
-                    self.solve_relations(res, trs).map(|(ty, _)| (ty, SolveChange::Changed))
-                }
-                else { unreachable!() }
-            }
-            else if let Type::Generics(ref id, ref gens) = inner_ty {
-                match trs.search_typeid(id).map_err(|st| UnifyErr::Contradiction(ErrorComment::empty(st)))? {
-                    StructDefinitionInfo::Def(def)  => {
-                        let res = def.get_member_type(self, trs, gens, &mem_id).map_err(|st| UnifyErr::Contradiction(st))?;
-                        self.solve_relations(res, trs).map(|(ty, _)| (ty, SolveChange::Changed))
-                    }
-                    StructDefinitionInfo::Generics  => Err(UnifyErr::Contradiction(ErrorComment::empty(format!("generics type has no member: {:?}", id)))),
-                    StructDefinitionInfo::Primitive => Err(UnifyErr::Contradiction(ErrorComment::empty(format!("primitive type has no member: {:?}", id)))),
-                }
-            }
-            else if let Type::Ref(ty) = inner_ty {
-                if let Type::Generics(ref id, ref gens) = ty.as_ref() {
-                    match trs.search_typeid(id).map_err(|st| UnifyErr::Contradiction(ErrorComment::empty(st)))? {
-                        StructDefinitionInfo::Def(def)  => {
-                            let res = def.get_member_type(self, trs, gens, &mem_id).map_err(|st| UnifyErr::Contradiction(st))?;
-                            self.solve_relations(res, trs).map(|(ty, _)| (ty, SolveChange::Changed))
-                        }
-                        StructDefinitionInfo::Generics  => Err(UnifyErr::Contradiction(ErrorComment::empty(format!("generics type has no member: {:?}", id)))),
-                        StructDefinitionInfo::Primitive => Err(UnifyErr::Contradiction(ErrorComment::empty(format!("primitive type has no member: {:?}", id)))),
-                    }
-                }
-                else {
-                    Err(UnifyErr::Contradiction(ErrorComment::empty(format!("cant solve member ref({:?})", ty))))
-                }
-            }
-            else if let Type::MutRef(ty) = inner_ty {
-                if let Type::Generics(ref id, ref gens) = ty.as_ref() {
-                    match trs.search_typeid(id).map_err(|st| UnifyErr::Contradiction(ErrorComment::empty(st)))? {
-                        StructDefinitionInfo::Def(def)  => {
-                            let res = def.get_member_type(self, trs, gens, &mem_id).map_err(|st| UnifyErr::Contradiction(st))?;
-                            self.solve_relations(res, trs).map(|(ty, _)| (ty, SolveChange::Changed))
-                        }
-                        StructDefinitionInfo::Generics  => Err(UnifyErr::Contradiction(ErrorComment::empty(format!("generics type has no member: {:?}", id)))),
-                        StructDefinitionInfo::Primitive => Err(UnifyErr::Contradiction(ErrorComment::empty(format!("primitive type has no member: {:?}", id)))),
-                    }
-                }
-                else {
-                    Err(UnifyErr::Contradiction(ErrorComment::empty(format!("cant solve member mutref({:?})", ty))))
-                }
-            }
-            else if let Type::SolvedAssociatedType(_, _, _) = inner_ty {
-                Err(UnifyErr::Contradiction(ErrorComment::empty(format!("SolvedAssociatedType has no member: {:?}", inner_ty))))
-            }
-            else if inner_ty.is_solved_type() {
-                Err(UnifyErr::Contradiction(ErrorComment::empty(format!("{:?} cant solve member {:?}", inner_ty, mem_id))))
-            }
-            else {
-                Ok((Type::Member(Box::new(inner_ty), mem_id), inner_changed))
-            }
+        if let Type::Member(mem) = ty {
+            mem.solve(self, trs)
         }
         else {
             Ok((ty, SolveChange::not()))
@@ -1013,13 +950,13 @@ impl TypeEquations {
                             self.change_cnt += changed.cnt();
                             self.equs.push_back(TypeEquation::Equal(left, Type::TraitMethod(a, b, c), changed));
                         }
-                        (Type::Member(b, a), right) => {
+                        (Type::Member(a), right) => {
                             self.change_cnt += changed.cnt();
-                            self.equs.push_back(TypeEquation::Equal(Type::Member(b, a), right, changed));
+                            self.equs.push_back(TypeEquation::Equal(Type::Member(a), right, changed));
                         }
-                        (left, Type::Member(b, a)) => {
+                        (left, Type::Member(a)) => {
                             self.change_cnt += changed.cnt();
-                            self.equs.push_back(TypeEquation::Equal(left, Type::Member(b, a), changed));
+                            self.equs.push_back(TypeEquation::Equal(left, Type::Member(a), changed));
                         }
                         (Type::TupleMember(b, a), right) => {
                             self.change_cnt += changed.cnt();
