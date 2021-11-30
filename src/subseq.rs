@@ -73,7 +73,7 @@ pub fn subseq_gen_type(uexpr: &UnaryExpr, subseq: &Subseq, range: &SourceRange, 
                     Ok(Type::CallVariable(CallVariable {
                         func_var: Box::new(caller),
                         args,
-                        caller_range: ErrorHint::None,
+                        caller_range: range.hint("call here", ErrorHint::None),
                         tag: call.tag.clone()
                     }))
                 }

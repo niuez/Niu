@@ -1,0 +1,6 @@
+import "std/u64.niu"
+
+fn main() -> void {
+  let hoge = 1;
+  hoge(1u64);
+}

@@ -51,6 +51,11 @@ impl CallVariable {
                 Ok((*ret, SolveChange::Changed))
             }
             func_ty => {
+                let changed = changed & SolveChange::err(ErrorUnify::new(
+                        format!("solve call variable"),
+                        self.caller_range.clone(),
+                        ErrorComment::empty(format!("caller is not function type, {:?}", func_ty))
+                        ));
                 Ok((Type::CallVariable(CallVariable { func_var: Box::new(func_ty), args: params, caller_range: self.caller_range, tag: self.tag }), changed))
             }
         }
