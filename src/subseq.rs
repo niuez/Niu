@@ -63,11 +63,19 @@ pub fn subseq_gen_type(uexpr: &UnaryExpr, subseq: &Subseq, range: &SourceRange, 
                 uexpr => {
                     let caller = uexpr.gen_type(equs, trs)?;
                     let args = call.args.iter().map(|arg| arg.gen_type(equs, trs)).collect::<Result<Vec<_>, _>>()?;
+                    /*
                     let return_type = call.tag.generate_type_variable("ReturnType", 0, equs);
                     let func_type = call.tag.generate_type_variable("FuncTypeInfo", 0, equs);
                     equs.add_equation(caller, func_type.clone());
                     equs.add_equation(func_type, Type::Func(args, Box::new(return_type.clone()), FuncTypeInfo::None));
                     Ok(return_type)
+                    */
+                    Ok(Type::CallVariable(CallVariable {
+                        func_var: Box::new(caller),
+                        args,
+                        caller_range: ErrorHint::None,
+                        tag: call.tag.clone()
+                    }))
                 }
             }
         }
