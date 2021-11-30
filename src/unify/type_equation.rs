@@ -2,11 +2,13 @@ pub mod call_equation;
 pub mod associated_type;
 pub mod member;
 pub mod tuple_member;
+pub mod call_variable;
 
 pub use call_equation::*;
 pub use associated_type::*;
 pub use member::*;
 pub use tuple_member::*;
+pub use call_variable::*;
 
 use std::collections::{ HashMap, HashSet, VecDeque };
 
@@ -104,6 +106,7 @@ pub enum Type {
     TraitMethod(Box<Type>, Option<TraitGenerics>, Identifier),
     Member(MemberEquation),
     CallEquation(CallEquation),
+    CallVariable(CallVariable),
     Ref(Box<Type>),
     MutRef(Box<Type>),
     Deref(Box<Type>),
@@ -160,6 +163,9 @@ impl Type {
             Type::CallEquation(ref call_eq) => {
                 call_eq.occurs(t)
             }
+            Type::CallVariable(ref call_var) => {
+                call_var.occurs(t)
+            }
             Type::Ref(ref ty) => {
                 ty.as_ref().occurs(t)
             }
@@ -207,6 +213,9 @@ impl Type {
             }
             Type::CallEquation(ref mut call_eq) => {
                 call_eq.subst(theta)
+            }
+            Type::CallVariable(ref mut call_var) => {
+                call_var.subst(theta)
             }
             Type::Ref(ref mut ty) => {
                 ty.as_mut().subst(theta)
@@ -636,7 +645,8 @@ impl TypeEquations {
         let (ty, b7) = self.solve_func(ty, trs)?;
         let (ty, b8) = self.solve_tuple(ty, trs)?;
         let (ty, b9) = self.solve_tuple_member(ty, trs)?;
-        Ok((ty, b0 & b1 & b2 & b3 & b4 & b5 & b6 & b7 & b8 & b9))
+        let (ty, b10) = self.solve_call_variable(ty, trs)?;
+        Ok((ty, b0 & b1 & b2 & b3 & b4 & b5 & b6 & b7 & b8 & b9 & b10))
     }
 
     fn solve_call_equation(&mut self, ty: Type, trs: &TraitsInfo) -> Result<(Type, SolveChange), UnifyErr> {
@@ -824,6 +834,13 @@ impl TypeEquations {
         }
     }
 
+    fn solve_call_variable(&mut self, ty: Type, trs: &TraitsInfo) -> Result<(Type, SolveChange), UnifyErr> {
+        match ty {
+            Type::CallVariable(call) => call.solve(self, trs),
+            _ => Ok((ty, SolveChange::not())),
+        }
+    }
+
 
     pub fn unify(&mut self, trs: &TraitsInfo) -> Result<(), UnifyErr> {
         /* log::debug!("unify");
@@ -937,6 +954,14 @@ impl TypeEquations {
                         (left, Type::CallEquation(call)) => {
                             self.change_cnt += changed.cnt();
                             self.equs.push_back(TypeEquation::Equal(left, Type::CallEquation(call), changed));
+                        }
+                        (Type::CallVariable(call), right) => {
+                            self.change_cnt += changed.cnt();
+                            self.equs.push_back(TypeEquation::Equal(Type::CallVariable(call), right, changed));
+                        }
+                        (left, Type::CallVariable(call)) => {
+                            self.change_cnt += changed.cnt();
+                            self.equs.push_back(TypeEquation::Equal(left, Type::CallVariable(call), changed));
                         }
                         (Type::Deref(ty), right) => {
                             self.change_cnt += changed.cnt();
