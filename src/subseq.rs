@@ -82,34 +82,34 @@ pub fn subseq_gen_type(uexpr: &UnaryExpr, subseq: &Subseq, range: &SourceRange, 
         Subseq::Member(ref mem) => {
             let st = uexpr.gen_type(equs, trs)?;
             let st_type = mem.mem_id.generate_type_variable("StructType", 0, equs);
-            equs.add_equation(st_type.clone(), st);
+            equs.add_equation(st_type.clone(), st, ErrorComment::new(format!("type variable for member struct type"), range.merge(&mem.range).hint("member call here", ErrorHint::None).err()));
             let alpha = mem.mem_id.generate_type_variable("MemberType", 0, equs);
             let member_eq = Type::Member( MemberEquation {
                 caller_type: Box::new(st_type.clone()),
                 id: mem.mem_id.clone(),
                 caller_range: range.merge(&mem.range).hint("member call here", ErrorHint::None),
             });
-            equs.add_equation(alpha.clone(), member_eq.clone());
+            equs.add_equation(alpha.clone(), member_eq.clone(), ErrorComment::new(format!("type variable for member type"), range.merge(&mem.range).hint("member call here", ErrorHint::None).err()));
             equs.regist_check_copyable(mem.mem_id.tag.clone(), alpha);
             Ok(member_eq)
         }
         Subseq::TupleMember(ref mem) => {
             let st = uexpr.gen_type(equs, trs)?;
             let st_type = mem.id.tag.generate_type_variable("StructType", 0, equs);
-            equs.add_equation(st_type.clone(), st);
+            equs.add_equation(st_type.clone(), st, ErrorComment::new(format!("type variable for tuple member struct type"), range.merge(&mem.range).hint("member call here", ErrorHint::None).err()));
             let alpha = mem.id.tag.generate_type_variable("MemberType", 0, equs);
             equs.add_equation(alpha.clone(), Type::TupleMember( TupleMemberEquation {
                 ty: Box::new(st_type.clone()),
                 idx: mem.idx,
                 caller_range: range.merge(&mem.range).hint("tuple member call here", ErrorHint::None)
-            }));
+            }), ErrorComment::new(format!("type variable for tuple member type"), range.merge(&mem.range).hint("member call here", ErrorHint::None).err()));
             equs.regist_check_copyable(mem.id.tag.clone(), alpha.clone());
             Ok(alpha)
         }
         Subseq::Index(ref index) => {
             let caller = uexpr.gen_type(equs, trs)?;
             let caller_type = index.tag.generate_type_variable("IndexCallerType", 0, equs);
-            equs.add_equation(caller.clone(), caller_type);
+            equs.add_equation(caller.clone(), caller_type, ErrorComment::new(format!("type variable for index caller type"), range.merge(&index.range).hint("index call here", ErrorHint::None).err()));
             let arg0 = Type::AutoRef(Box::new(caller.clone()), AutoRefTag::Tag(index.tag.clone()));
             let arg1 = index.arg.as_ref().gen_type(equs, trs)?;
             let alpha = index.tag.generate_type_variable("IndexResult", 0, equs);
@@ -119,10 +119,10 @@ pub fn subseq_gen_type(uexpr: &UnaryExpr, subseq: &Subseq, range: &SourceRange, 
                             trait_gen: Some(TraitGenerics { trait_id: TraitId { id: Identifier::from_str("Index") }, generics: Vec::new() }),
                             func_id: Identifier::from_str("index"),
                             args: vec![arg0, arg1],
-                            caller_range: range.hint("call here", ErrorHint::None),
+                            caller_range: range.merge(&index.range).hint("call here", ErrorHint::None),
                             tag: index.tag.clone(),
                         }
-            ))));
+            ))), ErrorComment::new(format!("type variable for index result type"), range.merge(&index.range).hint("index call here", ErrorHint::None).err()));
             equs.regist_check_copyable(index.tag.clone(), alpha.clone());
             Ok(alpha)
         }
@@ -457,13 +457,14 @@ pub fn parse_call(s: &str) -> IResult<&str, Subseq> {
 pub struct IndexCall {
     arg: Box<Expression>,
     tag: Tag,
+    range: SourceRange,
 }
 
 pub fn parse_index_call(s: &str) -> IResult<&str, Subseq> {
-    let (s, (_, _, arg, _, _)) = tuple((
+    let (s, ((_, _, arg, _, _), range)) = with_range(tuple((
             char('['), multispace0, parse_expression, multispace0, char(']')
-            ))(s)?;
-    Ok((s, Subseq::Index(IndexCall { arg: Box::new(arg), tag: Tag::new() })))
+            )))(s)?;
+    Ok((s, Subseq::Index(IndexCall { arg: Box::new(arg), tag: Tag::new(), range })))
 }
 
 #[derive(Debug)]

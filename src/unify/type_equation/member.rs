@@ -41,7 +41,7 @@ impl MemberEquation {
                             self.caller_range.clone(),
                             ErrorComment::empty(format!("trait method {:?} have no argument", self.id))
                         )))?;
-                equs.add_equation(self_ty.clone(), caller_type.clone());
+                equs.add_equation(self_ty.clone(), caller_type.clone(), ErrorComment::new(format!("self type equals to caller type"), self.caller_range.err()));
                 let res = Type::Func(iter.collect(), returns, info);
                 equs.solve_relations(res, trs).map(|(ty, _)| (ty, SolveChange::Changed))
             }

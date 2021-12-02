@@ -24,6 +24,7 @@ pub struct StructInstantiation {
     pub struct_id: TypeId,
     pub members: HashMap<Identifier, (Expression, SourceRange)>,
     tag: Tag,
+    range: SourceRange,
 }
 
 impl GenType for StructInstantiation {
@@ -35,11 +36,11 @@ impl GenType for StructInstantiation {
             equs.add_equation(Type::Member( MemberEquation {
                 caller_type: st,
                 id: id.clone(),
-                caller_range: range.hint("a element of struct instantiation", ErrorHint::None),
-            }), right);
+                caller_range: range.hint("a element of struct instantiation", self.range.hint("struct instantiation here", ErrorHint::None)),
+            }), right, ErrorComment::new(format!("member instantiation euqation for member"), range.hint("member here", self.range.hint("struct instantiation here", ErrorHint::None)).err()));
         }
         let struct_ty = TypeSpec::from_id(&self.struct_id).generics_to_type(&GenericsTypeMap::empty(), equs, trs)?;
-        equs.add_equation(inst_ty.clone(), struct_ty);
+        equs.add_equation(inst_ty.clone(), struct_ty, ErrorComment::new(format!("type variable for instantiation type"), self.range.hint("struct instantiation here", ErrorHint::None).err()));
         Ok(inst_ty)
     }
 }
@@ -50,9 +51,9 @@ fn parse_member(s: &str) -> IResult<&str, (Identifier, (Expression, SourceRange)
 }
 
 pub fn parse_struct_instantiation(s: &str) -> IResult<&str, UnaryExpr> {
-    let (s, (struct_id, _, _, _, opts, _)) = tuple((parse_type_id, multispace0, char('{'), multispace0,
+    let (s, ((struct_id, _, _, _, opts, _), range)) = with_range(tuple((parse_type_id, multispace0, char('{'), multispace0,
                          opt(tuple((parse_member, many0(tuple((multispace0, char(','), multispace0, parse_member))), opt(tuple((multispace0, char(',')))), multispace0))),
-                         char('}')))(s)?;
+                         char('}'))))(s)?;
     let members = match opts {
         None => HashMap::new(),
         Some((mem, mems, _, _)) => {
@@ -63,7 +64,7 @@ pub fn parse_struct_instantiation(s: &str) -> IResult<&str, UnaryExpr> {
             vec.into_iter().collect()
         }
     };
-    Ok((s, UnaryExpr::StructInst(StructInstantiation { struct_id, members, tag: Tag::new() })))
+    Ok((s, UnaryExpr::StructInst(StructInstantiation { struct_id, members, tag: Tag::new(), range })))
 }
 
 impl Transpile for StructInstantiation {

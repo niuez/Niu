@@ -15,6 +15,7 @@ use crate::trans::*;
 use crate::mut_checker::*;
 use crate::move_checker::*;
 use crate::type_spec::*;
+use crate::error::*;
 
 #[derive(Debug)]
 pub enum VariableDeclaration {
@@ -137,10 +138,10 @@ impl GenType for LetDeclaration {
     fn gen_type(&self, equs: &mut TypeEquations, trs: &TraitsInfo) -> TResult {
         let vars_type = self.vars.gen_type(equs, trs)?;
         let value_type = self.value.gen_type(equs, trs)?;
-        equs.add_equation(vars_type.clone(), value_type);
+        equs.add_equation(vars_type.clone(), value_type, ErrorComment::empty(format!("let declaration equation")));
         if let Some(ref t) = self.type_info {
             let t_type = t.generics_to_type(&GenericsTypeMap::empty(), equs, trs)?;
-            equs.add_equation(vars_type.clone(), t_type);
+            equs.add_equation(vars_type.clone(), t_type, ErrorComment::empty(format!("equation by type annotation of let declaration")));
         }
         Ok(Type::End)
     }

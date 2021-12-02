@@ -40,7 +40,7 @@ fn expr_gen_type<'a, EI: Iterator<Item=Type>, O: 'a, OI: Iterator<Item=&'a O>, F
             tag: Tag::new()
         });
         left = tag.generate_type_variable("Operators", cnt, equs);
-        equs.add_equation(next_ty, left.clone());
+        equs.add_equation(next_ty, left.clone(), ErrorComment::empty(format!("type variable for operator result")));
     }
     Ok(left)
 }
@@ -136,7 +136,7 @@ impl GenType for ExpOr {
         if self.terms.len() > 1 {
             for t in self.terms.iter() {
                 let ty = t.gen_type(equs, trs)?;
-                equs.add_equation(ty, Type::from_str("bool"));
+                equs.add_equation(ty, Type::from_str("bool"), ErrorComment::empty(format!("Or operand must be bool")));
             }
             Ok(Type::from_str("bool"))
         }
@@ -225,7 +225,7 @@ impl GenType for ExpAnd {
         if self.terms.len() > 1 {
             for t in self.terms.iter() {
                 let ty = t.gen_type(equs, trs)?;
-                equs.add_equation(ty, Type::from_str("bool"));
+                equs.add_equation(ty, Type::from_str("bool"), ErrorComment::empty(format!("And Operand must be bool")));
             }
             Ok(Type::from_str("bool"))
         }
@@ -319,7 +319,7 @@ impl GenType for ExpOrd {
                     trait_id: TraitId { id: Identifier::from_str("Eq") },
                     generics: Vec::new(),
                 }, self.range.hint("ord operator", ErrorHint::None));
-                equs.add_equation(t0, t1);
+                equs.add_equation(t0, t1, ErrorComment::empty(format!("Equal or NotEq Operands must be equal")));
                 Ok(Type::from_str("bool"))
             }
             Some(_) => {
@@ -329,7 +329,7 @@ impl GenType for ExpOrd {
                     trait_id: TraitId { id: Identifier::from_str("Ord") },
                     generics: Vec::new(),
                 }, self.range.hint("ord operator", ErrorHint::None));
-                equs.add_equation(t0, t1);
+                equs.add_equation(t0, t1, ErrorComment::empty(format!("Ord Operands must be equal")));
                 Ok(Type::from_str("bool"))
             }
             None => self.terms[0].gen_type(equs, trs),
@@ -1020,7 +1020,7 @@ impl GenType for ExpUnaryOpe {
             Self::Deref(ref exp, ref tag) => {
                 let alpha = tag.generate_not_void_type_variable("DerefType", 0, equs);
                 let right = exp.as_ref().gen_type(equs, trs)?;
-                equs.add_equation(alpha.clone(), right);
+                equs.add_equation(alpha.clone(), right, ErrorComment::empty(format!("type variable for deref type")));
                 equs.regist_check_copyable(tag.clone(), Type::Deref(Box::new(alpha.clone())));
                 Ok(Type::Deref(Box::new(alpha)))
             }

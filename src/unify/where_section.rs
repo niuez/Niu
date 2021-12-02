@@ -46,7 +46,7 @@ impl WhereSection {
                     tag: Tag::new(),
                 });
                 let asso_spec_ty = asso_spec.generics_to_type(mp, equs, trs)?;
-                equs.add_equation(asso_ty, asso_spec_ty)
+                equs.add_equation(asso_ty, asso_spec_ty, range.hint("associated equation of where section", define_source.clone()).err());
             }
         }
         for (spec, tr_id, range) in self.tuple_traits.iter() {
@@ -57,21 +57,21 @@ impl WhereSection {
     }
 
     pub fn regist_candidate(&self, equs: &TypeEquations, trs: &mut TraitsInfo, define_hint: &ErrorHint) -> Result<(), Error> {
-        for (spec, _, tr_spec, asso_eqs, _range) in self.has_traits.iter() {
+        for (spec, _, tr_spec, asso_eqs, range) in self.has_traits.iter() {
 
 
             let mut tmp_equs = TypeEquations::new();
 
             let param_ty = spec.generate_type_no_auto_generics(equs, trs)?;
             let alpha = tr_spec.get_tag().generate_type_variable("ParamType", 0, &mut tmp_equs);
-            tmp_equs.add_equation(param_ty, alpha);
+            tmp_equs.add_equation(param_ty, alpha, range.hint("temporary equation for regist candidate from where section", define_hint.clone()).err());
 
             let tr_gen = tr_spec.generate_trait_generics_with_no_map(equs, trs)?;
 
             for (asso_id, asso_spec) in asso_eqs.iter() {
                 let asso_spec_ty = asso_spec.generate_type_no_auto_generics(&equs, trs)?;
                 let alpha = asso_id.id.generate_type_variable("AssociatedType", 0, &mut tmp_equs);
-                tmp_equs.add_equation(asso_spec_ty, alpha);
+                tmp_equs.add_equation(asso_spec_ty, alpha, Error::None);
             }
             tmp_equs.unify(trs).map_err(|err| err.into_err())?;
             let substs = SubstsMap::new(tmp_equs.take_substs().clone());

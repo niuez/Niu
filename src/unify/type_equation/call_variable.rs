@@ -35,10 +35,10 @@ impl CallVariable {
         match func_var {
             Type::Func(args, ret, info) => {
                 let func_info_ty = self.tag.generate_type_variable("FuncTypeInfo", 0, equs);
-                equs.add_equation(func_info_ty, Type::Func(args.clone(), ret.clone(), info.clone()));
+                equs.add_equation(func_info_ty, Type::Func(args.clone(), ret.clone(), info.clone()), ErrorComment::new(format!("type variabel for func info"), self.caller_range.clone().err()));
                 if params.len() == args.len() {
-                    for (p, a) in params.into_iter().zip(args) {
-                        equs.add_equation(p, a);
+                    for (i, (p, a)) in params.into_iter().zip(args).enumerate() {
+                        equs.add_equation(p, a, ErrorComment::new(format!("function {}-th arg equation", i),self.caller_range.clone().err()));
                     }
                 }
                 else {

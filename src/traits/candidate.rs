@@ -520,7 +520,7 @@ impl ImplCandidate {
         func_equs.set_self_type(Some(self_type.clone()));
 
         if let Some(ref caller_type) = call_eq.caller_type {
-            impl_equs.add_equation(self_type.clone(), caller_type.as_ref().clone());
+            impl_equs.add_equation(self_type.clone(), caller_type.as_ref().clone(), ErrorComment::empty(format!("caller type equation")));
         }
 
         let gen_mp = self.generics.iter().enumerate().map(|(i, id)| (id.clone(), call_eq.tag.generate_type_variable("Generics", i, &mut impl_equs)))
@@ -530,13 +530,13 @@ impl ImplCandidate {
 
         let self_trait_gen = self.trait_spec.generate_trait_generics(&mut impl_equs, trs, &gen_mp).unwrap();
         if let Some(ref trait_gen) = call_eq.trait_gen {
-            for (self_g, right_g) in self_trait_gen.generics.iter().zip(trait_gen.generics.iter()) {
-                impl_equs.add_equation(self_g.clone(), right_g.clone());
+            for (i, (self_g, right_g)) in self_trait_gen.generics.iter().zip(trait_gen.generics.iter()).enumerate() {
+                impl_equs.add_equation(self_g.clone(), right_g.clone(), ErrorComment::empty(format!("{}-th trait generics param equation", i)));
             }
         }
 
         let impl_ty = self.impl_ty.generics_to_type(&gen_mp, &mut impl_equs, trs).unwrap();
-        impl_equs.add_equation(impl_ty, self_type.clone());
+        impl_equs.add_equation(impl_ty, self_type.clone(), ErrorComment::empty(format!("type variable for self type")));
         self.where_sec.regist_equations(&gen_mp, &mut impl_equs, trs, &self.hint())
             .map_err(|e| CallEquationSolveError::Error(e))?;
         let func_def = self.require_methods
@@ -555,30 +555,30 @@ impl ImplCandidate {
                     FuncTypeInfo::None => {
                         let tag = Tag::new();
                         let alpha = tag.generate_type_variable("SelfType", 0, &mut func_equs);
-                        func_equs.add_equation(alpha, self_type.clone());
+                        func_equs.add_equation(alpha, self_type.clone(), ErrorComment::empty(format!("type variable for self type")));
                         let generics_cnt = self_trait_gen.generics.len();
                         for (i, g) in self_trait_gen.generics.into_iter().enumerate() {
                             let beta = tag.generate_type_variable("TraitGenerics", i, &mut func_equs);
-                            func_equs.add_equation(beta, g);
+                            func_equs.add_equation(beta, g, ErrorComment::empty(format!("type variable for trait generics")));
                         }
                         FuncTypeInfo::TraitFunc(self.trait_spec.trait_id.clone(), generics_cnt, tag)
                     }
                     info => info,
                 };
-                func_equs.add_equation(alpha, Type::Func(args.clone(), ret.clone(), info));
+                func_equs.add_equation(alpha, Type::Func(args.clone(), ret.clone(), info), ErrorComment::empty(format!("type variable for func type info")));
 
                 if call_eq.caller_type.is_none() {
-                    impl_equs.add_equation(args[0].clone(), call_eq.args[0].clone());
+                    impl_equs.add_equation(args[0].clone(), call_eq.args[0].clone(), ErrorComment::empty(format!("0-th function arg equation")));
                 }
 
                 if args.len() != call_eq.args.len() {
                     not_same_args_length = true;
                 }
-                for (l, r) in args.into_iter().zip(call_eq.args.iter()) {
-                    func_equs.add_equation(l, r.clone())
+                for (i, (l, r)) in args.into_iter().zip(call_eq.args.iter()).enumerate() {
+                    func_equs.add_equation(l, r.clone(), ErrorComment::empty(format!("{}-th function arg equation", i)))
                 }
                 let return_ty = call_eq.tag.generate_type_variable("ReturnType", 0, &mut func_equs);
-                func_equs.add_equation(*ret, return_ty);
+                func_equs.add_equation(*ret, return_ty, ErrorComment::empty(format!("type variable for return type")));
             }
             _ => unreachable!()
         }
@@ -615,7 +615,7 @@ impl ImplCandidate {
         let self_type = associated_eq.tag.generate_type_variable("SelfType", 0, &mut impl_equs);
         impl_equs.set_self_type(Some(self_type.clone()));
 
-        impl_equs.add_equation(self_type.clone(), associated_eq.caller_type.as_ref().clone());
+        impl_equs.add_equation(self_type.clone(), associated_eq.caller_type.as_ref().clone(), ErrorComment::empty(format!("self type equals to caller type")));
 
         let gen_mp = self.generics.iter().enumerate().map(|(i, id)| (id.clone(), associated_eq.tag.generate_type_variable("Generics", i, &mut impl_equs)))
             .collect::<HashMap<_, _>>();
@@ -624,13 +624,13 @@ impl ImplCandidate {
 
         let self_trait_gen = self.trait_spec.generate_trait_generics(&mut impl_equs, trs, &gen_mp).unwrap();
         if let Some(ref trait_gen) = associated_eq.trait_gen {
-            for (self_g, right_g) in self_trait_gen.generics.iter().zip(trait_gen.generics.iter()) {
-                impl_equs.add_equation(self_g.clone(), right_g.clone());
+            for (i, (self_g, right_g)) in self_trait_gen.generics.iter().zip(trait_gen.generics.iter()).enumerate() {
+                impl_equs.add_equation(self_g.clone(), right_g.clone(), ErrorComment::empty(format!("{}-th trait generics param equation", i)));
             }
         }
 
         let impl_ty = self.impl_ty.generics_to_type(&gen_mp, &mut impl_equs, trs).unwrap();
-        impl_equs.add_equation(impl_ty, self_type.clone());
+        impl_equs.add_equation(impl_ty, self_type.clone(), ErrorComment::empty(format!("self type equals to impl type")));
         self.where_sec.regist_equations(&gen_mp, &mut impl_equs, trs, &self.hint())
             .map_err(|e| CallEquationSolveError::Error(e))?;
         let associated_type = self.asso_defs
@@ -640,7 +640,7 @@ impl ImplCandidate {
             .generics_to_type(&gen_mp, &mut impl_equs, trs)
                 .map_err(|e| CallEquationSolveError::Error(e))?;
         let return_ty = associated_eq.tag.generate_type_variable("ReturnType", 0, &mut impl_equs);
-        impl_equs.add_equation(return_ty, associated_type);
+        impl_equs.add_equation(return_ty, associated_type, ErrorComment::empty(format!("type variable for return type")));
         match impl_equs.unify(trs) {
             Err(UnifyErr::Contradiction(err)) => {
                 Err(CallEquationSolveError::Error(ErrorUnify::new(format!(""), self.hint(), err)))
@@ -661,12 +661,12 @@ impl ImplCandidate {
         let gen_mp = mp.next(gen_mp);
         
         let self_trait_gen = self.trait_spec.generate_trait_generics(&mut equs, trs, &gen_mp).unwrap();
-        for (self_g, right_g) in self_trait_gen.generics.into_iter().zip(trait_gen.generics.iter()) {
-            equs.add_equation(self_g, right_g.clone());
+        for (i, (self_g, right_g)) in self_trait_gen.generics.into_iter().zip(trait_gen.generics.iter()).enumerate() {
+            equs.add_equation(self_g, right_g.clone(), ErrorComment::empty(format!("{}-th trait generics equation", i)));
         }
 
         let impl_ty = self.impl_ty.generics_to_type(&gen_mp, &mut equs, trs).unwrap();
-        equs.add_equation(ty.clone(), impl_ty);
+        equs.add_equation(ty.clone(), impl_ty, ErrorComment::empty(format!("impl type equals to call type")));
         if self.where_sec.regist_equations(&gen_mp, &mut equs, trs, &self.without_member_range.hint("impl defined", ErrorHint::None)).is_ok() {
             //equs.debug();
             equs.unify(trs).ok().map(|_| SubstsMap::new(equs.take_substs()))
@@ -695,12 +695,12 @@ impl ImplCandidate {
             Type::Func(args, ret, FuncTypeInfo::None) => {
                 let tag = Tag::new();
                 let alpha = tag.generate_type_variable("SelfType", 0, equs);
-                equs.add_equation(alpha, ty.clone());
+                equs.add_equation(alpha, ty.clone(), ErrorComment::empty(format!("self type equals to call type")));
                 let self_trait_gen = self.trait_spec.generate_trait_generics(equs, trs, &gen_mp).unwrap();
                 let generics_cnt = self_trait_gen.generics.len();
                 for (i, g) in self_trait_gen.generics.into_iter().enumerate() {
                     let beta = tag.generate_type_variable("TraitGenerics", i, equs);
-                    equs.add_equation(beta, g);
+                    equs.add_equation(beta, g, ErrorComment::empty(format!("type variable for {}-th generics", i)));
                 }
                 Type::Func(args, ret, FuncTypeInfo::TraitFunc(self.trait_spec.trait_id.clone(), generics_cnt, tag))
             }
@@ -756,16 +756,16 @@ impl ParamCandidate {
 
 
         if let Some(ref trait_gen) = call_eq.trait_gen {
-            for (self_g, right_g) in self.trait_gen.generics.iter().zip(trait_gen.generics.iter()) {
-                impl_equs.add_equation(self_g.clone(), right_g.clone());
+            for (i, (self_g, right_g)) in self.trait_gen.generics.iter().zip(trait_gen.generics.iter()).enumerate() {
+                impl_equs.add_equation(self_g.clone(), right_g.clone(), ErrorComment::empty(format!("{}-th trait generics param equation", i)));
             }
         }
 
         if let Some(ref caller_type) = call_eq.caller_type {
-            impl_equs.add_equation(self_type.clone(), caller_type.as_ref().clone());
+            impl_equs.add_equation(self_type.clone(), caller_type.as_ref().clone(), ErrorComment::empty(format!("type variable for self type")));
         }
 
-        impl_equs.add_equation(self.impl_ty.clone(), self_type.clone());
+        impl_equs.add_equation(self.impl_ty.clone(), self_type.clone(), ErrorComment::empty(format!("type variable for self type")));
         let func_def = self.require_methods
             .get(&TraitMethodIdentifier { id: call_eq.func_id.clone() })
             .ok_or(ErrorComment::empty(format!("require methods doesnt have {:?}", call_eq.func_id)))
@@ -782,28 +782,28 @@ impl ParamCandidate {
                     FuncTypeInfo::None => {
                         let tag = Tag::new();
                         let alpha = tag.generate_type_variable("SelfType", 0, &mut func_equs);
-                        func_equs.add_equation(alpha, self_type.clone());
+                        func_equs.add_equation(alpha, self_type.clone(), ErrorComment::empty(format!("type variable for self type")));
                         let generics_cnt = self.trait_gen.generics.len();
                         for (i, g) in self.trait_gen.generics.iter().enumerate() {
                             let beta = tag.generate_type_variable("TraitGenerics", i, &mut func_equs);
-                            func_equs.add_equation(beta, g.clone());
+                            func_equs.add_equation(beta, g.clone(), ErrorComment::empty(format!("type variable for trait generics")));
                         }
                         FuncTypeInfo::TraitFunc(self.trait_gen.trait_id.clone(), generics_cnt, tag)
                     }
                     info => info,
                 };
-                func_equs.add_equation(alpha, Type::Func(args.clone(), ret.clone(), info));
+                func_equs.add_equation(alpha, Type::Func(args.clone(), ret.clone(), info), ErrorComment::empty(format!("type variable for func type info")));
                 if args.len() != call_eq.args.len() {
                     not_same_args_length = true;
                 }
                 if call_eq.caller_type.is_none() {
-                    impl_equs.add_equation(args[0].clone(), call_eq.args[0].clone());
+                    impl_equs.add_equation(args[0].clone(), call_eq.args[0].clone(), ErrorComment::empty(format!("0-th function arg equation")));
                 }
-                for (l, r) in args.into_iter().zip(call_eq.args.iter()) {
-                    func_equs.add_equation(l, r.clone())
+                for (i, (l, r)) in args.into_iter().zip(call_eq.args.iter()).enumerate() {
+                    func_equs.add_equation(l, r.clone(), ErrorComment::empty(format!("{}-th function arg equation", i)))
                 }
                 let return_ty = call_eq.tag.generate_type_variable("ReturnType", 0, &mut func_equs);
-                func_equs.add_equation(*ret, return_ty);
+                func_equs.add_equation(*ret, return_ty, ErrorComment::empty(format!("type variable for return type")));
             }
             _ => unreachable!()
         }
@@ -841,21 +841,21 @@ impl ParamCandidate {
         let self_type = associated_eq.tag.generate_type_variable("SelfType", 0, &mut impl_equs);
         impl_equs.set_self_type(Some(self_type.clone()));
 
-        impl_equs.add_equation(self_type.clone(), associated_eq.caller_type.as_ref().clone());
+        impl_equs.add_equation(self_type.clone(), associated_eq.caller_type.as_ref().clone(), ErrorComment::empty(format!("self type equals to caller type")));
 
         if let Some(ref trait_gen) = associated_eq.trait_gen {
-            for (self_g, right_g) in self.trait_gen.generics.iter().zip(trait_gen.generics.iter()) {
-                impl_equs.add_equation(self_g.clone(), right_g.clone());
+            for (i, (self_g, right_g)) in self.trait_gen.generics.iter().zip(trait_gen.generics.iter()).enumerate() {
+                impl_equs.add_equation(self_g.clone(), right_g.clone(), ErrorComment::empty(format!("{}-th trait generics param equation", i)));
             }
         }
 
-        impl_equs.add_equation(self.impl_ty.clone(), self_type.clone());
+        impl_equs.add_equation(self.impl_ty.clone(), self_type.clone(), ErrorComment::empty(format!("self type equals to impl type")));
         let associated_type = self.asso_defs
             .get(&associated_eq.associated_type_id)
             .ok_or(ErrorComment::empty(format!("require methods doesnt have {:?}", associated_eq.associated_type_id)))
                 .map_err(|e| CallEquationSolveError::Error(ErrorUnify::new(format!(""), self.hint(), e)))?;
         let return_ty = associated_eq.tag.generate_type_variable("ReturnType", 0, &mut impl_equs);
-        impl_equs.add_equation(return_ty, associated_type.clone());
+        impl_equs.add_equation(return_ty, associated_type.clone(), ErrorComment::empty(format!("type variable for return type")));
         match impl_equs.unify(trs) {
             Err(UnifyErr::Contradiction(err)) => {
                 Err(CallEquationSolveError::Error(ErrorUnify::new(format!(""), self.hint(), err)))
@@ -869,11 +869,11 @@ impl ParamCandidate {
     pub fn match_impl_for_ty(&self, trait_gen: &TraitGenerics, ty: &Type, trs: &TraitsInfo) -> Option<SubstsMap> {
         let mut equs = TypeEquations::new();
         let alpha = self.trait_gen.get_tag().generate_type_variable("ImplType", 0, &mut equs);
-        for (self_g, right_g) in self.trait_gen.generics.iter().zip(trait_gen.generics.iter()) {
-            equs.add_equation(self_g.clone(), right_g.clone());
+        for (i, (self_g, right_g)) in self.trait_gen.generics.iter().zip(trait_gen.generics.iter()).enumerate() {
+            equs.add_equation(self_g.clone(), right_g.clone(), ErrorComment::empty(format!("{}-th trait generics param equation", i)));
         }
-        equs.add_equation(self.impl_ty.clone(), alpha.clone());
-        equs.add_equation(ty.clone(), alpha);
+        equs.add_equation(self.impl_ty.clone(), alpha.clone(), ErrorComment::empty(format!("type variable for impl type")));
+        equs.add_equation(ty.clone(), alpha, ErrorComment::empty(format!("impl type equals to call type")));
         //equs.debug();
         equs.unify(trs).ok().map(|_| SubstsMap::new(equs.take_substs()))
     }
@@ -888,11 +888,11 @@ impl ParamCandidate {
             Type::Func(args, ret, FuncTypeInfo::None) => {
                 let tag = Tag::new();
                 let alpha = tag.generate_type_variable("SelfType", 0, equs);
-                equs.add_equation(alpha, ty.clone());
+                equs.add_equation(alpha, ty.clone(), ErrorComment::empty(format!("type variable for self type")));
                 let generics_cnt = self.trait_gen.generics.len();
                 for (i, g) in self.trait_gen.generics.iter().enumerate() {
                     let beta = tag.generate_type_variable("TraitGenerics", i, equs);
-                    equs.add_equation(beta, g.clone());
+                    equs.add_equation(beta, g.clone(), ErrorComment::empty(format!("type variable for {}-th trait genreics", i)));
                 }
                 Type::Func(args, ret, FuncTypeInfo::TraitFunc(self.trait_gen.trait_id.clone(), generics_cnt, tag))
             }

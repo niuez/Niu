@@ -34,7 +34,7 @@ impl CppInline {
             CppInlineElem::Type(tyid) => {
                 let ty = TypeSpec::from_id(tyid).generics_to_type(gen_mp, equs, trs)?;
                 let alpha = tag.generate_type_variable("CppInlineInfoType", cnt, equs);
-                equs.add_equation(alpha, ty);
+                equs.add_equation(alpha, ty, ErrorComment::empty(format!("type variablef for cppinline")));
                 cnt += 1;
                 Ok(CppInlineInfoElem::Type(cnt - 1))
             }

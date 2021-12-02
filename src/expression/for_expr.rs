@@ -13,6 +13,7 @@ use crate::trans::*;
 use crate::mut_checker::*;
 use crate::type_spec::*;
 use crate::let_declaration::*;
+use crate::error::*;
 
 #[derive(Debug)]
 pub struct ForExpr {
@@ -29,8 +30,8 @@ impl GenType for ForExpr {
         let cond_type = self.cond.gen_type(equs, trs)?;
         self.update.gen_type(equs, trs)?;
         let bl_type = self.block.gen_type(equs, trs)?;
-        equs.add_equation(cond_type, Type::from_str("bool"));
-        equs.add_equation(bl_type, Type::from_str("void"));
+        equs.add_equation(cond_type, Type::from_str("bool"), ErrorComment::empty(format!("for condition expression must be return bool")));
+        equs.add_equation(bl_type, Type::from_str("void"), ErrorComment::empty(format!("for block must be return void")));
         equs.out_scope();
         Ok(Type::from_str("void"))
     }
