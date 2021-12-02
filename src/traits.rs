@@ -26,6 +26,7 @@ use crate::trans::*;
 use crate::func_definition::*;
 use crate::type_spec::*;
 use crate::type_id::*;
+use crate::error::*;
 
 pub const BINARY_OPERATOR_TRAITS : [(&'static str, (&'static str, &'static str)); 10] = [
             ("BitOr", ("operator|", "|")), ("BitXor", ("operator^", "^")), ("BitAnd", ("operator&", "&")),
@@ -106,14 +107,14 @@ impl TraitSpec {
     pub fn get_tag(&self) -> Tag {
         self.trait_id.id.tag.clone()
     }
-    pub fn generate_trait_generics(&self, equs: &mut TypeEquations, trs: &TraitsInfo, gen_mp: &GenericsTypeMap) -> Result<TraitGenerics, String> {
+    pub fn generate_trait_generics(&self, equs: &mut TypeEquations, trs: &TraitsInfo, gen_mp: &GenericsTypeMap) -> Result<TraitGenerics, Error> {
         trs.check_trait(self)?;
-        let generics = self.generics.iter().map(|g| g.generics_to_type(gen_mp, equs, trs)).collect::<Result<Vec<_>, String>>()?;
+        let generics = self.generics.iter().map(|g| g.generics_to_type(gen_mp, equs, trs)).collect::<Result<Vec<_>, _>>()?;
         Ok(TraitGenerics { trait_id: self.trait_id.clone(), generics })
     }
-    pub fn generate_trait_generics_with_no_map(&self, equs: &TypeEquations, trs: &TraitsInfo) -> Result<TraitGenerics, String> {
+    pub fn generate_trait_generics_with_no_map(&self, equs: &TypeEquations, trs: &TraitsInfo) -> Result<TraitGenerics, Error> {
         trs.check_trait(self)?;
-        let generics = self.generics.iter().map(|g| g.generate_type_no_auto_generics(equs, trs)).collect::<Result<Vec<_>, String>>()?;
+        let generics = self.generics.iter().map(|g| g.generate_type_no_auto_generics(equs, trs)).collect::<Result<Vec<_>, _>>()?;
         Ok(TraitGenerics { trait_id: self.trait_id.clone(), generics })
     }
 }
@@ -136,6 +137,7 @@ pub struct TraitDefinition {
     pub trait_id: TraitId,
     pub generics: Vec<TypeId>,
     pub where_sec: WhereSection,
+    pub without_member_range: SourceRange,
     pub asso_ids: Vec<AssociatedTypeIdentifier>,
     pub required_methods: HashMap<TraitMethodIdentifier, FuncDefinitionInfo>,
 }
@@ -145,6 +147,7 @@ pub struct TraitDefinitionInfo {
     pub trait_id: TraitId,
     pub generics: Vec<TypeId>,
     pub where_sec: WhereSection,
+    pub without_member_range: SourceRange,
     pub asso_ids: Vec<AssociatedTypeIdentifier>,
     pub required_methods: HashMap<TraitMethodIdentifier, FuncDefinitionInfo>,
 }
@@ -155,6 +158,7 @@ impl TraitDefinition {
             trait_id: self.trait_id.clone(),
             generics: self.generics.clone(),
             where_sec: self.where_sec.clone(),
+            without_member_range: self.without_member_range.clone(),
             asso_ids: self.asso_ids.clone(),
             required_methods: self.required_methods.clone(),
         })
@@ -176,10 +180,11 @@ impl Transpile for TraitDefinition {
 }
 
 pub fn parse_trait_definition(s: &str) -> IResult<&str, TraitDefinition> {
-    let (s, (_, _, trait_id, _, generics, _, where_sec, _, _, _, many_types, many_methods, _, _)) = 
-        tuple((tag("trait"), multispace1, parse_trait_id,
+    let (s, (((_, _, trait_id, _, generics, _, where_sec), range),_, _, _, many_types, many_methods, _, _)) = 
+        tuple((
+            with_range(tuple((tag("trait"), multispace1, parse_trait_id,
             multispace0, parse_generics_args,
-            multispace0, parse_where_section, multispace0, char('{'), multispace0,
+            multispace0, parse_where_section))), multispace0, char('{'), multispace0,
             many0(tuple((tag("type"), multispace1, parse_associated_type_identifier, multispace0, char(';'), multispace0))),
             many0(tuple((parse_func_definition_info, multispace0, char(';'), multispace0))),
             multispace0, char('}')))(s)?;
@@ -208,7 +213,7 @@ pub fn parse_trait_definition(s: &str) -> IResult<&str, TraitDefinition> {
             }).collect()
         }
     };
-    Ok((s, TraitDefinition { trait_id, generics, where_sec, asso_ids, required_methods }))
+    Ok((s, TraitDefinition { trait_id, generics, where_sec, asso_ids, required_methods, without_member_range: range }))
 }
 
 

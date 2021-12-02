@@ -18,6 +18,7 @@ use crate::mut_checker::*;
 use crate::move_checker::*;
 use crate::type_spec::*;
 use crate::traits::*;
+use crate::error::*;
 
 #[derive(Debug)]
 pub enum UnaryExpr {
@@ -25,9 +26,9 @@ pub enum UnaryExpr {
     Literal(Literal),
     Parentheses(Parentheses),
     Block(Block),
-    Subseq(Box<UnaryExpr>, Subseq),
+    Subseq(Box<UnaryExpr>, Subseq, SourceRange),
     StructInst(StructInstantiation),
-    TraitMethod(TypeSpec, Option<TraitSpec>, Identifier),
+    TraitMethod(TypeSpec, Option<TraitSpec>, Identifier, SourceRange),
     Tuple(Vec<Expression>, Tag),
 }
 
@@ -38,9 +39,9 @@ impl GenType for UnaryExpr {
             UnaryExpr::Literal(ref l) => l.gen_type(equs, trs),
             UnaryExpr::Parentheses(ref p) => p.gen_type(equs, trs),
             UnaryExpr::Block(ref b) => b.gen_type(equs, trs),
-            UnaryExpr::Subseq(ref expr, ref s) => subseq_gen_type(expr.as_ref(), s, equs, trs),
+            UnaryExpr::Subseq(ref expr, ref s, ref range) => subseq_gen_type(expr.as_ref(), s, range, equs, trs),
             UnaryExpr::StructInst(ref inst) => inst.gen_type(equs, trs),
-            UnaryExpr::TraitMethod(ref spec, ref trait_spec, ref mem_id) => {
+            UnaryExpr::TraitMethod(ref spec, ref trait_spec, ref mem_id, _) => {
                 let alpha = mem_id.generate_type_variable("FuncTypeInfo", 0, equs);
                 let trait_gen = match trait_spec {
                     Some(trait_spec) => {
@@ -49,13 +50,13 @@ impl GenType for UnaryExpr {
                     None => None,
                 };
                 let right = Type::TraitMethod(Box::new(spec.generics_to_type(&GenericsTypeMap::empty(), equs, trs)?), trait_gen.clone(), mem_id.clone());
-                equs.add_equation(alpha, right);
+                equs.add_equation(alpha, right, ErrorComment::empty(format!("type variable for func type info")));
                 Ok(Type::TraitMethod(Box::new(spec.generics_to_type(&GenericsTypeMap::empty(), equs, trs)?), trait_gen.clone(), mem_id.clone()))
             }
             UnaryExpr::Tuple(ref params, ref tag) => {
                 let params = params.iter().map(|p| p.gen_type(equs, trs)).collect::<Result<Vec<_>, _>>()?;
                 let alpha = tag.generate_type_variable("TupleType", 0, equs);
-                equs.add_equation(alpha.clone(), Type::Tuple(params));
+                equs.add_equation(alpha.clone(), Type::Tuple(params), ErrorComment::empty(format!("type variable for tuple type")));
                 Ok(alpha)
             }
         }
@@ -77,12 +78,12 @@ impl Transpile for UnaryExpr {
             UnaryExpr::Literal(ref l) => l.transpile(ta),
             UnaryExpr::Parentheses(ref p) => p.transpile(ta),
             UnaryExpr::Block(ref b) => format!("[&](){{ {} }}()", b.transpile(ta)),
-            UnaryExpr::Subseq(ref expr, ref s) => subseq_transpile(expr.as_ref(), s, ta),
+            UnaryExpr::Subseq(ref expr, ref s, _) => subseq_transpile(expr.as_ref(), s, ta),
             UnaryExpr::StructInst(ref inst) => inst.transpile(ta),
-            UnaryExpr::TraitMethod(ref spec, Some(ref trait_spec), ref method_id) => {
+            UnaryExpr::TraitMethod(ref spec, Some(ref trait_spec), ref method_id, _) => {
                 format!("{}<{}>::{}", trait_spec.trait_id.transpile(ta), spec.transpile(ta), method_id.into_string())
             }
-            UnaryExpr::TraitMethod(ref spec, _, ref method_id) => {
+            UnaryExpr::TraitMethod(ref spec, _, ref method_id, _) => {
                 format!("{}::{}", spec.transpile(ta), method_id.into_string())
             }
             UnaryExpr::Tuple(ref params, ref tag) => {
@@ -99,12 +100,9 @@ impl MutCheck for UnaryExpr {
             UnaryExpr::Literal(ref l) => l.mut_check(ta, vars),
             UnaryExpr::Parentheses(ref p) => p.mut_check(ta, vars),
             UnaryExpr::Block(ref b) => b.mut_check(ta, vars),
-            UnaryExpr::Subseq(ref expr, ref s) => subseq_mut_check(expr.as_ref(), s, ta, vars),
+            UnaryExpr::Subseq(ref expr, ref s, _) => subseq_mut_check(expr.as_ref(), s, ta, vars),
             UnaryExpr::StructInst(ref inst) => inst.mut_check(ta, vars),
-            UnaryExpr::TraitMethod(ref _spec, Some(ref _trait_id), ref _method_id) => {
-                Ok(MutResult::NotMut)
-            }
-            UnaryExpr::TraitMethod(ref _spec, _, ref _method_id) => {
+            UnaryExpr::TraitMethod(ref _spec, _, ref _method_id, _) => {
                 Ok(MutResult::NotMut)
             }
             UnaryExpr::Tuple(ref params, ref _tag) => {
@@ -124,12 +122,12 @@ impl MoveCheck for UnaryExpr {
             UnaryExpr::Literal(ref l) => l.move_check(mc, ta),
             UnaryExpr::Parentheses(ref p) => p.move_check(mc, ta),
             UnaryExpr::Block(ref b) => b.move_check(mc, ta),
-            UnaryExpr::Subseq(ref expr, ref s) => subseq_move_check(expr.as_ref(), s, mc, ta),
+            UnaryExpr::Subseq(ref expr, ref s, _) => subseq_move_check(expr.as_ref(), s, mc, ta),
             UnaryExpr::StructInst(ref inst) => inst.move_check(mc, ta),
-            UnaryExpr::TraitMethod(ref _spec, Some(ref _trait_id), ref _method_id) => {
+            UnaryExpr::TraitMethod(ref _spec, Some(ref _trait_id), ref _method_id, _) => {
                 Ok(MoveResult::Right)
             }
-            UnaryExpr::TraitMethod(ref _spec, _, ref _method_id) => {
+            UnaryExpr::TraitMethod(ref _spec, _, ref _method_id, _) => {
                 Ok(MoveResult::Right)
             }
             UnaryExpr::Tuple(ref params, ref _tag) => {
@@ -144,7 +142,7 @@ impl MoveCheck for UnaryExpr {
 }
 
 pub fn parse_unary_expr(s: &str) -> IResult<&str, UnaryExpr> {
-    let (s, x) = alt((
+    let (s, (x, mut range)) = with_range(alt((
             parse_unary_trait_method,
             parse_struct_instantiation,
             parse_literal,
@@ -152,12 +150,13 @@ pub fn parse_unary_expr(s: &str) -> IResult<&str, UnaryExpr> {
             parse_unaryexpr_tuple,
             parse_bracket_block,
             parse_variable,
-            ))(s)?;
+            )))(s)?;
     let mut now = s;
     let mut prec = x;
-    while let Ok((s, sub)) = parse_subseq(now) {
+    while let Ok((s, (sub, sub_range))) = with_range(parse_subseq)(now) {
+        range = range.merge(&sub_range);
         now = s;
-        prec = UnaryExpr::Subseq(Box::new(prec), sub);
+        prec = UnaryExpr::Subseq(Box::new(prec), sub, range.clone());
     }
     Ok((now, prec))
 }
@@ -194,7 +193,7 @@ impl MutCheck for Variable {
 }
 
 impl MoveCheck for Variable {
-    fn move_check(&self, mc: &mut VariablesMoveChecker, ta: &TypeAnnotation) -> Result<MoveResult, String> {
+    fn move_check(&self, _mc: &mut VariablesMoveChecker, ta: &TypeAnnotation) -> Result<MoveResult, String> {
         if ta.is_copyable(&self.id.tag) {
             Ok(MoveResult::Right)
         }
@@ -249,19 +248,21 @@ pub fn parse_bracket_block(s: &str) -> IResult<&str, UnaryExpr> {
 }
 
 pub fn parse_unary_trait_method(ss: &str) -> IResult<&str, UnaryExpr> {
-    let (s, (typesign, _)) = tuple((parse_type_sign, multispace0))(ss)?;
-    let (s, elems) = many1(tuple((opt(tuple((char('#'), multispace0, parse_trait_spec))), multispace0, tag("::"), multispace0, parse_identifier, multispace0)))(s)?;
-    let mut elems = elems.into_iter().map(|(op, _, _, _, id, _)| (op.map(|(_, _, tr_id)| tr_id), id)).collect::<Vec<_>>();
-    let (tail_tr_op, tail_id) = elems.pop().unwrap();
+    let (s, ((typesign, sign_range), _)) = tuple((with_range(parse_type_sign), multispace0))(ss)?;
+    let (s, elems) = many1(tuple((with_range(tuple((opt(tuple((char('#'), multispace0, parse_trait_spec))), multispace0, tag("::"), multispace0, parse_identifier))), multispace0)))(s)?;
+    let mut elems = elems.into_iter().map(|(((op, _, _, _, id), range), _)| (op.map(|(_, _, tr_id)| tr_id), id, range)).collect::<Vec<_>>();
+    let (tail_tr_op, tail_id, tail_range) = elems.pop().unwrap();
     let mut ty = TypeSpec::TypeSign(typesign);
-    for (op, ty_id) in elems.into_iter() {
-        // TODO: remove unwrap
-        ty = TypeSpec::Associated(Box::new(ty), AssociatedType { 
-            trait_spec: op.unwrap(),
+    let mut ty_range = sign_range;
+    for (op, ty_id, associated_range) in elems.into_iter() {
+        let new_ty_range = ty_range.merge(&associated_range);
+        ty = TypeSpec::Associated(AssociatedSpec::new(Box::new(ty), AssociatedType { 
+            trait_spec: op,
             type_id: AssociatedTypeIdentifier { id: ty_id },
-        });
+        }, Tag::new(), new_ty_range.clone()));
+        ty_range = new_ty_range;
     }
-    Ok((s, UnaryExpr::TraitMethod(ty, tail_tr_op, tail_id)))
+    Ok((s, UnaryExpr::TraitMethod(ty, tail_tr_op, tail_id, ty_range.merge(&tail_range))))
 }
 
 fn parse_unaryexpr_tuple(s: &str) -> IResult<&str, UnaryExpr> {

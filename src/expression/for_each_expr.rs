@@ -10,6 +10,7 @@ use crate::block::*;
 use crate::unify::*;
 use crate::trans::*;
 use crate::mut_checker::*;
+use crate::error::*;
 
 #[derive(Debug)]
 pub struct ForEachExpr {
@@ -24,14 +25,16 @@ impl GenType for ForEachExpr {
         let alpha = self.id.generate_not_void_type_variable("LetType", 0, equs);
         equs.regist_variable(Variable::from_identifier(self.id.clone()), alpha.clone());
         let iter_ty = self.iter.gen_type(equs, trs)?;
-        equs.add_equation(alpha.clone(), Type::AssociatedType(
-                Box::new(iter_ty),
-                TraitGenerics { trait_id: TraitId { id: Identifier::from_str("Iterator") } , generics: Vec::new()},
-                AssociatedTypeIdentifier { id: Identifier::from_str("Item") }
-        ));
+        equs.add_equation(alpha.clone(), Type::AssociatedType(AssociatedTypeEquation {
+            caller_type: Box::new(iter_ty),
+            trait_gen: Some(TraitGenerics { trait_id: TraitId { id: Identifier::from_str("Iterator") } , generics: Vec::new()}),
+            associated_type_id: AssociatedTypeIdentifier { id: Identifier::from_str("Item") },
+            caller_range: ErrorHint::None,
+            tag: Tag::new(),
+        }), ErrorComment::empty(format!("type variable for variable of foreach")));
 
         let bl_type = self.block.gen_type(equs, trs)?;
-        equs.add_equation(bl_type, Type::from_str("void"));
+        equs.add_equation(bl_type, Type::from_str("void"), ErrorComment::empty(format!("foreach block must be return void")));
         equs.out_scope();
         Ok(Type::from_str("void"))
     }

@@ -1,0 +1,11 @@
+import "std/opes.niu"
+struct Hoge {} {}
+
+struct CloneOnly<T> where T: Clone {
+  t: T
+} {}
+
+fn main() -> void {
+  let a = Hoge {};
+  let b = CloneOnly { t: a };
+}

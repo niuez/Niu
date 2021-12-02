@@ -21,6 +21,7 @@ use crate::unify::*;
 use crate::trans::*;
 use crate::mut_checker::*;
 use crate::move_checker::*;
+use crate::error::*;
 
 #[derive(Debug, Clone)]
 pub struct MemberInfo {
@@ -38,8 +39,9 @@ pub enum StructMember {
 pub struct StructMemberDefinition {
     pub struct_id: TypeId,
     pub generics: Vec<TypeId>,
-    pub member: StructMember,
     pub where_sec: WhereSection,
+    pub member: StructMember,
+    pub without_member_range: SourceRange,
 }
 
 #[derive(Debug)]
@@ -56,7 +58,7 @@ impl StructDefinition {
     pub fn get_member_def(&self) -> &StructMemberDefinition {
         &self.member_def
     }
-    pub fn unify_require_methods(&self, equs: &mut TypeEquations, trs: &TraitsInfo) -> Result<(), String> {
+    pub fn unify_require_methods(&self, equs: &mut TypeEquations, trs: &TraitsInfo) -> Result<(), Error> {
         self.impl_self.unify_require_methods(equs, trs)
     }
     pub fn mut_check(&self, ta: &TypeAnnotation, vars: &mut VariablesInfo) -> Result<(), String> {
@@ -187,11 +189,11 @@ impl StructMemberDefinition {
                         let mp = self.generics.iter().cloned().zip(gens.iter().cloned()).collect();
                         spec.generics_to_type(&GenericsTypeMap::empty().next(mp), equs, trs)
                     }
-                    None => Err(format!("{:?} < {:?} >doesnt have member {:?}", self.struct_id, gens, id)),
+                    None => Err(ErrorComment::empty(format!("{:?} < {:?} >doesnt have member {:?}", self.struct_id, gens, id))),
                 }
             }
             StructMember::CppInline(_) => {
-                Err(format!("{:?} is inline struct", self.struct_id))
+                Err(ErrorComment::empty(format!("{:?} is inline struct", self.struct_id)))
             }
         }
     }
@@ -241,9 +243,10 @@ fn parse_struct_cpp_inline(s: &str) -> IResult<&str, StructMember> {
 }
 
 pub fn parse_struct_member_definition(s: &str) -> IResult<&str, StructMemberDefinition> {
-    let (s, (_, _, struct_id, _, generics, _, where_sec, _, member)) =
-        tuple((tag("struct"), multispace1, parse_type_id, multispace0, parse_generics_annotation, multispace0, parse_where_section, multispace0, alt((parse_struct_members, parse_struct_cpp_inline))))(s)?;
-    Ok((s, StructMemberDefinition { struct_id, generics, member, where_sec }))
+    let (s, ((_, _, struct_id, _, generics, _, where_sec), range)) =
+        with_range(tuple((tag("struct"), multispace1, parse_type_id, multispace0, parse_generics_annotation, multispace0, parse_where_section)))(s)?;
+    let (s, (_, member)) = tuple((multispace0, alt((parse_struct_members, parse_struct_cpp_inline))))(s)?;
+    Ok((s, StructMemberDefinition { struct_id, generics, member, where_sec, without_member_range: range }))
 }
 
 pub fn parse_struct_definition(s: &str) -> IResult<&str, StructDefinition> {
@@ -257,6 +260,7 @@ pub fn parse_struct_definition(s: &str) -> IResult<&str, StructDefinition> {
             gens: member_def.generics.iter().map(|id| TypeSpec::from_id(id)).collect(),
         }),
         where_sec: member_def.where_sec.clone(),
+        without_member_range: member_def.without_member_range.clone(),
         require_methods,
         tag: Tag::new(),
     };

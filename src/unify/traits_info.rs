@@ -6,6 +6,7 @@ use crate::traits::*;
 use crate::type_spec::*;
 use crate::unify::*;
 use crate::type_id::*;
+use crate::error::*;
 
 #[derive(Debug, Clone)]
 pub enum StructDefinitionInfo {
@@ -20,12 +21,44 @@ pub struct TraitsInfo<'a> {
     pub traits: HashMap<TraitId, TraitDefinitionInfo>,
     pub impls: HashMap<TraitId, Vec<SelectionCandidate>>,
     self_impls: HashMap<TypeId, Vec<SelectionCandidate>>,
+    associated_type_to_traits: HashMap<AssociatedTypeIdentifier, HashSet<TraitId>>,
     member_to_traits: HashMap<Identifier, HashSet<TraitId>>,
     member_to_self_impls: HashMap<Identifier, HashSet<TypeId>>,
     depth: usize,
     upper_info: Option<&'a TraitsInfo<'a>>,
 }
 
+#[derive(Debug, Clone)]
+pub enum CallEquationSolveError {
+    Error(Error),
+    ImplOk(Error),
+}
+
+#[derive(Debug)]
+pub struct CallEquationSolveErrors {
+    errs: Vec<Error>,
+    implok: Vec<Error>
+}
+
+impl CallEquationSolveErrors {
+    pub fn new() -> Self {
+        CallEquationSolveErrors { errs: Vec::new(), implok: Vec::new(), }
+    }
+    pub fn push(&mut self, err: CallEquationSolveError) {
+        match err {
+            CallEquationSolveError::Error(err) => self.errs.push(err),
+            CallEquationSolveError::ImplOk(err) => self.implok.push(err),
+        }
+    }
+    pub fn unify_err(self, prev: Error) -> UnifyErr {
+        if self.implok.len() > 0 {
+            UnifyErr::Deficiency(ErrorDetails::new(format!("try solve(matched impl list)"), self.implok, prev))
+        }
+        else {
+            UnifyErr::Contradiction(ErrorDetails::new(format!("try solve(no one match impl)"), self.errs, prev))
+        }
+    }
+}
 
 pub fn select_impls_by_priority<I: Iterator<Item=usize>>(priorities: I, len: usize) -> Option<usize> {
     let idx = priorities.into_iter().enumerate().max_by_key(|(_, x)| *x);
@@ -50,6 +83,7 @@ impl<'a> TraitsInfo<'a> {
             traits: HashMap::new(),
             impls: HashMap::new(),
             self_impls: HashMap::new(),
+            associated_type_to_traits: HashMap::new(),
             member_to_traits: HashMap::new(),
             member_to_self_impls: HashMap::new(),
             depth: 0,
@@ -62,22 +96,23 @@ impl<'a> TraitsInfo<'a> {
             traits: HashMap::new(),
             impls: HashMap::new(),
             self_impls: HashMap::new(),
+            associated_type_to_traits: HashMap::new(),
             member_to_traits: HashMap::new(),
             member_to_self_impls: HashMap::new(),
             depth: self.depth + 1,
             upper_info: Some(self),
         }
     }
-    pub fn regist_structs_info(&mut self, st: &StructMemberDefinition) -> Result<(), String> {
+    pub fn regist_structs_info(&mut self, st: &StructMemberDefinition) -> Result<(), Error> {
         let id = st.get_id();
         match self.typeids.insert(id.clone(), StructDefinitionInfo::Def(st.clone())) {
-            Some(_) => Err(format!("duplicate struct definition: {:?}", id)),
+            Some(_) => Err(ErrorComment::empty(format!("duplicate struct definition: {:?}", id))),
             None => Ok(()),
         }
     }
-    pub fn regist_generics_type(&mut self, generics_id: &TypeId) -> Result<(), String> {
+    pub fn regist_generics_type(&mut self, generics_id: &TypeId) -> Result<(), Error> {
         match self.typeids.insert(generics_id.clone(), StructDefinitionInfo::Generics) {
-            Some(_) => Err(format!("duplicate generics definition: {:?}", generics_id)),
+            Some(_) => Err(ErrorComment::empty(format!("duplicate generics definition: {:?}", generics_id))),
             None => Ok(()),
         }
     }
@@ -105,7 +140,7 @@ impl<'a> TraitsInfo<'a> {
         }*/
     }
 
-    pub fn get_struct_definition_info(&self, id: &TypeId) -> Result<&StructDefinitionInfo, String> {
+    pub fn get_struct_definition_info(&self, id: &TypeId) -> Result<&StructDefinitionInfo, Error> {
         if let Some(def_info) = self.typeids.get(id) {
             Ok(def_info)
         }
@@ -113,7 +148,7 @@ impl<'a> TraitsInfo<'a> {
             trs.get_struct_definition_info(id)
         }
         else {
-            Err(format!("type id {:?} is not found", id))
+            Err(ErrorComment::empty(format!("type id {:?} is not found", id)))
         }
     }
     
@@ -127,7 +162,7 @@ impl<'a> TraitsInfo<'a> {
                         let gen_mp = GenericsTypeMap::empty();
                         let mp = def.generics.iter().cloned().zip(gens.iter().cloned()).collect::<HashMap<_, _>>();
                         let mp = gen_mp.next(mp);
-                        def.where_sec.regist_equations(&mp, equs, self)?;
+                        def.where_sec.regist_equations(&mp, equs, self, &def.without_member_range.hint("struct definition", ErrorHint::None))?;
                         Ok(Type::Generics(id, gens))
                     }
                     else if gens.len() == 0 && def.get_generics_len() > 0 {
@@ -135,11 +170,11 @@ impl<'a> TraitsInfo<'a> {
                         let gen_mp = GenericsTypeMap::empty();
                         let mp = def.generics.iter().cloned().zip(gens.iter().cloned()).collect::<HashMap<_, _>>();
                         let mp = gen_mp.next(mp);
-                        def.where_sec.regist_equations(&mp, equs, self)?;
+                        def.where_sec.regist_equations(&mp, equs, self, &def.without_member_range.hint("struct definition", ErrorHint::None))?;
                         Ok(Type::Generics(id, gens))
                     }
                     else {
-                        Err(format!("type {:?} has {:?} generics but not match to {:?}", id, def.get_generics_len(), gens))
+                        Err(ErrorComment::empty(format!("type {:?} has {:?} generics but not match to {:?}", id, def.get_generics_len(), gens)))
                     }
                 }
                 StructDefinitionInfo::Primitive => {
@@ -147,7 +182,7 @@ impl<'a> TraitsInfo<'a> {
                         Ok(Type::Generics(id, gens))
                     }
                     else {
-                        Err(format!("primitive type {:?} doesnt have generics argument", id))
+                        Err(ErrorComment::empty(format!("primitive type {:?} doesnt have generics argument", id)))
                     }
                 }
                 StructDefinitionInfo::Generics => {
@@ -155,7 +190,7 @@ impl<'a> TraitsInfo<'a> {
                         Ok(Type::Generics(id, gens))
                     }
                     else {
-                        Err(format!("primitive type {:?} doesnt have generics argument", id))
+                        Err(ErrorComment::empty(format!("primitive type {:?} doesnt have generics argument", id)))
                     }
                 }
             }
@@ -164,7 +199,7 @@ impl<'a> TraitsInfo<'a> {
             trs.check_typeid_with_generics(equs, id, gens, top_trs)
         }
         else {
-            Err(format!("not exist definition: {:?}", id))
+            Err(ErrorComment::empty(format!("not exist definition: {:?}", id)))
         }
     }
 
@@ -178,7 +213,7 @@ impl<'a> TraitsInfo<'a> {
                         Ok(Type::Generics(id, gens))
                     }
                     else {
-                        Err(format!("type {:?} has {:?} generics but not match to {:?}", id, def.get_generics_len(), gens))
+                        Err(ErrorComment::empty(format!("type {:?} has {:?} generics but not match to {:?}", id, def.get_generics_len(), gens)))
                     }
                 }
                 StructDefinitionInfo::Primitive => {
@@ -186,7 +221,7 @@ impl<'a> TraitsInfo<'a> {
                         Ok(Type::Generics(id, gens))
                     }
                     else {
-                        Err(format!("primitive type {:?} doesnt have generics argument", id))
+                        Err(ErrorComment::empty(format!("primitive type {:?} doesnt have generics argument", id)))
                     }
                 }
                 StructDefinitionInfo::Generics => {
@@ -194,7 +229,7 @@ impl<'a> TraitsInfo<'a> {
                         Ok(Type::Generics(id, gens))
                     }
                     else {
-                        Err(format!("primitive type {:?} doesnt have generics argument", id))
+                        Err(ErrorComment::empty(format!("primitive type {:?} doesnt have generics argument", id)))
                     }
                 }
             }
@@ -203,18 +238,18 @@ impl<'a> TraitsInfo<'a> {
             trs.check_typeid_no_auto_generics(id, gens, top_trs)
         }
         else {
-            Err(format!("not exist definition: {:?}", id))
+            Err(ErrorComment::empty(format!("not exist definition: {:?}", id)))
         }
     }
 
-    pub fn check_trait(&self, tr: &TraitSpec) -> Result<(), String> {
+    pub fn check_trait(&self, tr: &TraitSpec) -> Result<(), Error> {
         match self.traits.get(&tr.trait_id) {
             None => {
                 if let Some(trs) = self.upper_info {
                     trs.check_trait(tr)
                 }
                 else {
-                    Err(format!("trait {:?} not found", tr))
+                    Err(ErrorComment::empty(format!("trait {:?} not found", tr)))
                 }
             }
             Some(tr_def) => {
@@ -222,13 +257,13 @@ impl<'a> TraitsInfo<'a> {
                     Ok(())
                 }
                 else {
-                    Err(format!("Generics of {:?} is not match to trait {:?}", tr, tr.trait_id))
+                    Err(ErrorComment::empty(format!("Generics of {:?} is not match to trait {:?}", tr, tr.trait_id)))
                 }
             }
         }
     }
 
-    pub fn regist_trait(&mut self, tr: &TraitDefinition) -> Result<(), String> {
+    pub fn regist_trait(&mut self, tr: &TraitDefinition) -> Result<(), Error> {
         let (trait_id, trait_def) = tr.get_trait_id_pair();
         for (id, _) in trait_def.required_methods.iter() {
             match self.member_to_traits.get_mut(&id.id) {
@@ -240,8 +275,18 @@ impl<'a> TraitsInfo<'a> {
                 }
             }
         }
+        for asso_id in trait_def.asso_ids.iter() {
+            match self.associated_type_to_traits.get_mut(asso_id) {
+                Some(st) => {
+                    st.insert(trait_id.clone());
+                }
+                None => {
+                    self.associated_type_to_traits.insert(asso_id.clone(), vec![trait_id.clone()].into_iter().collect());
+                }
+            }
+        }
         self.traits.insert(trait_id.clone(), trait_def)
-            .map_or(Ok(()), |_| Err(format!("trait {:?} is already defined", trait_id)))
+            .map_or(Ok(()), |_| Err(ErrorComment::empty(format!("trait {:?} is already defined", trait_id))))
     }
 
     fn regist_selection_candidate(&mut self, trait_id: &TraitId, cand: SelectionCandidate) {
@@ -255,7 +300,7 @@ impl<'a> TraitsInfo<'a> {
         }
     }
 
-    pub fn regist_self_impl(&mut self, def: &ImplSelfDefinition) -> Result<(), String> {
+    pub fn regist_self_impl(&mut self, def: &ImplSelfDefinition) -> Result<(), Error> {
         let info = def.get_info();
         let typeid = info.impl_ty.get_type_id()?;
         match self.get_struct_definition_info(&typeid)? {
@@ -280,8 +325,8 @@ impl<'a> TraitsInfo<'a> {
                 }
                 Ok(())
             }
-            StructDefinitionInfo::Primitive => Err(format!("cant impl self for primitive type")),
-            StructDefinitionInfo::Generics => Err(format!("cant impl self for primitive type")),
+            StructDefinitionInfo::Primitive => Err(ErrorComment::empty(format!("cant impl self for primitive type"))),
+            StructDefinitionInfo::Generics => Err(ErrorComment::empty(format!("cant impl self for primitive type"))),
         }
     }
 
@@ -301,7 +346,7 @@ impl<'a> TraitsInfo<'a> {
         self.regist_selection_candidate(&trait_id, cand);
     }
 
-    pub fn regist_impl_candidate(&self, equs: &mut TypeEquations, ti: &ImplDefinition) -> Result<(), String> {
+    pub fn regist_impl_candidate(&self, equs: &mut TypeEquations, ti: &ImplDefinition) -> Result<(), Error> {
         let (trait_id, _) = ti.get_impl_trait_pair();
         let mut gen_trs = self.into_scope();
         for id in ti.generics.iter() {
@@ -309,29 +354,29 @@ impl<'a> TraitsInfo<'a> {
         }
         let impl_ty = ti.impl_ty.generics_to_type(&GenericsTypeMap::empty(), equs, &gen_trs)?;
         let before_self_type = equs.set_self_type(Some(impl_ty));
-        ti.where_sec.regist_candidate(equs, &mut gen_trs)?;
+        ti.where_sec.regist_candidate(equs, &mut gen_trs, &ti.without_member_range.hint("impl definition", ErrorHint::None))?;
         self.check_trait(&ti.trait_spec)?;
 
         match self.get_traitinfo(&trait_id) {
-            None => Err(format!("trait {:?} is not defined", trait_id)),
+            None => Err(ErrorComment::empty(format!("trait {:?} is not defined", trait_id))),
             Some(tr) => {
                 let empty_gen_map = GenericsTypeMap::empty();
                 let tr_gen_map = tr.generics.iter().zip(ti.trait_spec.generics.iter())
                     .map(|(id, param)| Ok((id.clone(), param.generate_type_no_auto_generics(&equs, &gen_trs)?)))
-                    .collect::<Result<HashMap<_, _>, String>>()?;
+                    .collect::<Result<HashMap<_, _>, Error>>()?;
                 let tr_gen_map = empty_gen_map.next(tr_gen_map);
                 log::debug!("{:?}", tr_gen_map);
                 {
-                    tr.where_sec.regist_equations(&GenericsTypeMap::empty(), equs, &gen_trs)?;
+                    tr.where_sec.regist_equations(&GenericsTypeMap::empty(), equs, &gen_trs, &tr.without_member_range.hint("trait defined", ErrorHint::None))?;
                     match equs.unify(&gen_trs) {
                         Ok(_) => Ok(()),
-                        Err(UnifyErr::Deficiency(s)) => Err(format!("trait {:?} where section error, {:?}", tr.trait_id, s)),
-                        Err(UnifyErr::Contradiction(s)) => Err(format!("trait {:?} where section error, {:?}", tr.trait_id, s)),
+                        Err(UnifyErr::Deficiency(s)) => Err(ErrorComment::new(format!("trait {:?} where section error", tr.trait_id), s)),
+                        Err(UnifyErr::Contradiction(s)) => Err(ErrorComment::new(format!("trait {:?} where section error", tr.trait_id), s)),
                     }?;
                 }
                 for (id, info) in tr.required_methods.iter() {
                     match ti.require_methods.get(id) {
-                        None => Err(format!("method {:?}::{:?} is not defined for {:?}", tr, id, ti.impl_ty))?,
+                        None => Err(ErrorComment::empty(format!("method {:?}::{:?} is not defined for {:?}", tr, id, ti.impl_ty)))?,
                         Some(impl_method) => {
                             {
                                 equs.clear_equations();
@@ -345,14 +390,14 @@ impl<'a> TraitsInfo<'a> {
             }
         }
     }
-    pub fn regist_param_candidate(&mut self, ty: Type, trait_gen: &TraitGenerics, mut asso_mp: HashMap<AssociatedTypeIdentifier, Type>) -> Result<(), String> {
+    pub fn regist_param_candidate(&mut self, ty: Type, trait_gen: &TraitGenerics, mut asso_mp: HashMap<AssociatedTypeIdentifier, Type>, define_hint: &ErrorHint) -> Result<(), Error> {
         log::debug!("param {:?}, {:?}", ty, trait_gen);
         match self.get_traitinfo(&trait_gen.trait_id).cloned() {
-            None => Err(format!("trait {:?} is not defined", trait_gen)),
+            None => Err(ErrorComment::empty(format!("trait {:?} is not defined", trait_gen))),
             Some(tr_def) => {
                 let mut equs = TypeEquations::new();
                 equs.set_self_type(Some(ty.clone()));
-                tr_def.where_sec.regist_candidate(&equs, self)?;
+                tr_def.where_sec.regist_candidate(&equs, self, &tr_def.without_member_range.hint(&format!("regist candidate by where section of {:?}", trait_gen), define_hint.clone()))?;
                 //dbg!(&tr_def.asso_ids);
                 let asso_tys = tr_def.asso_ids.iter().map(|asso_id| {
                     let asso_ty = match asso_mp.remove(asso_id) {
@@ -368,10 +413,10 @@ impl<'a> TraitsInfo<'a> {
                     (asso_id.clone(), asso_ty)
                 }).collect::<HashMap<_, _>>();
                 if asso_mp.len() > 0 {
-                    Err(format!("undefined associated type speficier: {:?}", asso_mp))
+                    Err(ErrorComment::empty(format!("undefined associated type speficier: {:?}", asso_mp)))
                 }
                 else {
-                    let cand = ParamCandidate::new(trait_gen.clone(), tr_def.generics.clone(), ty.clone(), asso_tys, tr_def.required_methods.clone());
+                    let cand = ParamCandidate::new(trait_gen.clone(), tr_def.generics.clone(), ty.clone(), asso_tys, tr_def.required_methods.clone(), define_hint);
                     self.regist_selection_candidate(&trait_gen.trait_id, cand);
                     Ok(())
                 }
@@ -441,14 +486,22 @@ impl<'a> TraitsInfo<'a> {
         self.match_to_self_impls(typeid, ty, self)
     }
 
-    fn generate_call_equations_for_trait(&self, trait_id: &TraitId, call_eq: &CallEquation, top_trs: &Self) -> Vec<(TypeEquations, &SelectionCandidate, usize)> {
+    fn generate_call_equations_for_trait(&self, trait_id: &TraitId, call_eq: &CallEquation, top_trs: &Self, solve_errs: &mut CallEquationSolveErrors) -> Vec<(TypeEquations, ErrorHint, usize)> {
         let mut ans = Vec::new();
         if let Some(impls) = self.impls.get(trait_id) {
             let mut vs = impls.iter().enumerate()
                 .map(|(i, impl_trait)| {
                     let res = impl_trait.generate_equations_for_call_equation(call_eq, top_trs);
-                    log::info!("{:?}", res.as_ref().map(|_| impl_trait.debug_str()));
-                    res.ok().map(|eq| (eq, impl_trait, i * self.depth + self.depth * 10000))
+                    log::debug!("{:?}", res.as_ref().map(|_| impl_trait.debug_str()));
+                    match res {
+                        Ok((eq, hint)) => {
+                            Some((eq, hint, i * self.depth + self.depth * 10000))
+                        }
+                        Err(err) => {
+                            solve_errs.push(err);
+                            None
+                        }
+                    }
                 })
                 .filter_map(|x| {
                     x
@@ -458,20 +511,28 @@ impl<'a> TraitsInfo<'a> {
         }
 
         if let Some(trs) = self.upper_info {
-            let mut vs = trs.generate_call_equations_for_trait(trait_id, call_eq, top_trs);
+            let mut vs = trs.generate_call_equations_for_trait(trait_id, call_eq, top_trs, solve_errs);
             ans.append(&mut vs);
         }
         ans
     }
 
-    fn generate_call_equations_for_self_type(&self, typeid: &TypeId, call_eq: &CallEquation, top_trs: &Self) -> Vec<(TypeEquations, &SelectionCandidate)> {
+    fn generate_call_equations_for_self_type(&self, typeid: &TypeId, call_eq: &CallEquation, top_trs: &Self, solve_errs: &mut CallEquationSolveErrors) -> Vec<(TypeEquations, ErrorHint)> {
         let mut ans = Vec::new();
         if let Some(impls) = self.self_impls.get(typeid) {
             let mut vs = impls.iter()
                 .map(|impl_trait| {
                     let res = impl_trait.generate_equations_for_call_equation(call_eq, top_trs);
-                    log::info!("{:?}", res.as_ref().map(|_| impl_trait.debug_str()));
-                    res.ok().map(|eq| (eq, impl_trait))
+                    log::debug!("{:?}", res.as_ref().map(|_| impl_trait.debug_str()));
+                    match res {
+                        Ok((eq, hint)) => {
+                            Some((eq, hint))
+                        }
+                        Err(err) => {
+                            solve_errs.push(err);
+                            None
+                        }
+                    }
                 })
                 .filter_map(|x| {
                     x
@@ -481,32 +542,23 @@ impl<'a> TraitsInfo<'a> {
         }
 
         if let Some(trs) = self.upper_info {
-            let mut vs = trs.generate_call_equations_for_self_type(typeid, call_eq, top_trs);
+            let mut vs = trs.generate_call_equations_for_self_type(typeid, call_eq, top_trs, solve_errs);
             ans.append(&mut vs);
         }
         ans
     }
 
-    pub fn regist_for_call_equtions(&self, equs: &mut TypeEquations, call_eq: &CallEquation) -> Result<Type, Vec<&SelectionCandidate>> {
-        log::info!("------------------------------\nCallEquation Solve {:?}\n{}",
+    pub fn regist_for_call_equtions(&self, equs: &mut TypeEquations, call_eq: &CallEquation) -> Result<Type, UnifyErr> {
+        log::debug!("------------------------------\nCallEquation Solve {:?}\n{}",
                    call_eq.func_id,
                    call_eq.args.iter().map(|a| format!("{:?}", a)).collect::<Vec<_>>().join("\n")
                    );
         let mut st = HashSet::new();
         self.search_traits_for_member(&call_eq.func_id, &mut st);
         let mut unify_res = Vec::new();
+        let mut solve_errs = CallEquationSolveErrors::new();
         for t in st.into_iter() {
-            let vs = self.generate_call_equations_for_trait(&t, call_eq, self);
-            let mut vs = vs.into_iter().filter_map(|(mut equs, cand, pri)| {
-                //log::debug!("{:?}", equs);
-                let res = equs.unify(self);
-                log::info!("\n[{}] {}\n{:?}", pri, cand.debug_str(), res.as_ref());
-                match res {
-                    Ok(_) => Some((equs, cand, pri)),
-                    Err(UnifyErr::Deficiency(_)) => Some((equs, cand, pri)),
-                    Err(UnifyErr::Contradiction(_)) => None
-                }
-            }).collect::<Vec<_>>();
+            let mut vs = self.generate_call_equations_for_trait(&t, call_eq, self, &mut solve_errs);
             let idx = select_impls_by_priority(vs.iter().map(|(_, _, i)| *i), vs.len());
             if let Some(idx) = idx {
                 let (equs, cand, _) = vs.swap_remove(idx);
@@ -520,24 +572,12 @@ impl<'a> TraitsInfo<'a> {
         let mut st = HashSet::new();
         self.search_typeid_for_member(&call_eq.func_id, &mut st);
         for t in st.into_iter() {
-            let vs = self.generate_call_equations_for_self_type(&t, call_eq, self);
-            for (mut gen_equ, cand) in vs.into_iter() {
-                let res = gen_equ.unify(self);
-                log::info!("\n{}\n{:?}", cand.debug_str(), res.as_ref().err());
-                match res {
-                    Ok(_) => {
-                        unify_res.push((gen_equ, cand));
-                    }
-                    Err(UnifyErr::Deficiency(_)) => {
-                        unify_res.push((gen_equ, cand));
-                    }
-                    Err(UnifyErr::Contradiction(_st)) => {}
-                }
-            }
+            let mut vs = self.generate_call_equations_for_self_type(&t, call_eq, self, &mut solve_errs);
+            unify_res.append(&mut vs);
         }
         if unify_res.len() == 1 {
-            let (gen_equ, cand) = unify_res.pop().unwrap();
-            log::info!("OK {}\n-------------------------------", cand.debug_str());
+            let (gen_equ, _hint) = unify_res.pop().unwrap();
+            log::debug!("OK\n-------------------------------");
             let ret_ty = gen_equ.try_get_substs(TypeVariable::Counter(call_eq.tag.get_num(), "ReturnType", 0));
 
             //log::debug!("take over by call >> ");
@@ -547,9 +587,88 @@ impl<'a> TraitsInfo<'a> {
             equs.take_over_equations(gen_equ);
             Ok(ret_ty)
         }
+        else if unify_res.len() == 0 {
+            log::debug!("NG-------------------------------------------");
+            Err(solve_errs.unify_err(call_eq.caller_range.clone().err()))
+        }
         else {
-            log::info!("NG-------------------------------------------");
-            Err(unify_res.into_iter().map(|(_, cand)| cand).collect())
+            let errs = unify_res.into_iter().map(|(_, cand)| { cand.err() }).collect();
+            Err(UnifyErr::Deficiency(ErrorDetails::new(format!("try solve(many candidate)"), errs, call_eq.caller_range.clone().err())))
+        }
+    }
+
+    fn generate_associated_type_equation_for_trait(&self, trait_id: &TraitId, associated_eq: &AssociatedTypeEquation, top_trs: &Self, solve_errs: &mut CallEquationSolveErrors) -> Vec<(TypeEquations, ErrorHint, usize)> {
+        let mut ans = Vec::new();
+        if let Some(impls) = self.impls.get(trait_id) {
+            let mut vs = impls.iter().enumerate()
+                .map(|(i, impl_trait)| {
+                    let res = impl_trait.generate_equations_for_associated_type_equation(associated_eq, top_trs);
+                    log::debug!("{:?}", res.as_ref().map(|_| impl_trait.debug_str()));
+                    match res {
+                        Ok((eq, hint)) => {
+                            Some((eq, hint, i * self.depth + self.depth * 10000))
+                        }
+                        Err(err) => {
+                            solve_errs.push(err);
+                            None
+                        }
+                    }
+                })
+                .filter_map(|x| {
+                    x
+                })
+                .collect::<Vec<_>>();
+            ans.append(&mut vs);
+        }
+
+        if let Some(trs) = self.upper_info {
+            let mut vs = trs.generate_associated_type_equation_for_trait(trait_id, associated_eq, top_trs, solve_errs);
+            ans.append(&mut vs);
+        }
+        ans
+    }
+
+    pub fn regist_for_associated_type_equation(&self, equs: &mut TypeEquations, associated_eq: &AssociatedTypeEquation) -> Result<Type, UnifyErr> {
+        let mut st = HashSet::new();
+        self.search_traits_for_associated_type(&associated_eq.associated_type_id, &mut st);
+        let mut unify_res = Vec::new();
+        let mut solve_errs = CallEquationSolveErrors::new();
+        for tr in st.into_iter() {
+            let mut vs = self.generate_associated_type_equation_for_trait(&tr, associated_eq, self, &mut solve_errs);
+            let idx = select_impls_by_priority(vs.iter().map(|(_, _, i)| *i), vs.len());
+            if let Some(idx) = idx {
+                let (equs, hint, _) = vs.swap_remove(idx);
+                unify_res.push((equs, hint));
+            }
+        }
+
+        if unify_res.len() == 1 {
+            let (gen_equ, _hint) = unify_res.pop().unwrap();
+            log::debug!("OK\n-------------------------------");
+            let ret_ty = gen_equ.try_get_substs(TypeVariable::Counter(associated_eq.tag.get_num(), "ReturnType", 0));
+
+            //log::debug!("take over by call >> ");
+            //log::debug!("{:?}", call_eq);
+            //log::debug!("ret = {:?}", ret_ty);
+            //log::debug!(">> ");
+            equs.take_over_equations(gen_equ);
+            Ok(ret_ty)
+        }
+        else if unify_res.len() == 0 {
+            Err(solve_errs.unify_err(associated_eq.caller_range.clone().err()))
+        }
+        else {
+            let errs = unify_res.into_iter().map(|(_, cand)| { cand.err() }).collect();
+            Err(UnifyErr::Deficiency(ErrorDetails::new(format!("try solve(many candidate)"), errs, associated_eq.caller_range.clone().err())))
+        }
+    }
+
+    fn search_traits_for_associated_type(&self, asso_id: &AssociatedTypeIdentifier, st: &mut HashSet<TraitId>) {
+        if let Some(traits) = self.associated_type_to_traits.get(asso_id) {
+            for t in traits { st.insert(t.clone()); }
+        }
+        if let Some(trs) = self.upper_info {
+            trs.search_traits_for_associated_type(asso_id, st);
         }
     }
 

@@ -19,7 +19,7 @@ jobs:
     # - run: rustup component add rustfmt
     # - run: cargo fmt --all -- --check
 
-    - run: cargo build --verbose
+    - run: cargo install --debug --path .
 
     - name: Run tests
       run: cargo test --verbose
@@ -27,10 +27,10 @@ jobs:
     - name: Run tests for library
       run: |
         for file in `find lib -name **.niu`; do
-        echo $file && NIU_IMPORT_PATH="./lib/;" cargo run trans $file >| 1.cpp && g++ -std=c++17 1.cpp -c
+        echo $file && NIU_IMPORT_PATH="./lib/;" niu trans $file >| 1.cpp && g++ -std=c++17 1.cpp -c
         done
     - name: Run unit tests
       run: |
         pip3 install toml Markdown colorlog jinja2
-        RUST_LOG=info NIU_IMPORT_PATH="./;" cargo run test
+        RUST_LOG=info NIU_IMPORT_PATH="./;" niu test
       working-directory: ./lib

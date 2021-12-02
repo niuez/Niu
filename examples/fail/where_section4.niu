@@ -1,0 +1,13 @@
+import "std/opes.niu"
+import "std/vec.niu"
+struct Hoge {} {
+  fn clone_throw<T>(t: T) -> void
+    where T: Clone {
+  }
+}
+
+fn main() -> void {
+  let mut v = Vec::new();
+  let b = Hoge::clone_throw(v[0]);
+  v.push(1);
+}

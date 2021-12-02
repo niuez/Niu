@@ -13,6 +13,7 @@ use crate::unify::*;
 use crate::trans::*;
 use crate::mut_checker::*;
 use crate::move_checker::*;
+use crate::error::*;
 
 #[derive(Debug)]
 struct IfPair {
@@ -45,19 +46,19 @@ impl GenType for IfExpr {
         let cond_type = self.ifp.cond.gen_type(equs, trs)?;
         let return_type = self.tag.generate_type_variable("ReturnType", 0, equs);
         let bl_type = self.ifp.block.gen_type(equs, trs)?;
-        equs.add_equation(cond_type, Type::from_str("bool"));
-        equs.add_equation(return_type.clone(), bl_type);
+        equs.add_equation(cond_type, Type::from_str("bool"), ErrorComment::empty(format!("if condition expression must be return bool")));
+        equs.add_equation(return_type.clone(), bl_type, ErrorComment::empty(format!("returns of if blocks must be equal")));
         for IfPair { cond, block } in self.elifp.iter() {
             let cond_type = cond.gen_type(equs, trs)?;
             let bl2_type = block.gen_type(equs, trs)?;
-            equs.add_equation(cond_type, Type::from_str("bool"));
-            equs.add_equation(return_type.clone(), bl2_type);
+            equs.add_equation(cond_type, Type::from_str("bool"), ErrorComment::empty(format!("if condition expression must be return bool")));
+            equs.add_equation(return_type.clone(), bl2_type, ErrorComment::empty(format!("returns of if blocks must be equal")));
         }
         let el_bl_type = match self.el_block.as_ref() {
             Some(el_block) => el_block.gen_type(equs, trs)?,
             None => Type::from_str("void"),
         };
-        equs.add_equation(return_type.clone(), el_bl_type);
+        equs.add_equation(return_type.clone(), el_bl_type, ErrorComment::empty(format!("returns of if blocks must be equal")));
         Ok(return_type)
     }
 }

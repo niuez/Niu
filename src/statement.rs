@@ -12,6 +12,7 @@ use crate::move_checker::*;
 use crate::substitute::*;
 use crate::unify::*;
 use crate::trans::*;
+use crate::error::*;
 
 
 #[derive(Debug)]
@@ -29,7 +30,7 @@ impl GenType for Statement {
             Statement::Expression(ref e, ref tag) => {
                 let expr = e.gen_type(equs, trs)?;
                 let alpha = tag.generate_type_variable("StatementType", 0, equs);
-                equs.add_equation(alpha, expr);
+                equs.add_equation(alpha, expr, ErrorComment::empty(format!("type variable for statement type")));
             }
             Statement::LetDeclaration(ref l) => {
                 l.gen_type(equs, trs)?;

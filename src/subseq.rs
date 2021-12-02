@@ -16,6 +16,7 @@ use crate::trans::*;
 use crate::mut_checker::*;
 use crate::move_checker::*;
 use crate::identifier::*;
+use crate::error::*;
 
 #[derive(Debug)]
 pub enum Subseq {
@@ -25,27 +26,28 @@ pub enum Subseq {
     Index(IndexCall),
 }
 
-pub fn subseq_gen_type(uexpr: &UnaryExpr, subseq: &Subseq, equs: &mut TypeEquations, trs: &TraitsInfo) -> TResult {
+pub fn subseq_gen_type(uexpr: &UnaryExpr, subseq: &Subseq, range: &SourceRange, equs: &mut TypeEquations, trs: &TraitsInfo) -> TResult {
     match *subseq {
         Subseq::Call(ref call) => {
             match uexpr {
-                UnaryExpr::Subseq(mem_caller, Subseq::Member(mem)) => {
+                UnaryExpr::Subseq(mem_caller, Subseq::Member(mem), _) => {
                     let caller = mem_caller.gen_type(equs, trs)?;
                     let args =
                             std::iter::once(Ok(Type::AutoRef(Box::new(caller.clone()), AutoRefTag::Tag(call.tag.clone()))))
                             //std::iter::once(Ok(caller.clone()))
-                            .chain(call.args.iter().map(|arg| arg.gen_type(equs, trs))).collect::<Result<Vec<_>, String>>()?;
+                            .chain(call.args.iter().map(|arg| arg.gen_type(equs, trs))).collect::<Result<Vec<_>, _>>()?;
                     Ok(Type::CallEquation(CallEquation {
                         caller_type: None,
                         trait_gen: None,
                         func_id: mem.mem_id.clone(),
                         args,
+                        caller_range: range.hint("call here", ErrorHint::None),
                         tag: call.tag.clone(),
                     }))
                 }
-                UnaryExpr::TraitMethod(spec, trait_op, func_id) => {
+                UnaryExpr::TraitMethod(spec, trait_op, func_id, _range) => {
                     let caller = spec.generics_to_type(&GenericsTypeMap::empty(), equs, trs)?;
-                    let args = call.args.iter().map(|arg| arg.gen_type(equs, trs)).collect::<Result<Vec<_>, String>>()?;
+                    let args = call.args.iter().map(|arg| arg.gen_type(equs, trs)).collect::<Result<Vec<_>, _>>()?;
                     Ok(Type::CallEquation(CallEquation {
                         caller_type: Some(Box::new(caller)),
                         trait_gen: match trait_op {
@@ -54,42 +56,60 @@ pub fn subseq_gen_type(uexpr: &UnaryExpr, subseq: &Subseq, equs: &mut TypeEquati
                         },
                         func_id: func_id.clone(),
                         args,
+                        caller_range: range.hint("call here", ErrorHint::None),
                         tag: call.tag.clone(),
                     }))
                 }
                 uexpr => {
                     let caller = uexpr.gen_type(equs, trs)?;
-                    let args = call.args.iter().map(|arg| arg.gen_type(equs, trs)).collect::<Result<Vec<_>, String>>()?;
+                    let args = call.args.iter().map(|arg| arg.gen_type(equs, trs)).collect::<Result<Vec<_>, _>>()?;
+                    /*
                     let return_type = call.tag.generate_type_variable("ReturnType", 0, equs);
                     let func_type = call.tag.generate_type_variable("FuncTypeInfo", 0, equs);
                     equs.add_equation(caller, func_type.clone());
                     equs.add_equation(func_type, Type::Func(args, Box::new(return_type.clone()), FuncTypeInfo::None));
                     Ok(return_type)
+                    */
+                    Ok(Type::CallVariable(CallVariable {
+                        func_var: Box::new(caller),
+                        args,
+                        caller_range: range.hint("call here", ErrorHint::None),
+                        tag: call.tag.clone()
+                    }))
                 }
             }
         }
         Subseq::Member(ref mem) => {
             let st = uexpr.gen_type(equs, trs)?;
             let st_type = mem.mem_id.generate_type_variable("StructType", 0, equs);
-            equs.add_equation(st_type.clone(), st);
+            equs.add_equation(st_type.clone(), st, ErrorComment::new(format!("type variable for member struct type"), range.merge(&mem.range).hint("member call here", ErrorHint::None).err()));
             let alpha = mem.mem_id.generate_type_variable("MemberType", 0, equs);
-            equs.add_equation(alpha.clone(), Type::Member(Box::new(st_type.clone()), mem.mem_id.clone()));
+            let member_eq = Type::Member( MemberEquation {
+                caller_type: Box::new(st_type.clone()),
+                id: mem.mem_id.clone(),
+                caller_range: range.merge(&mem.range).hint("member call here", ErrorHint::None),
+            });
+            equs.add_equation(alpha.clone(), member_eq.clone(), ErrorComment::new(format!("type variable for member type"), range.merge(&mem.range).hint("member call here", ErrorHint::None).err()));
             equs.regist_check_copyable(mem.mem_id.tag.clone(), alpha);
-            Ok(Type::Member(Box::new(st_type), mem.mem_id.clone()))
+            Ok(member_eq)
         }
         Subseq::TupleMember(ref mem) => {
             let st = uexpr.gen_type(equs, trs)?;
             let st_type = mem.id.tag.generate_type_variable("StructType", 0, equs);
-            equs.add_equation(st_type.clone(), st);
+            equs.add_equation(st_type.clone(), st, ErrorComment::new(format!("type variable for tuple member struct type"), range.merge(&mem.range).hint("member call here", ErrorHint::None).err()));
             let alpha = mem.id.tag.generate_type_variable("MemberType", 0, equs);
-            equs.add_equation(alpha.clone(), Type::TupleMember(Box::new(st_type.clone()), mem.idx));
+            equs.add_equation(alpha.clone(), Type::TupleMember( TupleMemberEquation {
+                ty: Box::new(st_type.clone()),
+                idx: mem.idx,
+                caller_range: range.merge(&mem.range).hint("tuple member call here", ErrorHint::None)
+            }), ErrorComment::new(format!("type variable for tuple member type"), range.merge(&mem.range).hint("member call here", ErrorHint::None).err()));
             equs.regist_check_copyable(mem.id.tag.clone(), alpha.clone());
             Ok(alpha)
         }
         Subseq::Index(ref index) => {
             let caller = uexpr.gen_type(equs, trs)?;
             let caller_type = index.tag.generate_type_variable("IndexCallerType", 0, equs);
-            equs.add_equation(caller.clone(), caller_type);
+            equs.add_equation(caller.clone(), caller_type, ErrorComment::new(format!("type variable for index caller type"), range.merge(&index.range).hint("index call here", ErrorHint::None).err()));
             let arg0 = Type::AutoRef(Box::new(caller.clone()), AutoRefTag::Tag(index.tag.clone()));
             let arg1 = index.arg.as_ref().gen_type(equs, trs)?;
             let alpha = index.tag.generate_type_variable("IndexResult", 0, equs);
@@ -99,9 +119,10 @@ pub fn subseq_gen_type(uexpr: &UnaryExpr, subseq: &Subseq, equs: &mut TypeEquati
                             trait_gen: Some(TraitGenerics { trait_id: TraitId { id: Identifier::from_str("Index") }, generics: Vec::new() }),
                             func_id: Identifier::from_str("index"),
                             args: vec![arg0, arg1],
+                            caller_range: range.merge(&index.range).hint("call here", ErrorHint::None),
                             tag: index.tag.clone(),
                         }
-            ))));
+            ))), ErrorComment::new(format!("type variable for index result type"), range.merge(&index.range).hint("index call here", ErrorHint::None).err()));
             equs.regist_check_copyable(index.tag.clone(), alpha.clone());
             Ok(alpha)
         }
@@ -112,7 +133,7 @@ pub fn subseq_gen_type(uexpr: &UnaryExpr, subseq: &Subseq, equs: &mut TypeEquati
 pub fn subseq_transpile(uexpr: &UnaryExpr, subseq: &Subseq, ta: &TypeAnnotation) -> String {
     match *subseq {
         Subseq::Call(ref call) => {
-            if let UnaryExpr::Subseq(mem_caller, Subseq::Member(mem)) = uexpr {
+            if let UnaryExpr::Subseq(mem_caller, Subseq::Member(mem), _) = uexpr {
                 if mem.mem_id.into_string() == "clone" {
                     format!("{}", mem_caller.transpile(ta))
                 }
@@ -157,7 +178,7 @@ pub fn subseq_transpile(uexpr: &UnaryExpr, subseq: &Subseq, ta: &TypeAnnotation)
                     }
                 }
             }
-            else if let UnaryExpr::TraitMethod(_, _, method_id) = uexpr {
+            else if let UnaryExpr::TraitMethod(_, _, method_id, _range) = uexpr {
                 let ty = ta.annotation(call.tag.get_num(), "FuncTypeInfo", 0);
                 //if let Type::Func(_, _, Some((trait_id, ty))) = ty {
                 if let Type::Func(_, _, info) = ty {
@@ -253,7 +274,7 @@ pub fn subseq_mut_check(uexpr: &UnaryExpr, subseq: &Subseq, ta: &TypeAnnotation,
     match *subseq {
         Subseq::Call(ref call) => {
             match uexpr {
-                UnaryExpr::Subseq(mem_caller, Subseq::Member(_mem)) => {
+                UnaryExpr::Subseq(mem_caller, Subseq::Member(_mem), _) => {
                     for arg in call.args.iter() {
                         arg.mut_check(ta, vars)?;
                     }
@@ -271,7 +292,7 @@ pub fn subseq_mut_check(uexpr: &UnaryExpr, subseq: &Subseq, ta: &TypeAnnotation,
                         _ => unreachable!("it is not AutoRef"),
                     }
                 }
-                UnaryExpr::TraitMethod(_spec, _trait_op, _func_id) => {
+                UnaryExpr::TraitMethod(_spec, _trait_op, _func_id, _range) => {
                     for arg in call.args.iter() {
                         arg.mut_check(ta, vars)?;
                     }
@@ -337,7 +358,7 @@ pub fn subseq_move_check(uexpr: &UnaryExpr, subseq: &Subseq, mc: &mut VariablesM
     match *subseq {
         Subseq::Call(ref call) => {
             match uexpr {
-                UnaryExpr::Subseq(mem_caller, Subseq::Member(mem)) => {
+                UnaryExpr::Subseq(mem_caller, Subseq::Member(_mem), _) => {
                     let mem_res = mem_caller.move_check(mc, ta)?;
                     match ta.annotation(call.tag.get_num(), "AutoRefType", 0) {
                         Type::AutoRef(_, AutoRefTag::MutRef) | Type::AutoRef(_, AutoRefTag::Ref) => {}
@@ -352,7 +373,7 @@ pub fn subseq_move_check(uexpr: &UnaryExpr, subseq: &Subseq, mc: &mut VariablesM
                     }
                     Ok(MoveResult::Right)
                 }
-                uexpr => {
+                _uexpr => {
                     for arg in call.args.iter() {
                         let res = arg.move_check(mc, ta)?;
                         mc.move_result(res)?;
@@ -388,7 +409,7 @@ pub fn subseq_move_check(uexpr: &UnaryExpr, subseq: &Subseq, mc: &mut VariablesM
             }
         }
         Subseq::Index(ref index) => {
-            let uexpr = uexpr.move_check(mc, ta)?;
+            let _uexpr = uexpr.move_check(mc, ta)?;
             let arg = index.arg.as_ref().move_check(mc, ta)?;
             mc.move_result(arg)?;
             if ta.is_copyable(&index.tag) {
@@ -436,34 +457,37 @@ pub fn parse_call(s: &str) -> IResult<&str, Subseq> {
 pub struct IndexCall {
     arg: Box<Expression>,
     tag: Tag,
+    range: SourceRange,
 }
 
 pub fn parse_index_call(s: &str) -> IResult<&str, Subseq> {
-    let (s, (_, _, arg, _, _)) = tuple((
+    let (s, ((_, _, arg, _, _), range)) = with_range(tuple((
             char('['), multispace0, parse_expression, multispace0, char(']')
-            ))(s)?;
-    Ok((s, Subseq::Index(IndexCall { arg: Box::new(arg), tag: Tag::new() })))
+            )))(s)?;
+    Ok((s, Subseq::Index(IndexCall { arg: Box::new(arg), tag: Tag::new(), range })))
 }
 
 #[derive(Debug)]
 pub struct Member {
     pub mem_id: Identifier,
+    pub range: SourceRange,
 }
 
 fn parse_member(s: &str) -> IResult<&str, Subseq> {
-    let (s, (_, _, mem_id)) = tuple((char('.'), multispace0, parse_identifier))(s)?;
-    Ok((s, Subseq::Member(Member { mem_id })))
+    let (s, ((_, _, mem_id), range)) = with_range(tuple((char('.'), multispace0, parse_identifier)))(s)?;
+    Ok((s, Subseq::Member(Member { mem_id, range })))
 }
 
 #[derive(Debug)]
 pub struct TupleMember {
     pub idx: usize,
     pub id: Identifier,
+    pub range: SourceRange,
 }
 
 fn parse_tuple_member(s: &str) -> IResult<&str, Subseq> {
-    let (s, (_, _, idx)) = tuple((char('.'), multispace0, nom::character::complete::u64))(s)?;
-    Ok((s, Subseq::TupleMember(TupleMember { idx: idx as usize, id: Identifier::from_str(&idx.to_string()), })))
+    let (s, ((_, _, idx), range)) = with_range(tuple((char('.'), multispace0, nom::character::complete::u64)))(s)?;
+    Ok((s, Subseq::TupleMember(TupleMember { idx: idx as usize, id: Identifier::from_str(&idx.to_string()), range, })))
 }
 
 #[test]

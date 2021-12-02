@@ -1,0 +1,16 @@
+import "std/opes.niu"
+struct Hoge {} {}
+
+trait Tr {
+  fn test(self: &Self, t: u64) -> void;
+}
+
+impl Tr for Hoge {
+  fn test(self: &Self, t: u64) -> void {
+  }
+}
+
+fn main() -> void {
+  let a = Hoge {};
+  a.test(1i64);
+}

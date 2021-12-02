@@ -11,6 +11,7 @@ use crate::identifier::{ Identifier, parse_identifier, Tag };
 use crate::unify::*;
 use crate::trans::*;
 use crate::type_spec::*;
+use crate::error::*;
 
 #[derive(Debug, Clone)]
 pub struct CppInline {
@@ -26,21 +27,21 @@ pub enum CppInlineElem {
 }
 
 impl CppInline {
-    pub fn generate_cpp_inline_info(&self, equs: &mut TypeEquations, trs: &TraitsInfo, gen_mp: &GenericsTypeMap) -> Result<CppInlineInfo, String> {
+    pub fn generate_cpp_inline_info(&self, equs: &mut TypeEquations, trs: &TraitsInfo, gen_mp: &GenericsTypeMap) -> Result<CppInlineInfo, Error> {
         let tag = Tag::new();
         let mut cnt = 0;
         let elems = self.inlines.iter().map(|inline| match inline {
             CppInlineElem::Type(tyid) => {
                 let ty = TypeSpec::from_id(tyid).generics_to_type(gen_mp, equs, trs)?;
                 let alpha = tag.generate_type_variable("CppInlineInfoType", cnt, equs);
-                equs.add_equation(alpha, ty);
+                equs.add_equation(alpha, ty, ErrorComment::empty(format!("type variablef for cppinline")));
                 cnt += 1;
                 Ok(CppInlineInfoElem::Type(cnt - 1))
             }
             CppInlineElem::Arg(id) => Ok(CppInlineInfoElem::Arg(id.clone())),
             CppInlineElem::Any(c) => Ok(CppInlineInfoElem::Any(*c)),
             _ => unreachable!("End???"),
-        }).collect::<Result<Vec<_>, String>>()?;
+        }).collect::<Result<Vec<_>, Error>>()?;
         Ok(CppInlineInfo { elems, tag })
     }
 

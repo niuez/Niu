@@ -17,48 +17,58 @@ use crate::mut_checker::*;
 use crate::move_checker::*;
 use crate::structs::*;
 use crate::unit_test::*;
+use crate::error::*;
 
 #[derive(Debug)]
 pub struct FullContent {
-    pub structs: Vec<StructDefinition>,
-    pub traits: Vec<TraitDefinition>,
-    pub impls: Vec<ImplDefinition>,
-    pub funcs: Vec<FuncDefinition>,
-    pub includes: Vec<String>,
+    pub programs: HashMap<String, String>,
+    pub structs: Vec<(StructDefinition, String)>,
+    pub traits: Vec<(TraitDefinition, String)>,
+    pub impls: Vec<(ImplDefinition, String)>,
+    pub funcs: Vec<(FuncDefinition, String)>,
+    pub includes: Vec<(String, String)>,
     unit_tests: Vec<UnitTestFunc>,
 }
 
+fn name_errmap<T, O, E, F>(elem: &(T, String), mut f: F) -> Result<O, (E, &str)> 
+where
+    F: FnMut(&T) -> Result<O, E> {
+    f(&elem.0).map_err(|e| (e, elem.1.as_str()))
+}
+
 impl FullContent {
-    fn regist_traits(&mut self, trs: &mut TraitsInfo) -> Result<(), String> {
-        for tr in self.traits.iter() {
-            trs.regist_trait(tr)?;
+    fn regist_traits(&self, trs: &mut TraitsInfo) -> Result<(), (Error, &str)> {
+        for t in self.traits.iter() {
+            name_errmap(t, |tr| trs.regist_trait(tr))?;
         }
         Ok(())
     }
-    fn regist_impls(&mut self, equs: &mut TypeEquations, trs: &mut TraitsInfo) -> Result<(), String> {
-        for im in self.impls.iter() {
+    fn regist_impls(&self, equs: &mut TypeEquations, trs: &mut TraitsInfo) -> Result<(), (Error, &str)> {
+        for (im, _) in self.impls.iter() {
             trs.preregist_impl_candidate(im);
         }
-        for im in self.impls.iter() {
-            trs.regist_impl_candidate(equs, im)?;
+        for i in self.impls.iter() {
+            name_errmap(i, |im| trs.regist_impl_candidate(equs, im))?;
         }
         Ok(())
     }
-    fn regist_self_impls(&mut self, trs: &mut TraitsInfo) -> Result<(), String> {
+    fn regist_self_impls(&self, trs: &mut TraitsInfo) -> Result<(), (Error, &str)> {
         for st in self.structs.iter() {
-            trs.regist_self_impl(st.get_impl_self_def())?;
+            name_errmap(st, |st| trs.regist_self_impl(st.get_impl_self_def()))?;
         }
         Ok(())
     }
 
-    pub fn type_check(&mut self) -> Result<TypeAnnotation, String> {
+    fn inner_type_check(&self) -> Result<TypeAnnotation, (Error, &str)> {
         let mut equs = TypeEquations::new();
         let mut ta = TypeAnnotation::new();
         let mut trs = TraitsInfo::new();
 
         for st in self.structs.iter() {
-            trs.regist_structs_info(st.get_member_def())?;
-            ta.regist_structs_info(st.get_member_def());
+            name_errmap(st, |st| {
+                ta.regist_structs_info(st.get_member_def());
+                trs.regist_structs_info(st.get_member_def())
+            })?;
         }
 
         self.regist_traits(&mut trs)?;
@@ -66,17 +76,17 @@ impl FullContent {
         self.regist_self_impls(&mut trs)?;
 
         for st in self.structs.iter() {
-            st.unify_require_methods(&mut equs, &mut trs)?;
+            name_errmap(st, |st| st.unify_require_methods(&mut equs, &mut trs))?;
         }
 
         for im in self.impls.iter() {
-            im.unify_require_methods(&mut equs, &mut trs)?;
+            name_errmap(im, |im| im.unify_require_methods(&mut equs, &mut trs))?;
         }
 
         for f in self.funcs.iter() {
-            equs.regist_func_info(f);
-            ta.regist_func_info(f);
-            f.unify_definition(&mut equs, &mut trs)?;
+            equs.regist_func_info(&f.0);
+            ta.regist_func_info(&f.0);
+            name_errmap(f, |f| f.unify_definition(&mut equs, &mut trs, &ErrorHint::None))?;
         }
 
         for TypeSubst { tv, t } in equs.take_substs() {
@@ -86,39 +96,47 @@ impl FullContent {
         ta.regist_copyable(equs.copyable);
         Ok(ta)
     }
+    pub fn type_check(&self) -> Result<TypeAnnotation, String> {
+        let res = self.inner_type_check();
+        res.map_err(|(err, name)| {
+                let data = ErrorData { statement: self.programs.get(name).unwrap() };
+                format!("unify error\n{}", err.what(&data))
+            }
+        )
+    }
 
     pub fn mut_check(&self, ta: &TypeAnnotation) -> Result<(), String> {
         let mut vars = VariablesInfo::new();
-        for st in self.structs.iter() {
+        for (st, _name) in self.structs.iter() {
             st.mut_check(ta, &mut vars)?;
         }
 
-        for im in self.impls.iter() {
+        for (im, _name) in self.impls.iter() {
             im.mut_check(ta, &mut vars)?;
         }
 
-        for f in self.funcs.iter() {
+        for (f, _name) in self.funcs.iter() {
             f.mut_check(ta, &mut vars)?;
         }
         Ok(())
     }
     pub fn move_check(&self, ta: &TypeAnnotation) -> Result<VariablesMoveChecker, String> {
         let mut mc = VariablesMoveChecker::new();
-        for st in self.structs.iter() {
+        for (st, _name) in self.structs.iter() {
             st.move_check(&mut mc, ta)?;
         }
 
-        for im in self.impls.iter() {
+        for (im, _name) in self.impls.iter() {
             im.move_check(&mut mc, ta)?;
         }
-        for f in self.funcs.iter() {
+        for (f, _name) in self.funcs.iter() {
             f.move_check(&mut mc, ta)?;
         }
         Ok(mc)
     }
     pub fn transpile(&self, ta: &mut TypeAnnotation) -> String {
         let mut res = String::new();
-        for include in self.includes.iter() {
+        for (include, _name) in self.includes.iter() {
             res.push_str(&format!("#include <{}>\n", include));
         }
         res.push_str("\n");
@@ -127,7 +145,7 @@ impl FullContent {
         for ope in opes_str {
             operators.insert(ope.to_string(), HashSet::new());
         }
-        for t in self.impls.iter() {
+        for (t, _name) in self.impls.iter() {
             let tr_id = t.get_trait_id().id.into_string();
             if let Some(set) = operators.get_mut(&tr_id) {
                 if let Some(id) = t.get_impl_ty_id() {
@@ -136,32 +154,32 @@ impl FullContent {
             }
         }
         // structs definition
-        for t in self.structs.iter() {
+        for (t, _name) in self.structs.iter() {
             ta.self_type = Some(t.transpile_self_type());
             let s = t.transpile_definition(ta);
             res.push_str(&s);
             ta.self_type = None;
         }
         // traits definition
-        for t in self.traits.iter() {
+        for (t, _name) in self.traits.iter() {
             let s = t.transpile(ta);
             res.push_str(&s);
         }
         // impls definition
-        for i in self.impls.iter() {
+        for (i, _name) in self.impls.iter() {
             ta.self_type = Some(i.impl_ty.transpile(ta));
             let s = i.transpile(ta);
             res.push_str(&s);
             ta.self_type = None;
         }
         // functions definition
-        for f in self.funcs.iter() {
+        for (f, _name) in self.funcs.iter() {
             let s = f.transpile_definition_only(ta, "", false);
             res.push_str(&s);
             res.push_str(";\n");
         }
         // structs implementation
-        for t in self.structs.iter().rev() {
+        for (t, _name) in self.structs.iter().rev() {
             ta.self_type = Some(t.transpile_self_type());
             let st_id = t.get_id();
             let opes = operators.iter()
@@ -172,13 +190,13 @@ impl FullContent {
             ta.self_type = None;
         }
         // functions of impls implementation
-        for i in self.impls.iter() {
+        for (i, _name) in self.impls.iter() {
             ta.self_type = Some(i.impl_ty.transpile(ta));
             let s = i.transpile_functions(ta);
             res.push_str(&s);
             ta.self_type = None;
         }
-        for f in self.funcs.iter() {
+        for (f, _name) in self.funcs.iter() {
             let s = f.transpile(ta, false);
             res.push_str(&s);
         }
@@ -242,8 +260,8 @@ fn parse_content_element(s: &str) -> IResult<&str, ContentElement> {
     alt((parse_element_include, parse_element_import, parse_element_struct, parse_element_func, parse_element_trait, parse_element_impl_trait, parse_element_unit_test))(s)
 }
 
-pub fn parse_full_content(s: &str) -> IResult<&str, (Vec<String>, FullContent)> {
-    let (s, (_, elems, _)) = tuple((multispace0, many0(tuple((parse_content_element, multispace0))), multispace0))(s)?;
+pub fn parse_full_content<'a>(s: &'a str, name: &str) -> IResult<&'a str, (Vec<(String, String)>, FullContent)> {
+    let (ss, (_, elems, _)) = tuple((multispace0, many0(tuple((parse_content_element, multispace0))), multispace0))(s)?;
     
     let mut structs = Vec::new();
     let mut funcs = Vec::new();
@@ -254,19 +272,22 @@ pub fn parse_full_content(s: &str) -> IResult<&str, (Vec<String>, FullContent)> 
     let mut unit_tests = Vec::new();
     for (e, _) in elems {
         match e {
-            ContentElement::Struct(s) => structs.push(s),
-            ContentElement::Func(f) => funcs.push(f),
-            ContentElement::Trait(t) => traits.push(t),
-            ContentElement::ImplTrait(it) => impls.push(it),
-            ContentElement::Import(path) => imports.push(path),
-            ContentElement::Include(path) => includes.push(path),
+            ContentElement::Struct(s) => structs.push((s, name.to_string())),
+            ContentElement::Func(f) => funcs.push((f, name.to_string())),
+            ContentElement::Trait(t) => traits.push((t, name.to_string())),
+            ContentElement::ImplTrait(it) => impls.push((it, name.to_string())),
+            ContentElement::Import(path) => imports.push((path, name.to_string())),
+            ContentElement::Include(path) => includes.push((path, name.to_string())),
             ContentElement::UnitTest(unit_test) => unit_tests.push(unit_test),
         }
     }
-    Ok((s, (imports, FullContent { structs, funcs, traits, impls, includes, unit_tests, })))
+    let programs = std::iter::once((name.to_string(), s.to_string())).collect();
+    Ok((ss, (imports, FullContent { programs, structs, funcs, traits, impls, includes, unit_tests, })))
 }
 
+
 pub fn parse_full_content_from_file(filename: &str, import_path: &[PathBuf]) -> Result<FullContent, String> {
+    let mut programs = HashMap::new();
     let mut structs = Vec::new();
     let mut funcs = Vec::new();
     let mut traits = Vec::new();
@@ -289,12 +310,12 @@ pub fn parse_full_content_from_file(filename: &str, import_path: &[PathBuf]) -> 
     
     while let Some((path, first_file)) = que.pop() {
         let program = std::fs::read_to_string(path.as_path()).map_err(|_| format!("cant open {}", filename))?;
-        let (s, (imports, mut full)) = crate::full_content::parse_full_content(&program).map_err(|e| format!("{:?}", e))?;
+        let (s, (imports, mut full)) = crate::full_content::parse_full_content(&program, path.to_str().unwrap()).map_err(|e| format!("{:?}", e))?;
         if s != "" {
             Err(format!("path {:?} parse error, remaining -> {}", path, s))?;
         }
         dbg!(import_path);
-        for import in imports.into_iter() {
+        for (import, _) in imports.into_iter() {
             let mut ok = false;
             for mut import_dir in import_path.into_iter().cloned().chain(std::iter::once(path.parent().unwrap().to_path_buf())) {
                 import_dir.push(&import);
@@ -318,6 +339,7 @@ pub fn parse_full_content_from_file(filename: &str, import_path: &[PathBuf]) -> 
                 Err(format!("cant find {}", import))?;
             }
         }
+        programs.extend(full.programs);
         structs.append(&mut full.structs);
         funcs.append(&mut full.funcs);
         traits.append(&mut full.traits);
@@ -327,11 +349,11 @@ pub fn parse_full_content_from_file(filename: &str, import_path: &[PathBuf]) -> 
             unit_tests.append(&mut full.unit_tests);
         }
     }
-    includes.push("type_traits".to_string());
-    includes.push("tuple".to_string());
+    includes.push(("type_traits".to_string(), "".to_string()));
+    includes.push(("tuple".to_string(), "".to_string()));
     includes.sort();
     includes.dedup();
-    Ok(FullContent { structs, funcs, traits, impls, includes, unit_tests })
+    Ok(FullContent { programs, structs, funcs, traits, impls, includes, unit_tests })
 }
 /*
 #[test]

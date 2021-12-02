@@ -18,6 +18,7 @@ use crate::mut_checker::*;
 use crate::type_spec::*;
 use crate::cpp_inline::*;
 use crate::move_checker::*;
+use crate::error::*;
 
 
 #[derive(Debug)]
@@ -34,6 +35,7 @@ pub struct FuncDefinition {
     pub args: Vec<(Identifier, TypeSpec, bool)>,
     pub return_type: TypeSpec,
     pub block: FuncBlock,
+    def_range: SourceRange,
 }
 
 #[derive(Debug, Clone)]
@@ -44,18 +46,22 @@ pub struct FuncDefinitionInfo {
     pub args: Vec<(Identifier, TypeSpec, bool)>,
     pub return_type: TypeSpec,
     pub inline: Option<CppInline>,
+    range: SourceRange,
 }
 
 impl FuncDefinitionInfo {
-    pub fn generate_type(&self, before_mp: &GenericsTypeMap, equs: &mut TypeEquations, trs: &TraitsInfo, call_id: &Identifier) -> TResult {
+    pub fn hint(&self, define_hint: &ErrorHint) -> ErrorHint {
+        self.range.hint("function define", define_hint.clone())
+    }
+    pub fn generate_type(&self, before_mp: &GenericsTypeMap, equs: &mut TypeEquations, trs: &TraitsInfo, call_id: &Identifier, define_hint: &ErrorHint) -> TResult {
         let mut gen_mp = HashMap::new();
         for (i, g_id) in self.generics.iter().enumerate() {
             let ty_var = call_id.generate_type_variable("Generics", i, equs);
             gen_mp.insert(g_id.clone(), ty_var.clone());
         }
         let mp = before_mp.next(gen_mp);
-        self.where_sec.regist_equations(&mp, equs, trs)?;
-        let args = self.args.iter().map(|(_, t, _)| t.generics_to_type(&mp, equs, trs)).collect::<Result<Vec<Type>, String>>()?;
+        self.where_sec.regist_equations(&mp, equs, trs, &self.hint(define_hint))?;
+        let args = self.args.iter().map(|(_, t, _)| t.generics_to_type(&mp, equs, trs)).collect::<Result<Vec<Type>, _>>()?;
         let return_type = self.return_type.generics_to_type(&mp, equs, trs)?;
 
         let type_info = match self.inline {
@@ -68,28 +74,28 @@ impl FuncDefinitionInfo {
         Ok(Type::Func(args, Box::new(return_type), type_info))
     }
 
-    pub fn check_equal(&self, right: &Self, equs: &mut TypeEquations, trs: &TraitsInfo, self_gen_map: &GenericsTypeMap, right_gen_map: &GenericsTypeMap) -> Result<(), String> {
+    pub fn check_equal(&self, right: &Self, equs: &mut TypeEquations, trs: &TraitsInfo, self_gen_map: &GenericsTypeMap, right_gen_map: &GenericsTypeMap) -> Result<(), Error> {
         if self.generics != right.generics {
-            Err(format!("generics of method {:?} is not matched", self.func_id))?;
+            Err(ErrorComment::empty(format!("generics of method {:?} is not matched", self.func_id)))?;
         }
         if !self.where_sec.check_equal(&right.where_sec) {
-            Err(format!("where_section of method {:?} is not matched", self.func_id))?;
+            Err(ErrorComment::empty(format!("where_section of method {:?} is not matched", self.func_id)))?;
         }
         let mut trs = trs.into_scope();
         for g_id in self.generics.iter() {
             trs.regist_generics_type(g_id)?;
         }
-        let self_args  =  self.args.iter().map(|(_, t, _)| t.generics_to_type(self_gen_map, equs, &trs)).collect::<Result<Vec<Type>, String>>()?;
-        let right_args = right.args.iter().map(|(_, t, _)| t.generics_to_type(right_gen_map, equs, &trs)).collect::<Result<Vec<Type>, String>>()?;
+        let self_args  =  self.args.iter().map(|(_, t, _)| t.generics_to_type(self_gen_map, equs, &trs)).collect::<Result<Vec<Type>, _>>()?;
+        let right_args = right.args.iter().map(|(_, t, _)| t.generics_to_type(right_gen_map, equs, &trs)).collect::<Result<Vec<Type>, _>>()?;
         let self_return_type = self.return_type.generics_to_type(self_gen_map, equs, &trs)?;
         let right_return_type = right.return_type.generics_to_type(right_gen_map, equs, &trs)?;
         equs.add_equation(
             Type::Func(self_args, Box::new(self_return_type), FuncTypeInfo::None),
-            Type::Func(right_args, Box::new(right_return_type), FuncTypeInfo::None)
+            Type::Func(right_args, Box::new(right_return_type), FuncTypeInfo::None),
+            ErrorComment::new(format!("check equal function definitions"), self.range.hint("left definition", right.range.hint("right definition", ErrorHint::None)).err())
             );
         log::info!("function {:?} and {:?} are equal unify", self.func_id, right.func_id);
-        equs.unify(&mut trs).map_err(|err| err.to_string())?;
-        Ok(())
+        equs.unify(&mut trs).map_err(|e| e.into_err())
     }
 
     pub fn get_generics_annotation(&self, ta: &TypeAnnotation, call_id: &Identifier) -> String {
@@ -122,10 +128,11 @@ impl FuncDefinition {
              args: self.args.clone(),
              return_type: self.return_type.clone(),
              inline,
+             range: self.def_range.clone(),
          }
          )
     }
-    pub fn unify_definition(&self, equs: &mut TypeEquations, trs: &TraitsInfo) -> Result<(), String> {
+    pub fn unify_definition(&self, equs: &mut TypeEquations, trs: &TraitsInfo, define_hint: &ErrorHint) -> Result<(), Error> {
         if let FuncBlock::Block(ref block) = self.block {
             if self.func_id == Identifier::from_str("main") {
                 if self.generics.len() > 0 {
@@ -143,7 +150,7 @@ impl FuncDefinition {
             }
             else {
                 Ok(())
-            }?;
+            }.map_err(|s| ErrorComment::empty(s))?;
 
             equs.into_scope();
 
@@ -156,24 +163,24 @@ impl FuncDefinition {
                    }*/
             }
 
-            self.where_sec.regist_candidate(equs, &mut trs)?;
+            self.where_sec.regist_candidate(equs, &mut trs, &self.def_range.hint("function define", define_hint.clone()))?;
 
-            for (i, t, _) in self.args.iter() {
+            for (n, (i, t, _)) in self.args.iter().enumerate() {
                 let alpha = i.generate_not_void_type_variable("ForRegist", 0, equs);
                 let t_type = t.generics_to_type(&GenericsTypeMap::empty(), equs, &trs)?; 
                 equs.regist_variable(Variable::from_identifier(i.clone()), alpha.clone());
-                equs.add_equation(alpha, t_type);
+                equs.add_equation(alpha, t_type, ErrorComment::new(format!("type variable for {}-th arg", n), self.def_range.hint("function definition", ErrorHint::None).err()));
             }
             let result_type = block.gen_type(equs, &trs)?;
             let return_t = self.return_type.generics_to_type(&GenericsTypeMap::empty(), equs, &trs)?;
-            equs.add_equation(result_type, return_t);
+            equs.add_equation(result_type, return_t, ErrorComment::new(format!("type variable for return"), self.def_range.hint("function definition", ErrorHint::None).err()));
 
             log::info!("function {:?} unify", self.func_id);
             equs.debug();
-            let result = equs.unify(&mut trs);
+            let result = equs.unify(&mut trs).map_err(|e| e.into_err());
 
             equs.out_scope();
-            result.map_err(|err| err.to_string())
+            result
         }
         else {
             Ok(())
@@ -327,11 +334,11 @@ fn parse_mutable(s: &str) -> IResult<&str, bool> {
 }
 
 pub fn parse_func_definition_info(s: &str) -> IResult<&str, FuncDefinitionInfo> {
-    let (s, (_, _, func_id, _, generics_opt, _, _, _, op, _, _, _, _, return_type, _, where_sec)) = 
-        tuple((tag("fn"), multispace1, parse_identifier, multispace0, opt(tuple((char('<'), multispace0, opt(tuple((parse_type_id, multispace0, many0(tuple((char(','), multispace0, parse_type_id, multispace0))), opt(char(',')), multispace0))), char('>'), multispace0))), multispace0,
+    let (s, ((_, _, func_id, _, generics_opt, _, _, _, op, _, _, _, _, return_type, _, where_sec), range)) = 
+        with_range(tuple((tag("fn"), multispace1, parse_identifier, multispace0, opt(tuple((char('<'), multispace0, opt(tuple((parse_type_id, multispace0, many0(tuple((char(','), multispace0, parse_type_id, multispace0))), opt(char(',')), multispace0))), char('>'), multispace0))), multispace0,
                char('('), multispace0,
             opt(tuple((parse_mutable, parse_identifier, multispace0, char(':'), multispace0, parse_type_spec, multispace0, many0(tuple((char(','), multispace0, parse_mutable, parse_identifier, multispace0, char(':'), multispace0, parse_type_spec, multispace0))), opt(char(',')), multispace0))),
-            char(')'), multispace0, tag("->"), multispace0, parse_type_spec, multispace0, parse_where_section))(s)?;
+            char(')'), multispace0, tag("->"), multispace0, parse_type_spec, multispace0, parse_where_section)))(s)?;
     let generics = match generics_opt {
         Some((_, _, generics_opt, _, _)) => {
             match generics_opt {
@@ -357,7 +364,7 @@ pub fn parse_func_definition_info(s: &str) -> IResult<&str, FuncDefinitionInfo> 
         }
         None => Vec::new(),
     };
-    Ok((s, FuncDefinitionInfo { func_id, generics, where_sec, args, return_type, inline: None }))
+    Ok((s, FuncDefinitionInfo { func_id, generics, where_sec, args, return_type, inline: None, range }))
 }
 
 fn parse_func_block_block(s: &str) -> IResult<&str, FuncBlock> {
@@ -377,7 +384,7 @@ fn parse_func_block(s: &str) -> IResult<&str, FuncBlock> {
 
 pub fn parse_func_definition(s: &str) -> IResult<&str, FuncDefinition> {
     let (s, (info, _, block)) = tuple((parse_func_definition_info, multispace0, parse_func_block))(s)?;
-    Ok((s, FuncDefinition { func_id: info.func_id, generics: info.generics, where_sec: info.where_sec, args: info.args, return_type: info.return_type, block }))
+    Ok((s, FuncDefinition { func_id: info.func_id, generics: info.generics, where_sec: info.where_sec, args: info.args, return_type: info.return_type, block, def_range: info.range.clone() }))
 }
 
 

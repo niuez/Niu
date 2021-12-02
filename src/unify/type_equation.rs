@@ -1,3 +1,15 @@
+pub mod call_equation;
+pub mod associated_type;
+pub mod member;
+pub mod tuple_member;
+pub mod call_variable;
+
+pub use call_equation::*;
+pub use associated_type::*;
+pub use member::*;
+pub use tuple_member::*;
+pub use call_variable::*;
+
 use std::collections::{ HashMap, HashSet, VecDeque };
 
 use crate::unary_expr::Variable;
@@ -8,6 +20,7 @@ use crate::unify::*;
 use crate::type_spec::*;
 use crate::type_id::*;
 use crate::identifier::*;
+use crate::error::*;
 #[derive(Debug, Clone, PartialEq, Eq)] pub struct CppInlineInfo {
     pub elems: Vec<CppInlineInfoElem>,
     pub tag: Tag,
@@ -70,12 +83,12 @@ impl TraitGenerics {
         self.generics.iter().map(|g| g.occurs(t)).any(|b| b)
     }
     fn subst(&mut self, theta: &TypeSubst) -> SolveChange {
-        self.generics.iter_mut().map(|g| g.subst(theta)).fold(SolveChange::Not, |a, b| a & b)
+        self.generics.iter_mut().map(|g| g.subst(theta)).fold(SolveChange::not(), |a, b| a & b)
     }
     fn solve(self, equs: &mut TypeEquations, trs: &TraitsInfo) -> Result<(Self, SolveChange), UnifyErr> {
         let generics = self.generics.into_iter().map(|g| equs.solve_relations(g, trs)).collect::<Result<Vec<_>, _>>()?;
-        let solve_change = generics.iter().fold(SolveChange::Not, |a, (_, b)| a & *b);
-        let generics = generics.into_iter().map(|(g, _)| g).collect();
+        let (generics, changes): (Vec<_>, Vec<_>) = generics.into_iter().unzip();
+        let solve_change = changes.into_iter().fold(SolveChange::not(), |a, b| a & b);
         Ok((TraitGenerics { trait_id: self.trait_id, generics, }, solve_change))
     }
     fn is_solved_type(&self) -> bool {
@@ -89,16 +102,17 @@ pub enum Type {
     Func(Vec<Type>, Box<Type>, FuncTypeInfo),
     TypeVariable(TypeVariable),
     Generics(TypeId, Vec<Type>),
-    AssociatedType(Box<Type>, TraitGenerics, AssociatedTypeIdentifier),
+    AssociatedType(AssociatedTypeEquation),
     TraitMethod(Box<Type>, Option<TraitGenerics>, Identifier),
-    Member(Box<Type>, Identifier),
+    Member(MemberEquation),
     CallEquation(CallEquation),
+    CallVariable(CallVariable),
     Ref(Box<Type>),
     MutRef(Box<Type>),
     Deref(Box<Type>),
     AutoRef(Box<Type>, AutoRefTag),
     Tuple(Vec<Type>),
-    TupleMember(Box<Type>, usize),
+    TupleMember(TupleMemberEquation),
     End,
 }
 
@@ -134,8 +148,8 @@ impl Type {
                 }
                 false
             }
-            Type::AssociatedType(ref ty, ref tr, _) => {
-                ty.as_ref().occurs(t) || tr.occurs(t)
+            Type::AssociatedType(ref eq) => {
+                eq.occurs(t)
             }
             Type::SolvedAssociatedType(ref ty, ref tr, _) => {
                 ty.as_ref().occurs(t) || tr.occurs(t)
@@ -143,11 +157,14 @@ impl Type {
             Type::TraitMethod(ref ty, _, _) => {
                 ty.as_ref().occurs(t)
             }
-            Type::Member(ref ty, _) => {
-                ty.as_ref().occurs(t)
+            Type::Member(ref ty) => {
+                ty.occurs(t)
             }
             Type::CallEquation(ref call_eq) => {
                 call_eq.occurs(t)
+            }
+            Type::CallVariable(ref call_var) => {
+                call_var.occurs(t)
             }
             Type::Ref(ref ty) => {
                 ty.as_ref().occurs(t)
@@ -164,8 +181,8 @@ impl Type {
             Type::Tuple(ref params) => {
                 params.iter().map(|p| p.occurs(t)).any(|b| b)
             }
-            Type::TupleMember(ref ty, _) => {
-                ty.as_ref().occurs(t)
+            Type::TupleMember(ref ty) => {
+                ty.occurs(t)
             }
             Type::End => false,
         }
@@ -174,7 +191,7 @@ impl Type {
     fn subst(&mut self, theta: &TypeSubst) -> SolveChange {
         match *self {
             Type::Func(ref mut args, ref mut ret, ref mut _info) => {
-                let mut changed = SolveChange::Not;
+                let mut changed = SolveChange::not();
                 for arg in args.iter_mut() {
                     changed &= arg.subst(theta);
                 }
@@ -182,20 +199,23 @@ impl Type {
                 changed
             }
             Type::Generics(ref _ty, ref mut gens) => {
-                gens.iter_mut().map(|gen| gen.subst(theta)).fold(SolveChange::Not, |a, b| a & b)
+                gens.iter_mut().map(|gen| gen.subst(theta)).fold(SolveChange::not(), |a, b| a & b)
             }
-            Type::SolvedAssociatedType(_, _, _) => { SolveChange::Not },
-            Type::AssociatedType(ref mut ty, ref mut tr, _) => {
-                ty.as_mut().subst(theta) & tr.subst(theta)
+            Type::SolvedAssociatedType(_, _, _) => { SolveChange::not() },
+            Type::AssociatedType(ref mut eq) => {
+                eq.subst(theta)
             }
             Type::TraitMethod(ref mut ty, _, _) => {
                 ty.as_mut().subst(theta)
             }
-            Type::Member(ref mut ty, _) => {
-                ty.as_mut().subst(theta)
+            Type::Member(ref mut ty) => {
+                ty.subst(theta)
             }
             Type::CallEquation(ref mut call_eq) => {
                 call_eq.subst(theta)
+            }
+            Type::CallVariable(ref mut call_var) => {
+                call_var.subst(theta)
             }
             Type::Ref(ref mut ty) => {
                 ty.as_mut().subst(theta)
@@ -210,12 +230,12 @@ impl Type {
                 ty.as_mut().subst(theta)
             }
             Type::Tuple(ref mut params) => {
-                params.iter_mut().map(|p| p.subst(theta)).fold(SolveChange::Not, |a, b| a & b)
+                params.iter_mut().map(|p| p.subst(theta)).fold(SolveChange::not(), |a, b| a & b)
             }
-            Type::TupleMember(ref mut ty, _) => {
-                ty.as_mut().subst(theta)
+            Type::TupleMember(ref mut ty) => {
+                ty.subst(theta)
             }
-            Type::End => { SolveChange::Not },
+            Type::End => { SolveChange::not() },
             // TypeVariable
             ref mut ty => {
                 let TypeSubst { tv: y, t: into_t } = theta;
@@ -224,7 +244,7 @@ impl Type {
                     SolveChange::Changed
                 }
                 else {
-                    SolveChange::Not
+                    SolveChange::not()
                 }
             }
         }
@@ -240,7 +260,7 @@ impl Type {
         match *self {
             Type::Ref(ref ty) | Type::MutRef(ref ty) => {
                 if ty.is_reference() {
-                    Err(UnifyErr::Contradiction(format!("double reference is not allowed, {:?}", self)))
+                    Err(UnifyErr::Contradiction(ErrorComment::empty(format!("double reference is not allowed, {:?}", self))))
                 }
                 else {
                     Ok(())
@@ -318,18 +338,31 @@ pub enum TypeVariable {
     Counter(usize, &'static str, usize),
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug)]
 pub enum SolveChange {
     Changed,
-    Not,
+    Not(Vec<Error>),
 }
 
 impl SolveChange {
+    pub fn not() -> Self {
+        SolveChange::Not(Vec::new())
+    }
+    pub fn err(err: Error) -> Self {
+        SolveChange::Not(vec![err])
+    }
     pub fn cnt(&self) -> usize {
         match self {
             Self::Changed => 1,
-            Self::Not => 0,
+            Self::Not(_) => 0,
         }
+    }
+    pub fn into_detail(self, comment: String, prev: Error) -> Error {
+        let errs = match self {
+            Self::Changed => Vec::new(),
+            Self::Not(errs) => errs,
+        };
+        ErrorDetails::new(comment, errs, prev)
     }
 }
 
@@ -337,7 +370,10 @@ impl std::ops::BitAnd for SolveChange {
     type Output = Self;
     fn bitand(self, right: Self) -> Self {
         match (self, right) {
-            (Self::Not, Self::Not) => Self::Not,
+            (Self::Not(mut e1), Self::Not(mut e2)) => {
+                e1.append(&mut e2);
+                Self::Not(e1)
+            }
             _ => Self::Changed,
         }
     }
@@ -345,7 +381,14 @@ impl std::ops::BitAnd for SolveChange {
 
 impl std::ops::BitAndAssign for SolveChange {
     fn bitand_assign(&mut self, right: Self) {
-        *self = *self & right;
+        match (self, right) {
+            (Self::Not(ref mut e1), Self::Not(mut e2)) => {
+                e1.append(&mut e2);
+            }
+            (s, _) => {
+                *s = Self::Changed;
+            }
+        }
     }
 }
 
@@ -353,67 +396,24 @@ impl std::ops::BitAndAssign for SolveChange {
 #[derive(Debug)]
 pub enum TypeEquation {
     CopyTrait(Tag, Type, SolveChange),
-    HasTrait(Type, TraitGenerics, SolveChange),
-    TupleTrait(Type, TraitId, SolveChange),
-    Equal(Type, Type, SolveChange),
+    HasTrait(Type, TraitGenerics, ErrorHint, SolveChange),
+    TupleTrait(Type, TraitId, ErrorHint, SolveChange),
+    Equal(Type, Type, Error, SolveChange),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct CallEquation {
-    pub caller_type: Option<Box<Type>>,
-    pub trait_gen: Option<TraitGenerics>,
-    pub func_id: Identifier,
-    pub args: Vec<Type>,
-    pub tag: Tag,
-}
-
-impl CallEquation {
-    pub fn occurs(&self, tv: &TypeVariable) -> bool {
-        self.caller_type.as_ref().map_or(false, |t| t.occurs(tv))
-            || self.args.iter().map(|arg| arg.occurs(tv)).any(|f| f)
-    }
-    pub fn subst(&mut self, theta: &TypeSubst) -> SolveChange {
-        //log::info!("subst {:?}", theta);
-        let mut changed = SolveChange::Not;
-        changed &= self.caller_type.as_mut().map_or(SolveChange::Not, |t| t.subst(theta));
-        changed &= self.trait_gen.as_mut().map_or(SolveChange::Not, |t| t.subst(theta));
-        self.args.iter_mut().map(|arg| arg.subst(theta))
-            .fold(changed, |a, b| a & b)
-    }
-
-    pub fn solve(mut self, equs: &mut TypeEquations, trs: &TraitsInfo) -> Result<(Type, SolveChange), UnifyErr> {
-        let caller_changed = if let Some(caller_type) = self.caller_type {
-            let (caller_type, caller_changed) = equs.solve_relations(*caller_type, trs)?;
-            self.caller_type = Some(Box::new(caller_type));
-            caller_changed
-        }
-        else {
-            SolveChange::Not
-        };
-        let (trait_gen, trait_changed) = match self.trait_gen {
-            None => (None, SolveChange::Not),
-            Some(t) => {
-                let (t, changed) = t.solve(equs, trs)?;
-                (Some(t), changed)
-            }
-        };
-        self.trait_gen = trait_gen;
-        let args = self.args.into_iter().map(|arg| equs.solve_relations(arg, trs)).collect::<Result<Vec<_>, UnifyErr>>()?;
-        let args_changed = args.iter().map(|(_, c)| *c).fold(SolveChange::Not, |b, a| b & a);
-        self.args = args.into_iter().map(|(a, _)| a).collect();
-
-        let next_change = caller_changed & trait_changed & args_changed;
-
-        match trs.regist_for_call_equtions(equs, &self) {
-            Ok(ret_ty) => {
-                Ok((ret_ty, SolveChange::Changed))
-            }
-            Err(_cands) => {
-                Ok((Type::CallEquation(self), next_change))
-            }
+impl TypeEquation {
+    pub fn replace_solve_change(&mut self, new_change: SolveChange) -> SolveChange {
+        match *self {
+            TypeEquation::Equal(_, _, _, ref mut change) |
+                TypeEquation::HasTrait(_, _, _, ref mut change) |
+                TypeEquation::CopyTrait(_, _, ref mut change) |
+                TypeEquation::TupleTrait(_, _, _, ref mut change) => {
+                    std::mem::replace(change, new_change)
+                }
         }
     }
 }
+
 
 
 #[derive(Debug)]
@@ -450,34 +450,41 @@ impl SubstsMap {
     pub fn get(&self, id: &Identifier, label: &'static str, i: usize) -> TResult {
         match self.mp.get(&(id.get_tag_number(), label, i)) {
             Some(t) => Ok(t.clone()),
-            None => Err(format!("undefined TypeVariable({:?}, {:?})", id, i)),
+            None => Err(ErrorComment::empty(format!("undefined TypeVariable({:?}, {:?})", id, i))),
         }
     }
     pub fn get_from_tag(&self, tag: &Tag, label: &'static str, i: usize) -> TResult {
         match self.mp.get(&(tag.get_num(), label, i)) {
             Some(t) => Ok(t.clone()),
-            None => Err(format!("undefined TypeVariable({:?}, {:?})", tag, i)),
+            None => Err(ErrorComment::empty(format!("undefined TypeVariable({:?}, {:?})", tag, i))),
         }
     }
 }
 
-pub type TResult = Result<Type, String>;
+pub type TResult = Result<Type, Error>;
 
 pub trait GenType {
     fn gen_type(&self, equs: &mut TypeEquations, trs: &TraitsInfo) -> TResult;
 }
 
-#[derive(Debug, Clone)]
 pub enum UnifyErr {
-    Contradiction(String),
-    Deficiency(String),
+    Contradiction(Error),
+    Deficiency(Error),
 }
 
 impl UnifyErr {
+    /*
     pub fn to_string(self) -> String {
         match self {
             Self::Contradiction(st) => st,
             Self::Deficiency(st) => st,
+        }
+    }
+    */
+    pub fn into_err(self) -> Error {
+        match self {
+            Self::Contradiction(err) => err,
+            Self::Deficiency(err) => err,
         }
     }
 }
@@ -527,6 +534,9 @@ impl TypeEquations {
         for TypeSubst { tv, .. } in gen_equs.substs.iter() {
             self.want_solve.remove(tv);
         }
+        for e in gen_equs.equs.iter_mut() {
+            e.replace_solve_change(SolveChange::not());
+        }
         self.equs.append(&mut gen_equs.equs);
         self.substs.append(&mut gen_equs.substs);
         self.change_cnt += gen_equs.change_cnt;
@@ -546,19 +556,19 @@ impl TypeEquations {
     pub fn get_self_type(&self) -> TResult {
         match self.self_type.clone() {
             Some(ty) => Ok(ty),
-            None => Err(format!("cant use Self")),
+            None => Err(ErrorComment::empty(format!("cant use Self"))),
         }
     }
-    pub fn add_has_trait(&mut self, ty: Type, tr: TraitGenerics) {
-        self.equs.push_back(TypeEquation::HasTrait(ty, tr, SolveChange::Changed));
+    pub fn add_has_trait(&mut self, ty: Type, tr: TraitGenerics, hint: ErrorHint) {
+        self.equs.push_back(TypeEquation::HasTrait(ty, tr, hint, SolveChange::Changed));
         self.change_cnt += 1;
     }
-    pub fn add_tuple_trait(&mut self, ty: Type, tr: TraitId) {
-        self.equs.push_back(TypeEquation::TupleTrait(ty, tr, SolveChange::Changed));
+    pub fn add_tuple_trait(&mut self, ty: Type, tr: TraitId, hint: ErrorHint) {
+        self.equs.push_back(TypeEquation::TupleTrait(ty, tr, hint, SolveChange::Changed));
         self.change_cnt += 1;
     }
-    pub fn add_equation(&mut self, left: Type, right: Type) {
-        self.equs.push_back(TypeEquation::Equal(left, right, SolveChange::Changed));
+    pub fn add_equation(&mut self, left: Type, right: Type, err: Error) {
+        self.equs.push_back(TypeEquation::Equal(left, right, err, SolveChange::Changed));
         self.change_cnt += 1;
     }
     pub fn regist_check_copyable(&mut self, tag: Tag, ty: Type) {
@@ -580,14 +590,14 @@ impl TypeEquations {
     }
     pub fn get_type_from_variable(&mut self, trs: &TraitsInfo, var: &Variable) -> TResult {
         if let Some(func) = self.func.get(var).cloned() {
-            return func.generate_type(&GenericsTypeMap::empty(), self, trs, &var.id);
+            return func.generate_type(&GenericsTypeMap::empty(), self, trs, &var.id, &ErrorHint::None);
         }
         for mp in self.variables.iter().rev() {
             if let Some(t) = mp.get(var) {
                 return Ok(t.clone())
             }
         }
-        Err(format!("Variable {:?} is not found", var))
+        Err(ErrorComment::empty(format!("Variable {:?} is not found", var)))
     }
     pub fn clear_equations(&mut self) {
         self.equs.clear();
@@ -599,12 +609,12 @@ impl TypeEquations {
         }
         for equation in self.equs.iter_mut() {
             match *equation {
-                TypeEquation::Equal(ref mut left, ref mut right, ref mut changed) => {
+                TypeEquation::Equal(ref mut left, ref mut right, _, ref mut changed) => {
                     *changed &= left.subst(theta);
                     *changed &= right.subst(theta);
                     self.change_cnt += changed.cnt();
                 }
-                TypeEquation::HasTrait(ref mut ty, ref mut tr, ref mut changed) => {
+                TypeEquation::HasTrait(ref mut ty, ref mut tr, _, ref mut changed) => {
                     *changed &= ty.subst(theta);
                     *changed &= tr.subst(theta);
                     self.change_cnt += changed.cnt();
@@ -613,7 +623,7 @@ impl TypeEquations {
                     *changed &= ty.subst(theta);
                     self.change_cnt += changed.cnt();
                 }
-                TypeEquation::TupleTrait(ref mut ty, _, ref mut changed) => {
+                TypeEquation::TupleTrait(ref mut ty, _, _, ref mut changed) => {
                     *changed &= ty.subst(theta);
                     self.change_cnt += changed.cnt();
                 }
@@ -635,50 +645,20 @@ impl TypeEquations {
         let (ty, b7) = self.solve_func(ty, trs)?;
         let (ty, b8) = self.solve_tuple(ty, trs)?;
         let (ty, b9) = self.solve_tuple_member(ty, trs)?;
-        Ok((ty, b0 & b1 & b2 & b3 & b4 & b5 & b6 & b7 & b8 & b9))
+        let (ty, b10) = self.solve_call_variable(ty, trs)?;
+        Ok((ty, b0 & b1 & b2 & b3 & b4 & b5 & b6 & b7 & b8 & b9 & b10))
     }
 
     fn solve_call_equation(&mut self, ty: Type, trs: &TraitsInfo) -> Result<(Type, SolveChange), UnifyErr> {
         match ty {
             Type::CallEquation(call) => call.solve(self, trs),
-            _ => Ok((ty, SolveChange::Not)),
+            _ => Ok((ty, SolveChange::not())),
         }
     }
     fn solve_associated_type(&mut self, ty: Type, trs: &TraitsInfo) -> Result<(Type, SolveChange), UnifyErr> {
         match ty {
-            Type::AssociatedType(inner_ty, tr, asso_id) => {
-                let (inner_ty, inner_changed) = self.solve_relations(*inner_ty, trs)?;
-                let (tr, tr_changed) = tr.solve(self, trs)?;
-                //if inner_ty.is_solved_type() {
-                {
-                    let substs = trs.match_to_impls_for_type(&tr, &inner_ty);
-                    match substs {
-                        Ok((subst, impl_trait)) => {
-                            let before = self.set_self_type(Some(inner_ty));
-                            let res = impl_trait.get_associated_from_id(self, trs, &asso_id, &subst);
-                            self.set_self_type(before);
-                            self.solve_relations(res, trs).map(|(ty, _)| (ty, SolveChange::Changed))
-                        }
-                        Err(len) => {
-                            if inner_ty.is_solved_type() {
-                                if len == 0 { 
-                                    Err(UnifyErr::Contradiction(format!("type {:?} is not implemented trait {:?}", inner_ty, tr)))
-                                }
-                                else if len > 1 {
-                                    Err(UnifyErr::Contradiction(format!("type {:?} is implemented too many trait {:?}", inner_ty, substs)))
-                                }
-                                else {
-                                    unreachable!();
-                                }
-                            }
-                            else {
-                                Ok((Type::AssociatedType(Box::new(inner_ty), tr, asso_id), inner_changed & tr_changed))
-                            }
-                        }
-                    }
-                }
-            }
-            _ => Ok((ty, SolveChange::Not)),
+            Type::AssociatedType(eq) => eq.solve(self, trs),
+            _ => Ok((ty, SolveChange::not())),
         }
     }
 
@@ -718,10 +698,10 @@ impl TypeEquations {
                     Err(len) => {
                         if inner_ty.is_solved_type() {
                             if len == 0 { 
-                                Err(UnifyErr::Contradiction(format!("type {:?} is not implemented trait {:?}", inner_ty, trait_gen)))
+                                Err(UnifyErr::Contradiction(ErrorComment::empty(format!("type {:?} is not implemented trait {:?}", inner_ty, trait_gen))))
                             }
                             else if len > 1 {
-                                Err(UnifyErr::Contradiction(format!("type {:?} is implemented too many trait {:?}", inner_ty, substs)))
+                                Err(UnifyErr::Contradiction(ErrorComment::empty(format!("type {:?} is implemented too many trait {:?}", inner_ty, substs))))
                             }
                             else {
                                 unreachable!();
@@ -750,10 +730,10 @@ impl TypeEquations {
                 }
                 else if inner_ty.is_solved_type() {
                     if substs.len() == 0 { 
-                        Err(UnifyErr::Contradiction(format!("type {:?} is not implemented function {:?}", inner_ty, method_id)))
+                        Err(UnifyErr::Contradiction(ErrorComment::empty(format!("type {:?} is not implemented function {:?}", inner_ty, method_id))))
                     }
                     else if substs.len() > 1 {
-                        Err(UnifyErr::Contradiction(format!("type {:?} is implemented too many trait {:?}", inner_ty, substs)))
+                        Err(UnifyErr::Contradiction(ErrorComment::empty(format!("type {:?} is implemented too many trait {:?}", inner_ty, substs))))
                     }
                     else {
                         unreachable!();
@@ -765,93 +745,28 @@ impl TypeEquations {
             }
         }
         else {
-            Ok((ty, SolveChange::Not))
+            Ok((ty, SolveChange::not()))
         }
     }
 
     fn solve_member(&mut self, ty: Type, trs: &TraitsInfo) -> Result<(Type, SolveChange), UnifyErr> {
-        if let Type::Member(inner_ty, mem_id) = ty {
-            let (inner_ty, inner_changed) = self.solve_relations(*inner_ty, trs)?;
-            let substs = trs.match_to_member_for_type(&mem_id, &inner_ty);
-            if substs.len() == 1 {
-                let mut substs = substs;
-                let (subst, impl_trait) = substs.pop().unwrap();
-                let before = self.set_self_type(Some(inner_ty.clone()));
-                let res = impl_trait.get_trait_method_from_id(self, trs, &TraitMethodIdentifier { id: mem_id.clone() } , &subst, &inner_ty);
-                self.set_self_type(before);
-                if let Type::Func(args, returns, info) = res {
-                    let mut iter = args.into_iter();
-                    let self_ty = iter.next().ok_or(UnifyErr::Contradiction(format!("trait method {:?} have no argument", mem_id)))?;
-                    self.add_equation(self_ty.clone(), inner_ty.clone());
-                    let res = Type::Func(iter.collect(), returns, info);
-                    self.solve_relations(res, trs).map(|(ty, _)| (ty, SolveChange::Changed))
-                }
-                else { unreachable!() }
-            }
-            else if let Type::Generics(ref id, ref gens) = inner_ty {
-                match trs.search_typeid(id).map_err(|st| UnifyErr::Contradiction(st))? {
-                    StructDefinitionInfo::Def(def)  => {
-                        let res = def.get_member_type(self, trs, gens, &mem_id).map_err(|st| UnifyErr::Contradiction(st))?;
-                        self.solve_relations(res, trs).map(|(ty, _)| (ty, SolveChange::Changed))
-                    }
-                    StructDefinitionInfo::Generics  => Err(UnifyErr::Contradiction(format!("generics type has no member: {:?}", id))),
-                    StructDefinitionInfo::Primitive => Err(UnifyErr::Contradiction(format!("primitive type has no member: {:?}", id))),
-                }
-            }
-            else if let Type::Ref(ty) = inner_ty {
-                if let Type::Generics(ref id, ref gens) = ty.as_ref() {
-                    match trs.search_typeid(id).map_err(|st| UnifyErr::Contradiction(st))? {
-                        StructDefinitionInfo::Def(def)  => {
-                            let res = def.get_member_type(self, trs, gens, &mem_id).map_err(|st| UnifyErr::Contradiction(st))?;
-                            self.solve_relations(res, trs).map(|(ty, _)| (ty, SolveChange::Changed))
-                        }
-                        StructDefinitionInfo::Generics  => Err(UnifyErr::Contradiction(format!("generics type has no member: {:?}", id))),
-                        StructDefinitionInfo::Primitive => Err(UnifyErr::Contradiction(format!("primitive type has no member: {:?}", id))),
-                    }
-                }
-                else {
-                    Err(UnifyErr::Contradiction(format!("cant solve member ref({:?})", ty)))
-                }
-            }
-            else if let Type::MutRef(ty) = inner_ty {
-                if let Type::Generics(ref id, ref gens) = ty.as_ref() {
-                    match trs.search_typeid(id).map_err(|st| UnifyErr::Contradiction(st))? {
-                        StructDefinitionInfo::Def(def)  => {
-                            let res = def.get_member_type(self, trs, gens, &mem_id).map_err(|st| UnifyErr::Contradiction(st))?;
-                            self.solve_relations(res, trs).map(|(ty, _)| (ty, SolveChange::Changed))
-                        }
-                        StructDefinitionInfo::Generics  => Err(UnifyErr::Contradiction(format!("generics type has no member: {:?}", id))),
-                        StructDefinitionInfo::Primitive => Err(UnifyErr::Contradiction(format!("primitive type has no member: {:?}", id))),
-                    }
-                }
-                else {
-                    Err(UnifyErr::Contradiction(format!("cant solve member mutref({:?})", ty)))
-                }
-            }
-            else if let Type::SolvedAssociatedType(_, _, _) = inner_ty {
-                Err(UnifyErr::Contradiction(format!("SolvedAssociatedType has no member: {:?}", inner_ty)))
-            }
-            else if inner_ty.is_solved_type() {
-                Err(UnifyErr::Contradiction(format!("{:?} cant solve member {:?}", inner_ty, mem_id)))
-            }
-            else {
-                Ok((Type::Member(Box::new(inner_ty), mem_id), inner_changed))
-            }
+        if let Type::Member(mem) = ty {
+            mem.solve(self, trs)
         }
         else {
-            Ok((ty, SolveChange::Not))
+            Ok((ty, SolveChange::not()))
         }
     }
 
     fn solve_generics(&mut self, ty: Type, trs: &TraitsInfo) -> Result<(Type, SolveChange), UnifyErr> {
         if let Type::Generics(id, gens) = ty {
             let try_solve = gens.into_iter().map(|gen| { self.solve_relations(gen, trs) }).collect::<Result<Vec<_>, _>>()?;
-            let inner_changed = try_solve.iter().map(|(_, changed)| *changed).fold(SolveChange::Not, |b, c| b & c);
-            let gens = try_solve.into_iter().map(|(ty, _)| ty).collect();
+            let (gens, changes): (Vec<_>, Vec<_>) = try_solve.into_iter().unzip();
+            let inner_changed = changes.into_iter().fold(SolveChange::not(), |b, c| b & c);
             Ok((Type::Generics(id, gens), inner_changed))
         }
         else {
-            Ok((ty, SolveChange::Not))
+            Ok((ty, SolveChange::not()))
         }
     }
 
@@ -865,7 +780,7 @@ impl TypeEquations {
             }
         }
         else {
-            Ok((ty, SolveChange::Not))
+            Ok((ty, SolveChange::not()))
         }
     }
 
@@ -875,13 +790,13 @@ impl TypeEquations {
             Ok((Type::AutoRef(Box::new(ty), tag), change))
         }
         else {
-            Ok((ty, SolveChange::Not))
+            Ok((ty, SolveChange::not()))
         }
     }
 
     fn solve_func(&mut self, ty: Type, trs: &TraitsInfo) -> Result<(Type, SolveChange), UnifyErr> {
         if let Type::Func(args, ret, info) = ty {
-            let mut change = SolveChange::Not;
+            let mut change = SolveChange::not();
             let args = args.into_iter().map(|ty| {
                 let (ty, ch) = self.solve_relations(ty, trs)?;
                 change &= ch;
@@ -891,13 +806,13 @@ impl TypeEquations {
             Ok((Type::Func(args, Box::new(ret), info), change & ret_change))
         }
         else {
-            Ok((ty, SolveChange::Not))
+            Ok((ty, SolveChange::not()))
         }
     }
 
     fn solve_tuple(&mut self, ty: Type, trs: &TraitsInfo) -> Result<(Type, SolveChange), UnifyErr> {
         if let Type::Tuple(params) = ty {
-            let mut change = SolveChange::Not;
+            let mut change = SolveChange::not();
             let params = params.into_iter().map(|ty| {
                 let (ty, ch) = self.solve_relations(ty, trs)?;
                 change &= ch;
@@ -906,54 +821,23 @@ impl TypeEquations {
             Ok((Type::Tuple(params), change))
         }
         else {
-            Ok((ty, SolveChange::Not))
+            Ok((ty, SolveChange::not()))
         }
     }
 
     fn solve_tuple_member(&mut self, ty: Type, trs: &TraitsInfo) -> Result<(Type, SolveChange), UnifyErr> {
-        if let Type::TupleMember(ty, idx) = ty {
-            let (ty, change) = self.solve_relations(*ty, trs)?;
-            if let Type::Tuple(mut params) = ty {
-                if idx < params.len() {
-                    Ok((params.swap_remove(idx), SolveChange::Changed))
-                }
-                else {
-                    Err(UnifyErr::Contradiction(format!("tuple {:?} cannot index {}", params, idx)))
-                }
-            }
-            else if let Type::Ref(ty) = ty {
-                if let Type::Tuple(mut params) = *ty {
-                    if idx < params.len() {
-                        Ok((params.swap_remove(idx), SolveChange::Changed))
-                    }
-                    else {
-                        Err(UnifyErr::Contradiction(format!("ref tuple {:?} cannot index {}", params, idx)))
-                    }
-                }
-                else {
-                    Ok((Type::Ref(ty), change))
-                }
-            }
-            else if let Type::MutRef(ty) = ty {
-                if let Type::Tuple(mut params) = *ty {
-                    if idx < params.len() {
-                        Ok((params.swap_remove(idx), SolveChange::Changed))
-                    }
-                    else {
-                        Err(UnifyErr::Contradiction(format!("mut ref tuple {:?} cannot index {}", params, idx)))
-                    }
-                }
-                else {
-                    Ok((Type::Ref(ty), change))
-                }
-            }
-            
-            else {
-                Ok((ty, change))
-            }
+        if let Type::TupleMember(eq) = ty {
+            eq.solve(self, trs)
         }
         else {
-            Ok((ty, SolveChange::Not))
+            Ok((ty, SolveChange::not()))
+        }
+    }
+
+    fn solve_call_variable(&mut self, ty: Type, trs: &TraitsInfo) -> Result<(Type, SolveChange), UnifyErr> {
+        match ty {
+            Type::CallVariable(call) => call.solve(self, trs),
+            _ => Ok((ty, SolveChange::not())),
         }
     }
 
@@ -965,37 +849,42 @@ impl TypeEquations {
         } */
         while let Some(equation) = self.equs.pop_front() {
             match equation {
-                TypeEquation::HasTrait(left, tr, before_changed) => {
+                TypeEquation::HasTrait(left, tr, hint, before_changed) => {
                     self.change_cnt -= before_changed.cnt();
                     let (left, left_changed) = self.solve_relations(left, trs)?;
                     let (tr, tr_changed) = tr.solve(self, trs)?;
                     let changed = left_changed & tr_changed;
+                    log::debug!("{:?} {:?} {:?} {:?}", left, left.is_solved_type(), tr, tr.is_solved_type());
                     if left.is_solved_type() && tr.is_solved_type() {
                         let solve_cnt = self.solve_has_trait(&left, &tr, trs);
                         if solve_cnt == 0 {
-                            Err(UnifyErr::Contradiction(format!("type {:?} is not implemented trait {:?}", left, tr)))?;
+                            Err(UnifyErr::Contradiction(
+                                    ErrorComment::new(format!("type {:?} is not implemented trait {:?}", left, tr), hint.err())
+                            ))?;
                         }
                         else if solve_cnt > 1{
-                            Err(UnifyErr::Contradiction(format!("type {:?} is too many implemented traits {:?}", left, tr)))?;
+                            Err(UnifyErr::Contradiction(
+                                    ErrorComment::new(format!("type {:?} is too many implemented traits {:?}", left, tr), hint.err())
+                            ))?;
                         }
                     }
                     else {
-                        self.equs.push_back(TypeEquation::HasTrait(left, tr, changed));
                         self.change_cnt += changed.cnt();
+                        self.equs.push_back(TypeEquation::HasTrait(left, tr, hint, changed));
                     }
                 }
-                TypeEquation::TupleTrait(left, tr, before_changed) => {
+                TypeEquation::TupleTrait(left, tr, hint, before_changed) => {
                     self.change_cnt -= before_changed.cnt();
                     let (left, left_changed) = self.solve_relations(left, trs)?;
                     if let Type::Tuple(ts) = left {
                         for t in ts {
-                            self.equs.push_back(TypeEquation::HasTrait(t, TraitGenerics { trait_id: tr.clone(), generics: Vec::new() }, SolveChange::Changed));
+                            self.equs.push_back(TypeEquation::HasTrait(t, TraitGenerics { trait_id: tr.clone(), generics: Vec::new() }, hint.clone(), SolveChange::Changed));
                             self.change_cnt += 1;
                         }
                     }
                     else {
-                        self.equs.push_back(TypeEquation::TupleTrait(left, tr, left_changed));
                         self.change_cnt += left_changed.cnt();
+                        self.equs.push_back(TypeEquation::TupleTrait(left, tr, hint, left_changed));
                     }
                 }
                 TypeEquation::CopyTrait(tag, ty, before_changed) => {
@@ -1012,11 +901,11 @@ impl TypeEquations {
                         }
                     }
                     else {
-                        self.equs.push_back(TypeEquation::CopyTrait(tag, ty, ty_changed));
                         self.change_cnt += ty_changed.cnt();
+                        self.equs.push_back(TypeEquation::CopyTrait(tag, ty, ty_changed));
                     }
                 }
-                TypeEquation::Equal(left, right, before_changed) => {
+                TypeEquation::Equal(left, right, err, before_changed) => {
                     left.double_reference_check()?;
                     right.double_reference_check()?;
                     //log::info!("\n{:?} = {:?}", left, right);
@@ -1026,53 +915,61 @@ impl TypeEquations {
                     let changed = left_changed & right_changed;
                     match (left, right) {
                         (l, r) if l == r => {}
-                        (Type::AssociatedType(a, b, c), right) => {
-                            self.equs.push_back(TypeEquation::Equal(Type::AssociatedType(a, b, c), right, changed));
+                        (Type::AssociatedType(a), right) => {
                             self.change_cnt += changed.cnt();
+                            self.equs.push_back(TypeEquation::Equal(Type::AssociatedType(a), right, err, changed));
                         }
-                        (left, Type::AssociatedType(a, b, c)) => {
-                            self.equs.push_back(TypeEquation::Equal(left, Type::AssociatedType(a, b, c), changed));
+                        (left, Type::AssociatedType(a)) => {
                             self.change_cnt += changed.cnt();
+                            self.equs.push_back(TypeEquation::Equal(left, Type::AssociatedType(a), err, changed));
                         }
                         (Type::TraitMethod(a, b, c), right) => {
-                            self.equs.push_back(TypeEquation::Equal(Type::TraitMethod(a, b, c), right, changed));
                             self.change_cnt += changed.cnt();
+                            self.equs.push_back(TypeEquation::Equal(Type::TraitMethod(a, b, c), right, err, changed));
                         }
                         (left, Type::TraitMethod(a, b, c)) => {
-                            self.equs.push_back(TypeEquation::Equal(left, Type::TraitMethod(a, b, c), changed));
                             self.change_cnt += changed.cnt();
+                            self.equs.push_back(TypeEquation::Equal(left, Type::TraitMethod(a, b, c), err, changed));
                         }
-                        (Type::Member(b, a), right) => {
-                            self.equs.push_back(TypeEquation::Equal(Type::Member(b, a), right, changed));
+                        (Type::Member(a), right) => {
                             self.change_cnt += changed.cnt();
+                            self.equs.push_back(TypeEquation::Equal(Type::Member(a), right, err, changed));
                         }
-                        (left, Type::Member(b, a)) => {
-                            self.equs.push_back(TypeEquation::Equal(left, Type::Member(b, a), changed));
+                        (left, Type::Member(a)) => {
                             self.change_cnt += changed.cnt();
+                            self.equs.push_back(TypeEquation::Equal(left, Type::Member(a), err, changed));
                         }
-                        (Type::TupleMember(b, a), right) => {
-                            self.equs.push_back(TypeEquation::Equal(Type::TupleMember(b, a), right, changed));
+                        (Type::TupleMember(a), right) => {
                             self.change_cnt += changed.cnt();
+                            self.equs.push_back(TypeEquation::Equal(Type::TupleMember(a), right, err, changed));
                         }
-                        (left, Type::TupleMember(b, a)) => {
-                            self.equs.push_back(TypeEquation::Equal(left, Type::TupleMember(b, a), changed));
+                        (left, Type::TupleMember(a)) => {
                             self.change_cnt += changed.cnt();
+                            self.equs.push_back(TypeEquation::Equal(left, Type::TupleMember(a), err, changed));
                         }
                         (Type::CallEquation(call), right) => {
-                            self.equs.push_back(TypeEquation::Equal(Type::CallEquation(call), right, changed));
                             self.change_cnt += changed.cnt();
+                            self.equs.push_back(TypeEquation::Equal(Type::CallEquation(call), right, err, changed));
                         }
                         (left, Type::CallEquation(call)) => {
-                            self.equs.push_back(TypeEquation::Equal(left, Type::CallEquation(call), changed));
                             self.change_cnt += changed.cnt();
+                            self.equs.push_back(TypeEquation::Equal(left, Type::CallEquation(call), err, changed));
+                        }
+                        (Type::CallVariable(call), right) => {
+                            self.change_cnt += changed.cnt();
+                            self.equs.push_back(TypeEquation::Equal(Type::CallVariable(call), right, err, changed));
+                        }
+                        (left, Type::CallVariable(call)) => {
+                            self.change_cnt += changed.cnt();
+                            self.equs.push_back(TypeEquation::Equal(left, Type::CallVariable(call), err, changed));
                         }
                         (Type::Deref(ty), right) => {
-                            self.equs.push_back(TypeEquation::Equal(Type::Deref(ty), right, changed));
                             self.change_cnt += changed.cnt();
+                            self.equs.push_back(TypeEquation::Equal(Type::Deref(ty), right, err, changed));
                         }
                         (left, Type::Deref(ty)) => {
-                            self.equs.push_back(TypeEquation::Equal(left, Type::Deref(ty), changed));
                             self.change_cnt += changed.cnt();
+                            self.equs.push_back(TypeEquation::Equal(left, Type::Deref(ty), err, changed));
                         }
                         (left, Type::AutoRef(ty, AutoRefTag::Tag(tag))) | (Type::AutoRef(ty, AutoRefTag::Tag(tag)), left) => {
                             let (ty, ty_changed) = self.solve_relations(*ty, trs)?;
@@ -1083,7 +980,7 @@ impl TypeEquations {
                             ].into_iter()
                                 .map(|(ref_tag, right)| {
                                     let mut tmp_equs = TypeEquations::new();
-                                    tmp_equs.add_equation(left.clone(), right);
+                                    tmp_equs.add_equation(left.clone(), right, ErrorComment::new(format!("deref by {:?}", ref_tag), err.clone()));
                                     (ref_tag, tmp_equs)
                             }).filter_map(
                                 |(ref_tag, mut tmp_equs)| match tmp_equs.unify(trs) {
@@ -1095,63 +992,65 @@ impl TypeEquations {
                             //log::debug!("AUTOREF {:?} : {:?} {:?}", left, ty, tag);
                             //log::debug!("oks = {:?}", oks);
                             if oks.len() == 0 {
-                                Err(UnifyErr::Contradiction(format!("not equal {:?}, auto ref {:?}", left, ty)))?;
+                                Err(UnifyErr::Contradiction(ErrorComment::new(format!("not equal {:?}, auto ref {:?}", left, ty), err)))?;
                             }
-                            if oks.len() == 1 {
+                            else if oks.len() == 1 {
                                 //log::debug!("OK");
                                 //log::debug!("--------------------");
                                 let (ref_tag, tmp_equs) = oks.pop().unwrap();
                                 self.take_over_equations(tmp_equs);
                                 let var = tag.generate_type_variable("AutoRefType", 0, self);
-                                self.add_equation(var, Type::AutoRef(Box::new(ty), ref_tag));
+                                self.add_equation(var, Type::AutoRef(Box::new(ty), ref_tag), err);
                             }
                             else {
                                 //log::debug!("NG");
                                 //log::debug!("--------------------");
-                                self.equs.push_back(TypeEquation::Equal(left, Type::AutoRef(Box::new(ty), AutoRefTag::Tag(tag)), changed & ty_changed));
+                                self.equs.push_back(TypeEquation::Equal(left, Type::AutoRef(Box::new(ty), AutoRefTag::Tag(tag)), err, changed & ty_changed));
                             }
                         }
                         (Type::Func(l_args, l_return, _), Type::Func(r_args, r_return, _)) => {
                             if l_args.len() != r_args.len() {
-                                Err(UnifyErr::Deficiency(format!("length of args is not equal. {:?}, {:?} vs {:?}, {:?}",
+                                return Err(UnifyErr::Contradiction(ErrorComment::new(format!("length of args is not equal. {:?}, {:?} vs {:?}, {:?}",
                                             l_args, l_return, r_args, r_return
-                                            )))?;
+                                            ), err)));
                             }
-                            for (l, r) in l_args.into_iter().zip(r_args.into_iter()) {
-                                self.add_equation(l, r);
+                            else {
+                                for (i, (l, r)) in l_args.into_iter().zip(r_args.into_iter()).enumerate() {
+                                    self.add_equation(l, r, ErrorComment::new(format!("{}-th function arg equation", i), err.clone()));
+                                }
+                                self.add_equation(*l_return, *r_return, ErrorComment::new(format!("function return equation"), err));
                             }
-                            self.add_equation(*l_return, *r_return);
                         }
                         (Type::Generics(l_id, l_gens), Type::Generics(r_id, r_gens)) => {
                             if l_id != r_id {
-                                Err(UnifyErr::Contradiction(format!("generics type id is not equal. {:?} != {:?}", l_id, r_id)))?;
+                                Err(UnifyErr::Contradiction(ErrorComment::new(format!("generics type id is not equal. {:?} != {:?}", l_id, r_id), err)))?;
                             }
                             else if l_gens.len() != r_gens.len() {
-                                Err(UnifyErr::Contradiction(format!("unreachable, generics lengths are checked")))?;
+                                Err(UnifyErr::Contradiction(ErrorComment::new(format!("unreachable, generics lengths are checked"), err)))?;
                             }
                             else {
-                                for (l, r) in l_gens.into_iter().zip(r_gens.into_iter()) {
-                                    self.add_equation(l, r);
+                                for (i, (l, r)) in l_gens.into_iter().zip(r_gens.into_iter()).enumerate() {
+                                    self.add_equation(l, r, ErrorComment::new(format!("{}-th generics arg equation", i), err.clone()));
                                 }
                             }
                         }
                         (Type::Ref(l_ty), Type::Ref(r_ty)) => {
-                            self.add_equation(*l_ty, *r_ty);
+                            self.add_equation(*l_ty, *r_ty, err);
                         }
                         (Type::MutRef(l_ty), Type::MutRef(r_ty)) => {
-                            self.add_equation(*l_ty, *r_ty);
+                            self.add_equation(*l_ty, *r_ty, err);
                         }
                         (Type::Tuple(lp), Type::Tuple(rp)) => {
                             if lp.len() != rp.len() {
-                                Err(UnifyErr::Contradiction(format!("lengths of tuples are not match, {:?}, {:?}", lp, rp)))?;
+                                return Err(UnifyErr::Contradiction(ErrorComment::new(format!("lengths of tuples are not match, {:?}, {:?}", lp, rp), err)));
                             }
-                            for (l, r) in lp.into_iter().zip(rp.into_iter()) {
-                                self.add_equation(l, r)
+                            for (i, (l, r)) in lp.into_iter().zip(rp.into_iter()).enumerate() {
+                                self.add_equation(l, r, ErrorComment::new(format!("{}-th tuple element equation", i), err.clone()))
                             }
                         }
                         (Type::TypeVariable(lv), rt) if self.remove_want_solve(&lv) => {
                             if rt.occurs(&lv) {
-                                Err(UnifyErr::Contradiction(format!("unification failed, occurs")))?;
+                                Err(UnifyErr::Contradiction(ErrorComment::new(format!("unification failed, occurs"), err)))?;
                             }
                             let th = TypeSubst { tv: lv.clone(), t: rt.clone() };
                             self.subst(&th);
@@ -1159,7 +1058,7 @@ impl TypeEquations {
                         }
                         (rt, Type::TypeVariable(lv)) if self.remove_want_solve(&lv) => {
                             if rt.occurs(&lv) {
-                                Err(UnifyErr::Contradiction(format!("unification failed, occurs")))?;
+                                Err(UnifyErr::Contradiction(ErrorComment::new(format!("unification failed, occurs"), err)))?;
                             }
                             let th = TypeSubst { tv: lv.clone(), t: rt.clone() };
                             self.subst(&th);
@@ -1167,7 +1066,7 @@ impl TypeEquations {
                         }
                         (Type::TypeVariable(lv), rt) => {
                             if rt.occurs(&lv) {
-                                Err(UnifyErr::Contradiction(format!("unification failed, occurs")))?;
+                                Err(UnifyErr::Contradiction(ErrorComment::new(format!("unification failed, occurs"), err)))?;
                             }
                             let th = TypeSubst { tv: lv.clone(), t: rt.clone() };
                             self.subst(&th);
@@ -1175,7 +1074,7 @@ impl TypeEquations {
                         }
                         (rt, Type::TypeVariable(lv)) => {
                             if rt.occurs(&lv) {
-                                Err(UnifyErr::Contradiction(format!("unification failed, occurs")))?;
+                                Err(UnifyErr::Contradiction(ErrorComment::new(format!("unification failed, occurs"), err)))?;
                             }
                             let th = TypeSubst { tv: lv.clone(), t: rt.clone() };
                             self.subst(&th);
@@ -1194,13 +1093,17 @@ impl TypeEquations {
                             }
                         }*/
                         (l, r) => {
-                            Err(UnifyErr::Contradiction(format!("unfication failed, {:?} != {:?}", l, r)))?
+                            Err(UnifyErr::Contradiction(ErrorComment::new(format!("unfication failed, {:?} != {:?}", l, r), err)))?
                         }
                     }
                 }
             }
             if self.change_cnt == 0 && self.equs.len() > 0 {
-                return Err(UnifyErr::Deficiency(format!("change cnt = 0 \n{}", self.equs.iter().map(|equ| format!("{:?}", equ)).collect::<Vec<_>>().join("\n"))));
+                log::debug!("{:?}", self.equs);
+                let change = self.equs.iter_mut().map(|e| {
+                    e.replace_solve_change(SolveChange::not())
+                }).fold(SolveChange::not(), |a, b| a & b);
+                return Err(UnifyErr::Deficiency(change.into_detail(format!("solve cnt = 0"), Error::None)));
             }
         }
 
@@ -1209,10 +1112,10 @@ impl TypeEquations {
             .filter(|TypeSubst{ t, .. }| *t == Type::from_str("void"))
             .collect::<Vec<_>>();
         if !self.want_solve.is_empty() {
-            Err(UnifyErr::Deficiency(format!("want_solve {:?} cant solve now", self.want_solve)))
+            Err(UnifyErr::Deficiency(ErrorComment::empty(format!("want_solve {:?} cant solve now", self.want_solve))))
         }
         else if voids.len() > 0 {
-            Err(UnifyErr::Contradiction(format!("voids appear {:?}", voids)))
+            Err(UnifyErr::Contradiction(ErrorComment::empty(format!("voids appear {:?}", voids))))
         }
         else {
             Ok(())
