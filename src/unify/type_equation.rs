@@ -992,9 +992,9 @@ impl TypeEquations {
                             //log::debug!("AUTOREF {:?} : {:?} {:?}", left, ty, tag);
                             //log::debug!("oks = {:?}", oks);
                             if oks.len() == 0 {
-                                Err(UnifyErr::Contradiction(ErrorComment::empty(format!("not equal {:?}, auto ref {:?}", left, ty))))?;
+                                Err(UnifyErr::Contradiction(ErrorComment::new(format!("not equal {:?}, auto ref {:?}", left, ty), err)))?;
                             }
-                            if oks.len() == 1 {
+                            else if oks.len() == 1 {
                                 //log::debug!("OK");
                                 //log::debug!("--------------------");
                                 let (ref_tag, tmp_equs) = oks.pop().unwrap();
@@ -1010,21 +1010,23 @@ impl TypeEquations {
                         }
                         (Type::Func(l_args, l_return, _), Type::Func(r_args, r_return, _)) => {
                             if l_args.len() != r_args.len() {
-                                Err(UnifyErr::Contradiction(ErrorComment::empty(format!("length of args is not equal. {:?}, {:?} vs {:?}, {:?}",
+                                return Err(UnifyErr::Contradiction(ErrorComment::new(format!("length of args is not equal. {:?}, {:?} vs {:?}, {:?}",
                                             l_args, l_return, r_args, r_return
-                                            ))))?;
+                                            ), err)));
                             }
-                            for (i, (l, r)) in l_args.into_iter().zip(r_args.into_iter()).enumerate() {
-                                self.add_equation(l, r, ErrorComment::new(format!("{}-th function arg equation", i), err.clone()));
+                            else {
+                                for (i, (l, r)) in l_args.into_iter().zip(r_args.into_iter()).enumerate() {
+                                    self.add_equation(l, r, ErrorComment::new(format!("{}-th function arg equation", i), err.clone()));
+                                }
+                                self.add_equation(*l_return, *r_return, ErrorComment::new(format!("function return equation"), err));
                             }
-                            self.add_equation(*l_return, *r_return, ErrorComment::new(format!("function return equation"), err));
                         }
                         (Type::Generics(l_id, l_gens), Type::Generics(r_id, r_gens)) => {
                             if l_id != r_id {
-                                Err(UnifyErr::Contradiction(ErrorComment::empty(format!("generics type id is not equal. {:?} != {:?}", l_id, r_id))))?;
+                                Err(UnifyErr::Contradiction(ErrorComment::new(format!("generics type id is not equal. {:?} != {:?}", l_id, r_id), err)))?;
                             }
                             else if l_gens.len() != r_gens.len() {
-                                Err(UnifyErr::Contradiction(ErrorComment::empty(format!("unreachable, generics lengths are checked"))))?;
+                                Err(UnifyErr::Contradiction(ErrorComment::new(format!("unreachable, generics lengths are checked"), err)))?;
                             }
                             else {
                                 for (i, (l, r)) in l_gens.into_iter().zip(r_gens.into_iter()).enumerate() {
@@ -1040,7 +1042,7 @@ impl TypeEquations {
                         }
                         (Type::Tuple(lp), Type::Tuple(rp)) => {
                             if lp.len() != rp.len() {
-                                Err(UnifyErr::Contradiction(ErrorComment::empty(format!("lengths of tuples are not match, {:?}, {:?}", lp, rp))))?;
+                                return Err(UnifyErr::Contradiction(ErrorComment::new(format!("lengths of tuples are not match, {:?}, {:?}", lp, rp), err)));
                             }
                             for (i, (l, r)) in lp.into_iter().zip(rp.into_iter()).enumerate() {
                                 self.add_equation(l, r, ErrorComment::new(format!("{}-th tuple element equation", i), err.clone()))
@@ -1048,7 +1050,7 @@ impl TypeEquations {
                         }
                         (Type::TypeVariable(lv), rt) if self.remove_want_solve(&lv) => {
                             if rt.occurs(&lv) {
-                                Err(UnifyErr::Contradiction(ErrorComment::empty(format!("unification failed, occurs"))))?;
+                                Err(UnifyErr::Contradiction(ErrorComment::new(format!("unification failed, occurs"), err)))?;
                             }
                             let th = TypeSubst { tv: lv.clone(), t: rt.clone() };
                             self.subst(&th);
@@ -1056,7 +1058,7 @@ impl TypeEquations {
                         }
                         (rt, Type::TypeVariable(lv)) if self.remove_want_solve(&lv) => {
                             if rt.occurs(&lv) {
-                                Err(UnifyErr::Contradiction(ErrorComment::empty(format!("unification failed, occurs"))))?;
+                                Err(UnifyErr::Contradiction(ErrorComment::new(format!("unification failed, occurs"), err)))?;
                             }
                             let th = TypeSubst { tv: lv.clone(), t: rt.clone() };
                             self.subst(&th);
@@ -1064,7 +1066,7 @@ impl TypeEquations {
                         }
                         (Type::TypeVariable(lv), rt) => {
                             if rt.occurs(&lv) {
-                                Err(UnifyErr::Contradiction(ErrorComment::empty(format!("unification failed, occurs"))))?;
+                                Err(UnifyErr::Contradiction(ErrorComment::new(format!("unification failed, occurs"), err)))?;
                             }
                             let th = TypeSubst { tv: lv.clone(), t: rt.clone() };
                             self.subst(&th);
@@ -1072,7 +1074,7 @@ impl TypeEquations {
                         }
                         (rt, Type::TypeVariable(lv)) => {
                             if rt.occurs(&lv) {
-                                Err(UnifyErr::Contradiction(ErrorComment::empty(format!("unification failed, occurs"))))?;
+                                Err(UnifyErr::Contradiction(ErrorComment::new(format!("unification failed, occurs"), err)))?;
                             }
                             let th = TypeSubst { tv: lv.clone(), t: rt.clone() };
                             self.subst(&th);
@@ -1091,7 +1093,7 @@ impl TypeEquations {
                             }
                         }*/
                         (l, r) => {
-                            Err(UnifyErr::Contradiction(ErrorComment::empty(format!("unfication failed, {:?} != {:?}", l, r))))?
+                            Err(UnifyErr::Contradiction(ErrorComment::new(format!("unfication failed, {:?} != {:?}", l, r), err)))?
                         }
                     }
                 }
