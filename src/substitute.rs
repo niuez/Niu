@@ -9,6 +9,7 @@ use crate::unify::*;
 use crate::trans::*;
 use crate::mut_checker::*;
 use crate::move_checker::*;
+use crate::error::*;
 
 #[derive(Debug)]
 pub struct Substitute {
@@ -20,7 +21,7 @@ impl GenType for Substitute {
     fn gen_type(&self, equs: &mut TypeEquations, trs: &TraitsInfo) -> TResult {
         let left = self.into_expr.gen_type(equs, trs)?;
         let right = self.value.gen_type(equs, trs)?;
-        equs.add_equation(left, right);
+        equs.add_equation(left, right, ErrorComment::empty(format!("substitute equation")));
         Ok(Type::End)
     }
 }

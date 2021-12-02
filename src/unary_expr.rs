@@ -50,13 +50,13 @@ impl GenType for UnaryExpr {
                     None => None,
                 };
                 let right = Type::TraitMethod(Box::new(spec.generics_to_type(&GenericsTypeMap::empty(), equs, trs)?), trait_gen.clone(), mem_id.clone());
-                equs.add_equation(alpha, right);
+                equs.add_equation(alpha, right, ErrorComment::empty(format!("type variable for func type info")));
                 Ok(Type::TraitMethod(Box::new(spec.generics_to_type(&GenericsTypeMap::empty(), equs, trs)?), trait_gen.clone(), mem_id.clone()))
             }
             UnaryExpr::Tuple(ref params, ref tag) => {
                 let params = params.iter().map(|p| p.gen_type(equs, trs)).collect::<Result<Vec<_>, _>>()?;
                 let alpha = tag.generate_type_variable("TupleType", 0, equs);
-                equs.add_equation(alpha.clone(), Type::Tuple(params));
+                equs.add_equation(alpha.clone(), Type::Tuple(params), ErrorComment::empty(format!("type variable for tuple type")));
                 Ok(alpha)
             }
         }

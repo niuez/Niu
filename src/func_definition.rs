@@ -91,7 +91,8 @@ impl FuncDefinitionInfo {
         let right_return_type = right.return_type.generics_to_type(right_gen_map, equs, &trs)?;
         equs.add_equation(
             Type::Func(self_args, Box::new(self_return_type), FuncTypeInfo::None),
-            Type::Func(right_args, Box::new(right_return_type), FuncTypeInfo::None)
+            Type::Func(right_args, Box::new(right_return_type), FuncTypeInfo::None),
+            ErrorComment::new(format!("check equal function definitions"), self.range.hint("left definition", right.range.hint("right definition", ErrorHint::None)).err())
             );
         log::info!("function {:?} and {:?} are equal unify", self.func_id, right.func_id);
         equs.unify(&mut trs).map_err(|e| e.into_err())
@@ -164,15 +165,15 @@ impl FuncDefinition {
 
             self.where_sec.regist_candidate(equs, &mut trs, &self.def_range.hint("function define", define_hint.clone()))?;
 
-            for (i, t, _) in self.args.iter() {
+            for (n, (i, t, _)) in self.args.iter().enumerate() {
                 let alpha = i.generate_not_void_type_variable("ForRegist", 0, equs);
                 let t_type = t.generics_to_type(&GenericsTypeMap::empty(), equs, &trs)?; 
                 equs.regist_variable(Variable::from_identifier(i.clone()), alpha.clone());
-                equs.add_equation(alpha, t_type);
+                equs.add_equation(alpha, t_type, ErrorComment::new(format!("type variable for {}-th arg", n), self.def_range.hint("function definition", ErrorHint::None).err()));
             }
             let result_type = block.gen_type(equs, &trs)?;
             let return_t = self.return_type.generics_to_type(&GenericsTypeMap::empty(), equs, &trs)?;
-            equs.add_equation(result_type, return_t);
+            equs.add_equation(result_type, return_t, ErrorComment::new(format!("type variable for return"), self.def_range.hint("function definition", ErrorHint::None).err()));
 
             log::info!("function {:?} unify", self.func_id);
             equs.debug();

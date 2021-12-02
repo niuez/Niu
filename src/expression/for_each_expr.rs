@@ -10,6 +10,7 @@ use crate::block::*;
 use crate::unify::*;
 use crate::trans::*;
 use crate::mut_checker::*;
+use crate::error::*;
 
 #[derive(Debug)]
 pub struct ForEachExpr {
@@ -30,10 +31,10 @@ impl GenType for ForEachExpr {
             associated_type_id: AssociatedTypeIdentifier { id: Identifier::from_str("Item") },
             caller_range: ErrorHint::None,
             tag: Tag::new(),
-        }));
+        }), ErrorComment::empty(format!("type variable for variable of foreach")));
 
         let bl_type = self.block.gen_type(equs, trs)?;
-        equs.add_equation(bl_type, Type::from_str("void"));
+        equs.add_equation(bl_type, Type::from_str("void"), ErrorComment::empty(format!("foreach block must be return void")));
         equs.out_scope();
         Ok(Type::from_str("void"))
     }

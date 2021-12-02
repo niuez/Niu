@@ -398,13 +398,13 @@ pub enum TypeEquation {
     CopyTrait(Tag, Type, SolveChange),
     HasTrait(Type, TraitGenerics, ErrorHint, SolveChange),
     TupleTrait(Type, TraitId, ErrorHint, SolveChange),
-    Equal(Type, Type, SolveChange),
+    Equal(Type, Type, Error, SolveChange),
 }
 
 impl TypeEquation {
     pub fn replace_solve_change(&mut self, new_change: SolveChange) -> SolveChange {
         match *self {
-            TypeEquation::Equal(_, _, ref mut change) |
+            TypeEquation::Equal(_, _, _, ref mut change) |
                 TypeEquation::HasTrait(_, _, _, ref mut change) |
                 TypeEquation::CopyTrait(_, _, ref mut change) |
                 TypeEquation::TupleTrait(_, _, _, ref mut change) => {
@@ -567,8 +567,8 @@ impl TypeEquations {
         self.equs.push_back(TypeEquation::TupleTrait(ty, tr, hint, SolveChange::Changed));
         self.change_cnt += 1;
     }
-    pub fn add_equation(&mut self, left: Type, right: Type) {
-        self.equs.push_back(TypeEquation::Equal(left, right, SolveChange::Changed));
+    pub fn add_equation(&mut self, left: Type, right: Type, err: Error) {
+        self.equs.push_back(TypeEquation::Equal(left, right, err, SolveChange::Changed));
         self.change_cnt += 1;
     }
     pub fn regist_check_copyable(&mut self, tag: Tag, ty: Type) {
@@ -609,7 +609,7 @@ impl TypeEquations {
         }
         for equation in self.equs.iter_mut() {
             match *equation {
-                TypeEquation::Equal(ref mut left, ref mut right, ref mut changed) => {
+                TypeEquation::Equal(ref mut left, ref mut right, _, ref mut changed) => {
                     *changed &= left.subst(theta);
                     *changed &= right.subst(theta);
                     self.change_cnt += changed.cnt();
@@ -905,7 +905,7 @@ impl TypeEquations {
                         self.equs.push_back(TypeEquation::CopyTrait(tag, ty, ty_changed));
                     }
                 }
-                TypeEquation::Equal(left, right, before_changed) => {
+                TypeEquation::Equal(left, right, err, before_changed) => {
                     left.double_reference_check()?;
                     right.double_reference_check()?;
                     //log::info!("\n{:?} = {:?}", left, right);
@@ -917,59 +917,59 @@ impl TypeEquations {
                         (l, r) if l == r => {}
                         (Type::AssociatedType(a), right) => {
                             self.change_cnt += changed.cnt();
-                            self.equs.push_back(TypeEquation::Equal(Type::AssociatedType(a), right, changed));
+                            self.equs.push_back(TypeEquation::Equal(Type::AssociatedType(a), right, err, changed));
                         }
                         (left, Type::AssociatedType(a)) => {
                             self.change_cnt += changed.cnt();
-                            self.equs.push_back(TypeEquation::Equal(left, Type::AssociatedType(a), changed));
+                            self.equs.push_back(TypeEquation::Equal(left, Type::AssociatedType(a), err, changed));
                         }
                         (Type::TraitMethod(a, b, c), right) => {
                             self.change_cnt += changed.cnt();
-                            self.equs.push_back(TypeEquation::Equal(Type::TraitMethod(a, b, c), right, changed));
+                            self.equs.push_back(TypeEquation::Equal(Type::TraitMethod(a, b, c), right, err, changed));
                         }
                         (left, Type::TraitMethod(a, b, c)) => {
                             self.change_cnt += changed.cnt();
-                            self.equs.push_back(TypeEquation::Equal(left, Type::TraitMethod(a, b, c), changed));
+                            self.equs.push_back(TypeEquation::Equal(left, Type::TraitMethod(a, b, c), err, changed));
                         }
                         (Type::Member(a), right) => {
                             self.change_cnt += changed.cnt();
-                            self.equs.push_back(TypeEquation::Equal(Type::Member(a), right, changed));
+                            self.equs.push_back(TypeEquation::Equal(Type::Member(a), right, err, changed));
                         }
                         (left, Type::Member(a)) => {
                             self.change_cnt += changed.cnt();
-                            self.equs.push_back(TypeEquation::Equal(left, Type::Member(a), changed));
+                            self.equs.push_back(TypeEquation::Equal(left, Type::Member(a), err, changed));
                         }
                         (Type::TupleMember(a), right) => {
                             self.change_cnt += changed.cnt();
-                            self.equs.push_back(TypeEquation::Equal(Type::TupleMember(a), right, changed));
+                            self.equs.push_back(TypeEquation::Equal(Type::TupleMember(a), right, err, changed));
                         }
                         (left, Type::TupleMember(a)) => {
                             self.change_cnt += changed.cnt();
-                            self.equs.push_back(TypeEquation::Equal(left, Type::TupleMember(a), changed));
+                            self.equs.push_back(TypeEquation::Equal(left, Type::TupleMember(a), err, changed));
                         }
                         (Type::CallEquation(call), right) => {
                             self.change_cnt += changed.cnt();
-                            self.equs.push_back(TypeEquation::Equal(Type::CallEquation(call), right, changed));
+                            self.equs.push_back(TypeEquation::Equal(Type::CallEquation(call), right, err, changed));
                         }
                         (left, Type::CallEquation(call)) => {
                             self.change_cnt += changed.cnt();
-                            self.equs.push_back(TypeEquation::Equal(left, Type::CallEquation(call), changed));
+                            self.equs.push_back(TypeEquation::Equal(left, Type::CallEquation(call), err, changed));
                         }
                         (Type::CallVariable(call), right) => {
                             self.change_cnt += changed.cnt();
-                            self.equs.push_back(TypeEquation::Equal(Type::CallVariable(call), right, changed));
+                            self.equs.push_back(TypeEquation::Equal(Type::CallVariable(call), right, err, changed));
                         }
                         (left, Type::CallVariable(call)) => {
                             self.change_cnt += changed.cnt();
-                            self.equs.push_back(TypeEquation::Equal(left, Type::CallVariable(call), changed));
+                            self.equs.push_back(TypeEquation::Equal(left, Type::CallVariable(call), err, changed));
                         }
                         (Type::Deref(ty), right) => {
                             self.change_cnt += changed.cnt();
-                            self.equs.push_back(TypeEquation::Equal(Type::Deref(ty), right, changed));
+                            self.equs.push_back(TypeEquation::Equal(Type::Deref(ty), right, err, changed));
                         }
                         (left, Type::Deref(ty)) => {
                             self.change_cnt += changed.cnt();
-                            self.equs.push_back(TypeEquation::Equal(left, Type::Deref(ty), changed));
+                            self.equs.push_back(TypeEquation::Equal(left, Type::Deref(ty), err, changed));
                         }
                         (left, Type::AutoRef(ty, AutoRefTag::Tag(tag))) | (Type::AutoRef(ty, AutoRefTag::Tag(tag)), left) => {
                             let (ty, ty_changed) = self.solve_relations(*ty, trs)?;
@@ -980,7 +980,7 @@ impl TypeEquations {
                             ].into_iter()
                                 .map(|(ref_tag, right)| {
                                     let mut tmp_equs = TypeEquations::new();
-                                    tmp_equs.add_equation(left.clone(), right);
+                                    tmp_equs.add_equation(left.clone(), right, ErrorComment::new(format!("deref by {:?}", ref_tag), err.clone()));
                                     (ref_tag, tmp_equs)
                             }).filter_map(
                                 |(ref_tag, mut tmp_equs)| match tmp_equs.unify(trs) {
@@ -1000,12 +1000,12 @@ impl TypeEquations {
                                 let (ref_tag, tmp_equs) = oks.pop().unwrap();
                                 self.take_over_equations(tmp_equs);
                                 let var = tag.generate_type_variable("AutoRefType", 0, self);
-                                self.add_equation(var, Type::AutoRef(Box::new(ty), ref_tag));
+                                self.add_equation(var, Type::AutoRef(Box::new(ty), ref_tag), err);
                             }
                             else {
                                 //log::debug!("NG");
                                 //log::debug!("--------------------");
-                                self.equs.push_back(TypeEquation::Equal(left, Type::AutoRef(Box::new(ty), AutoRefTag::Tag(tag)), changed & ty_changed));
+                                self.equs.push_back(TypeEquation::Equal(left, Type::AutoRef(Box::new(ty), AutoRefTag::Tag(tag)), err, changed & ty_changed));
                             }
                         }
                         (Type::Func(l_args, l_return, _), Type::Func(r_args, r_return, _)) => {
@@ -1014,10 +1014,10 @@ impl TypeEquations {
                                             l_args, l_return, r_args, r_return
                                             ))))?;
                             }
-                            for (l, r) in l_args.into_iter().zip(r_args.into_iter()) {
-                                self.add_equation(l, r);
+                            for (i, (l, r)) in l_args.into_iter().zip(r_args.into_iter()).enumerate() {
+                                self.add_equation(l, r, ErrorComment::new(format!("{}-th function arg equation", i), err.clone()));
                             }
-                            self.add_equation(*l_return, *r_return);
+                            self.add_equation(*l_return, *r_return, ErrorComment::new(format!("function return equation"), err));
                         }
                         (Type::Generics(l_id, l_gens), Type::Generics(r_id, r_gens)) => {
                             if l_id != r_id {
@@ -1027,23 +1027,23 @@ impl TypeEquations {
                                 Err(UnifyErr::Contradiction(ErrorComment::empty(format!("unreachable, generics lengths are checked"))))?;
                             }
                             else {
-                                for (l, r) in l_gens.into_iter().zip(r_gens.into_iter()) {
-                                    self.add_equation(l, r);
+                                for (i, (l, r)) in l_gens.into_iter().zip(r_gens.into_iter()).enumerate() {
+                                    self.add_equation(l, r, ErrorComment::new(format!("{}-th generics arg equation", i), err.clone()));
                                 }
                             }
                         }
                         (Type::Ref(l_ty), Type::Ref(r_ty)) => {
-                            self.add_equation(*l_ty, *r_ty);
+                            self.add_equation(*l_ty, *r_ty, err);
                         }
                         (Type::MutRef(l_ty), Type::MutRef(r_ty)) => {
-                            self.add_equation(*l_ty, *r_ty);
+                            self.add_equation(*l_ty, *r_ty, err);
                         }
                         (Type::Tuple(lp), Type::Tuple(rp)) => {
                             if lp.len() != rp.len() {
                                 Err(UnifyErr::Contradiction(ErrorComment::empty(format!("lengths of tuples are not match, {:?}, {:?}", lp, rp))))?;
                             }
-                            for (l, r) in lp.into_iter().zip(rp.into_iter()) {
-                                self.add_equation(l, r)
+                            for (i, (l, r)) in lp.into_iter().zip(rp.into_iter()).enumerate() {
+                                self.add_equation(l, r, ErrorComment::new(format!("{}-th tuple element equation", i), err.clone()))
                             }
                         }
                         (Type::TypeVariable(lv), rt) if self.remove_want_solve(&lv) => {

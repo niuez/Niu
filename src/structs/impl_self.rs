@@ -80,7 +80,7 @@ impl ImplSelfCandidate {
         impl_equs.set_self_type(Some(self_type.clone()));
 
         if let Some(ref caller_type) = call_eq.caller_type {
-            impl_equs.add_equation(self_type.clone(), caller_type.as_ref().clone());
+            impl_equs.add_equation(self_type.clone(), caller_type.as_ref().clone(), ErrorComment::empty(format!("type variable for self type")));
         }
 
         let gen_mp = self.generics.iter().enumerate().map(|(i, id)| (id.clone(), call_eq.tag.generate_type_variable("Generics", i, &mut impl_equs)))
@@ -89,7 +89,7 @@ impl ImplSelfCandidate {
         let gen_mp = mp.next(gen_mp);
         let impl_ty = self.impl_ty.generics_to_type(&gen_mp, &mut impl_equs, trs)
             .map_err(|e| CallEquationSolveError::Error(e))?;
-        impl_equs.add_equation(impl_ty, self_type.clone());
+        impl_equs.add_equation(impl_ty, self_type.clone(), ErrorComment::empty(format!("type variable for self type")));
         self.where_sec.regist_equations(&gen_mp, &mut impl_equs, trs, &self.without_member_range.hint("selfimpl defined", ErrorHint::None))
             .map_err(|e| CallEquationSolveError::Error(e))?;
         let func_def = self.require_methods
@@ -108,23 +108,23 @@ impl ImplSelfCandidate {
                     FuncTypeInfo::None => {
                         let tag = Tag::new();
                         let alpha = tag.generate_type_variable("SelfType", 0, &mut func_equs);
-                        func_equs.add_equation(alpha, self_type.clone());
+                        func_equs.add_equation(alpha, self_type.clone(), ErrorComment::empty(format!("type variable for self type")));
                         FuncTypeInfo::SelfFunc(tag)
                     }
                     info => info,
                 };
-                func_equs.add_equation(alpha, Type::Func(args.clone(), ret.clone(), info));
+                func_equs.add_equation(alpha, Type::Func(args.clone(), ret.clone(), info), ErrorComment::empty(format!("type variable for func type info")));
                 if args.len() != call_eq.args.len() {
                     not_same_args_length = true;
                 }
                 if call_eq.caller_type.is_none() {
-                    impl_equs.add_equation(args[0].clone(), call_eq.args[0].clone());
+                    impl_equs.add_equation(args[0].clone(), call_eq.args[0].clone(), ErrorComment::empty(format!("0-th function arg equation")));
                 }
-                for (l, r) in args.into_iter().zip(call_eq.args.iter()) {
-                    func_equs.add_equation(l, r.clone())
+                for (i, (l, r)) in args.into_iter().zip(call_eq.args.iter()).enumerate() {
+                    func_equs.add_equation(l, r.clone(), ErrorComment::empty(format!("{}-th function arg equation", i)))
                 }
                 let return_ty = call_eq.tag.generate_type_variable("ReturnType", 0, &mut func_equs);
-                func_equs.add_equation(*ret, return_ty);
+                func_equs.add_equation(*ret, return_ty, ErrorComment::empty(format!("type variable for return type")));
             }
             _ => unreachable!()
         }
@@ -159,7 +159,7 @@ impl ImplSelfCandidate {
         let mp = GenericsTypeMap::empty();
         let gen_mp = mp.next(gen_mp);
         let impl_ty = self.impl_ty.generics_to_type(&gen_mp, &mut equs, trs).unwrap();
-        equs.add_equation(ty.clone(), impl_ty);
+        equs.add_equation(ty.clone(), impl_ty, ErrorComment::empty(format!("impl type equals to call type")));
         if self.where_sec.regist_equations(&gen_mp, &mut equs, trs, &ErrorHint::None).is_ok() {
             equs.unify(trs).ok().map(|_| SubstsMap::new(equs.take_substs()))
         }
@@ -180,7 +180,7 @@ impl ImplSelfCandidate {
                 let tag = Tag::new();
                 for (i, gen) in gen_vec.into_iter().enumerate() {
                     let alpha = tag.generate_type_variable("Generics", i, equs);
-                    equs.add_equation(alpha, gen.1);
+                    equs.add_equation(alpha, gen.1, ErrorComment::empty(format!("type variable for {}-th arg", i)));
                 }
                 Type::Func(args, ret, FuncTypeInfo::SelfFunc(tag))
             }
