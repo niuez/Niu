@@ -75,6 +75,13 @@ impl FullContent {
         self.regist_impls(&mut equs, &mut trs)?;
         self.regist_self_impls(&mut trs)?;
 
+
+        for f in self.funcs.iter() {
+            equs.regist_func_info(&f.0);
+            ta.regist_func_info(&f.0);
+            name_errmap(f, |f| f.unify_definition(&mut equs, &mut trs, &ErrorHint::None))?;
+        }
+
         for st in self.structs.iter() {
             name_errmap(st, |st| st.unify_require_methods(&mut equs, &mut trs))?;
         }
@@ -83,11 +90,6 @@ impl FullContent {
             name_errmap(im, |im| im.unify_require_methods(&mut equs, &mut trs))?;
         }
 
-        for f in self.funcs.iter() {
-            equs.regist_func_info(&f.0);
-            ta.regist_func_info(&f.0);
-            name_errmap(f, |f| f.unify_definition(&mut equs, &mut trs, &ErrorHint::None))?;
-        }
 
         for TypeSubst { tv, t } in equs.take_substs() {
             ta.insert(tv, t);

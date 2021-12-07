@@ -1,0 +1,33 @@
+import "std/opes.niu"
+import "std/u64.niu"
+import "std/vec.niu"
+
+trait Band {
+  fn ope(self: &Self, right: &Self) -> Self;
+}
+
+fn __lg(n: u64) -> u64 $${63 - __builtin_clzll($arg(n))}$$
+
+struct SparseTable<T> where T: Band {
+  table: Vec<Vec<T>>,
+  n: u64,
+} {
+  fn init(arr: Vec<T>) -> Self {
+    let n = arr.len();
+    let mut table = Vec::new();
+    table.push(arr);
+    for k = 1; (1 << k) <= n; k = k + 1 {
+      let mut t = Vec::new();
+      for i = 0; i + (1 << k) <= n; i = i + 1 {
+        t.push(table[k - 1][i].ope(&table[k - 1][i + (1 << (k - 1))]));
+      }
+      table.push(t);
+    }
+    SparseTable { table: table, n: n }
+  }
+  fn query(self: &Self, s: u64, t: u64) -> T {
+    let k = __lg(t - s);
+    self.table[k][s].ope(&self.table[k][t - (1 << k)])
+  }
+}
+
