@@ -1,9 +1,9 @@
 import "std/opes.niu"
 #include <memory>
 
-struct UniquePtr<T> $${std::unique_ptr<T>}$$ {
-  fn empty() -> Self $${std::unique_ptr<T>()}$$
-  fn init(t: T) -> Self $${std::unique_ptr<T>($arg(t))}$$
+struct UniquePtr<T> $${std::unique_ptr<$ty(T)>}$$ {
+  fn empty() -> Self $${std::unique_ptr<$ty(T)>()}$$
+  fn init(t: T) -> Self $${std::unique_ptr<$ty(T)>($arg(t))}$$
   fn test(self: &Self) -> bool $${(bool)($arg(self))}$$
   fn get_ref(self: &Self) -> &T $${(*$arg(self))}$$
   fn get_mut(self: &Self) -> &mut T $${(*$arg(self))}$$

@@ -1,9 +1,9 @@
 import "std/opes.niu"
 #include <memory>
 
-struct SharedPtr<T> $${std::shared_ptr<T>}$$ {
-  fn empty() -> Self $${std::shared_ptr<T>()}$$
-  fn init(t: T) -> Self $${std::shared_ptr<T>(new $ty(T)($arg(t)))}$$
+struct SharedPtr<T> $${std::shared_ptr<$ty(T)>}$$ {
+  fn empty() -> Self $${std::shared_ptr<$ty(T)>()}$$
+  fn init(t: T) -> Self $${std::shared_ptr<$ty(T)>(new $ty(T)($arg(t)))}$$
   fn test(self: &Self) -> bool $${(bool)($arg(self))}$$
   fn get_ref(self: &Self) -> &T $${(*$arg(self))}$$
   fn get_mut(self: &Self) -> &mut T $${(*$arg(self))}$$
