@@ -347,6 +347,7 @@ impl<'a> TraitsInfo<'a> {
     }
 
     pub fn regist_impl_candidate(&self, equs: &mut TypeEquations, ti: &ImplDefinition) -> Result<(), Error> {
+        log::info!("regist impl candidate impl {:?} for {:?}", ti.trait_spec, ti.impl_ty);
         let (trait_id, _) = ti.get_impl_trait_pair();
         let mut gen_trs = self.into_scope();
         for id in ti.generics.iter() {

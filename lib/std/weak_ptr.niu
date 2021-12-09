@@ -1,0 +1,14 @@
+import "std/opes.niu"
+import "std/shared_ptr.niu"
+#include <memory>
+
+struct WeakPtr<T> $${std::weak_ptr<T>}$$ {
+  fn empty() -> Self $${std::weak_ptr<T>()}$$
+  fn from_shared(ptr: &SharedPtr<T>) -> Self $${std::weak_ptr<T>($arg(ptr))}$$
+  fn test(self: &Self) -> bool $${(bool)($arg(self))}$$
+  fn lock(self: &Self) -> SharedPtr<T> $${$arg(self).lock()}$$
+}
+
+impl<T> Clone for WeakPtr<T> {
+  fn clone(self: &Self) -> Self $${$arg(self)}$$
+}
