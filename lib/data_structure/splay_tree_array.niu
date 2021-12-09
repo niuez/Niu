@@ -1,0 +1,183 @@
+import "std/u64.niu"
+import "std/shared_ptr.niu"
+import "std/weak_ptr.niu"
+import "std/vec.niu"
+import "std/bool.niu"
+
+fn swap<T>(a: &mut T, b: &mut T) -> void $${std::swap($arg(a), $arg(b))}$$
+
+fn node_size<T>(ptr: &SharedPtr<StaNode<T>>) -> u64 {
+  if ptr.test() {
+    ptr.get_ref().sz
+  }
+  else {
+    0
+  }
+}
+
+struct StaNode<T> {
+  val: T,
+  sz: u64,
+  left: SharedPtr<StaNode<T>>,
+  right: SharedPtr<StaNode<T>>,
+  parent: WeakPtr<StaNode<T>>,
+} {
+  fn init(val: T) -> Self {
+    StaNode {
+      val: val,
+      sz: 1,
+      left: SharedPtr::empty(),
+      right: SharedPtr::empty(),
+      parent: WeakPtr::empty(),
+    }
+  }
+  fn child(self: &Self, dir: u64) -> &SharedPtr<StaNode<T>> {
+    if dir == 0 { &self.left }
+    else { &self.right }
+  }
+  fn fix(self: &mut Self) -> void {
+    self.sz = node_size(&self.left) + 1 + node_size(&self.right);
+  }
+}
+
+struct SplayTreeArray<T> {
+  root: SharedPtr<StaNode<T>>,
+} {
+  fn set(par: &SharedPtr<StaNode<T>>, dir: u64, mut new_ch: SharedPtr<StaNode<T>>) -> SharedPtr<StaNode<T>> {
+    if new_ch.test() { new_ch.get_mut().parent = WeakPtr::from_shared(par); }
+    if dir == 0 {
+      swap(&mut par.get_mut().left, &mut new_ch);
+    }
+    else {
+      swap(&mut par.get_mut().right, &mut new_ch);
+    }
+    par.get_mut().fix();
+    new_ch
+  }
+  fn parent_dir(node: &SharedPtr<StaNode<T>>) -> u64 {
+    let par = node.get_ref().parent.lock();
+    if par.test() {
+      if par.get_ref().left == *node { 0 }
+      else { 1 }
+    }
+    else {
+      2
+    }
+  }
+  fn rotate(x: &SharedPtr<StaNode<T>>, dir: u64) -> void {
+    let p = x.get_ref().parent.lock();
+    let q = p.get_ref().parent.lock();
+    SplayTreeArray::set(&p, dir ^ 1, x.get_ref().child(dir).clone());
+    let p_dir = SplayTreeArray::parent_dir(&p);
+    if p_dir != 2 {
+      SplayTreeArray::set(&q, p_dir, x.clone());
+    }
+    else {
+      x.get_mut().parent = WeakPtr::empty();
+    }
+    SplayTreeArray::set(x, dir, p);
+  }
+  fn splay(x: &SharedPtr<StaNode<T>>) -> void {
+    if x.test() {
+      for i = 0; x.get_ref().parent.test(); i = i + 1 {
+        let dir = SplayTreeArray::parent_dir(x);
+        let eir = SplayTreeArray::parent_dir(&x.get_ref().parent.lock());
+        if eir == 2 {
+          SplayTreeArray::rotate(x, dir ^ 1);
+        }
+        else if dir == eir {
+          SplayTreeArray::rotate(&x.get_ref().parent.lock(), eir ^ 1);
+          SplayTreeArray::rotate(x, eir ^ 1);
+        }
+        else {
+          SplayTreeArray::rotate(x, dir ^ 1);
+          SplayTreeArray::rotate(x, eir ^ 1);
+        }
+      }
+    }
+  }
+  fn find_(x: &SharedPtr<StaNode<T>>, mut i: u64) -> SharedPtr<StaNode<T>> {
+    let mut z = x.clone();
+    for cnt = 0; z.test(); cnt = cnt + 1 {
+      let left_size = node_size(&z.get_ref().left);
+      if left_size == i {
+        SplayTreeArray::splay(&z);
+        break;
+      }
+      else if left_size < i {
+        i = i - (left_size + 1);
+        z = z.get_ref().right.clone();
+      }
+      else {
+        z = z.get_ref().left.clone();
+      }
+    }
+    z
+  }
+
+  fn split_(x: SharedPtr<StaNode<T>>, i: u64) -> (SharedPtr<StaNode<T>>, SharedPtr<StaNode<T>>) {
+    if i == 0 { (SharedPtr::empty(), x) }
+    else if i == node_size(&x) { (x, SharedPtr::empty()) }
+    else {
+      let l = SplayTreeArray::find_(&x, i - 1);
+      let r = SplayTreeArray::set(&l, 1, SharedPtr::empty());
+      (l, r)
+    }
+  }
+
+  fn merge_(mut l: SharedPtr<StaNode<T>>, r: SharedPtr<StaNode<T>>) -> SharedPtr<StaNode<T>> {
+    if !l.test() { l = r; }
+    else if r.test() {
+      l = SplayTreeArray::find_(&l, node_size(&l) - 1);
+      SplayTreeArray::set(&l, 1, r);
+    }
+    l
+  }
+  fn empty(t: T) -> Self {
+    SplayTreeArray { root: SharedPtr::empty() }
+  }
+  fn once(t: T) -> Self {
+    SplayTreeArray { root: SharedPtr::init(StaNode::init(t)) }
+  }
+  fn split(self: Self, i: u64) -> (Self, Self) {
+    let (l, r) = SplayTreeArray::split_(self.root, i);
+    (SplayTreeArray { root: l }, SplayTreeArray { root: r })
+  }
+  fn merge(self: Self, right: Self) -> Self {
+    SplayTreeArray { root: SplayTreeArray::merge_(self.root, right.root) }
+  }
+  fn size(self: &Self) -> u64 {
+    node_size(&self.root)
+  }
+  fn get(self: &mut Self, i: u64) -> &T {
+    self.root = SplayTreeArray::find_(&self.root, i);
+    &self.root.get_ref().val
+  }
+}
+
+#include <iostream>
+fn println<T>(t: &T) -> void $${std::cout << $arg(t) << std::endl;}$$
+
+fn main() -> void {
+  let mut t0 = SplayTreeArray::once(0);
+  let t1 = SplayTreeArray::once(1);
+  let t2 = SplayTreeArray::once(2);
+  let t3 = SplayTreeArray::once(3);
+  let t4 = SplayTreeArray::once(4);
+
+  println(&t0.size());
+  t0 = t0.merge(t1);
+  println(&t0.size());
+  t0 = t0.merge(t2);
+  println(&t0.size());
+  t0 = t0.merge(t3);
+  println(&t0.size());
+  t0 = t0.merge(t4);
+  println(&t0.size());
+
+  println(t0.get(4));
+  println(t0.get(3));
+  println(t0.get(2));
+  println(t0.get(1));
+  println(t0.get(0));
+}
