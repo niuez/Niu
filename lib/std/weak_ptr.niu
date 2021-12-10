@@ -5,7 +5,7 @@ import "std/shared_ptr.niu"
 struct WeakPtr<T> $${std::weak_ptr<$ty(T)>}$$ {
   fn empty() -> Self $${std::weak_ptr<$ty(T)>()}$$
   fn from_shared(ptr: &SharedPtr<T>) -> Self $${std::weak_ptr<$ty(T)>($arg(ptr))}$$
-  fn test(self: &Self) -> bool $${(!$arg(self).expired())}$$
+  fn expired(self: &Self) -> bool $${$arg(self).expired()}$$
   fn lock(self: &Self) -> SharedPtr<T> $${$arg(self).lock()}$$
 }
 
