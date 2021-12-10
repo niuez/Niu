@@ -1,0 +1,38 @@
+import "data_structure/splay_tree_array.niu"
+import "std/i64.niu"
+#include <iostream>
+
+impl Monoid for i64 {
+  fn op(self: &i64, right: &i64) -> i64 {
+    *self + *right
+  }
+  fn ide() -> i64 { 0i64 }
+}
+
+testfn(library-checker-problems:datastructure/point_add_range_sum) splaytree_point_add_range_sum $${
+  std::cin.tie(nullptr);
+  int N, Q;
+  std::cin >> N >> Q;
+  using STA = SplayTreeArray<long long>;
+  auto tree = STA::empty();
+  for(int i = 0;i < N;i++) {
+    long long v;
+    std::cin >> v;
+    tree = STA::merge(std::move(tree), STA::once(v));
+  }
+  while(Q--) {
+    int t, a, b;
+    std::cin >> t >> a >> b;
+    if(t == 0) {
+      STA::get(tree, a) += b;
+      STA::fix_root(tree);
+    }
+    else {
+      auto [l, r] = STA::split(std::move(tree), b);
+      auto [ll, m] = STA::split(std::move(l), a);
+      std::cout << STA::fold(m) << '\n';
+      l = STA::merge(std::move(ll), std::move(m));
+      tree = STA::merge(std::move(l), std::move(r));
+    }
+  }
+}$$

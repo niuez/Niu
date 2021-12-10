@@ -93,13 +93,14 @@ struct SplayTreeArray<T> where T: Monoid{
   fn splay(x: &SharedPtr<StaNode<T>>) -> void {
     if x.test() {
       for i = 0; !x.get_ref().parent.expired(); i = i + 1 {
+        let p = x.get_ref().parent.lock();
         let dir = SplayTreeArray::parent_dir(x);
-        let eir = SplayTreeArray::parent_dir(&x.get_ref().parent.lock());
+        let eir = SplayTreeArray::parent_dir(&p);
         if eir == 2 {
           SplayTreeArray::rotate(x, dir ^ 1);
         }
         else if dir == eir {
-          SplayTreeArray::rotate(&x.get_ref().parent.lock(), eir ^ 1);
+          SplayTreeArray::rotate(&p, eir ^ 1);
           SplayTreeArray::rotate(x, eir ^ 1);
         }
         else {
@@ -146,7 +147,7 @@ struct SplayTreeArray<T> where T: Monoid{
     }
     l
   }
-  fn empty(t: T) -> Self {
+  fn empty() -> Self {
     SplayTreeArray { root: SharedPtr::empty() }
   }
   fn once(t: T) -> Self {
@@ -162,46 +163,17 @@ struct SplayTreeArray<T> where T: Monoid{
   fn size(self: &Self) -> u64 {
     node_size(&self.root)
   }
-  fn get(self: &mut Self, i: u64) -> &T {
+  fn get(self: &mut Self, i: u64) -> &mut T {
     self.root = SplayTreeArray::find_(&self.root, i);
-    &self.root.get_ref().val
+    &mut self.root.get_mut().val
+  }
+  fn fix_root(self: &mut Self) -> void {
+    if self.root.test() {
+      self.root.get_mut().fix();
+    }
   }
   fn fold(self: &Self) -> T {
     node_fold(&self.root)
   }
 }
 
-#include <iostream>
-fn println<T>(t: &T) -> void $${std::cout << $arg(t) << std::endl;}$$
-
-impl Monoid for u64 {
-  fn op(self: &u64, right: &u64) -> u64 {
-    *self + *right
-  }
-  fn ide() -> u64 { 0 }
-}
-
-fn main() -> void {
-  let mut t0 = SplayTreeArray::once(0);
-  let t1 = SplayTreeArray::once(1);
-  let t2 = SplayTreeArray::once(2);
-  let t3 = SplayTreeArray::once(3);
-  let t4 = SplayTreeArray::once(4);
-
-  println(&t0.size());
-  t0 = t0.merge(t1);
-  println(&t0.size());
-  t0 = t0.merge(t2);
-  println(&t0.size());
-  t0 = t0.merge(t3);
-  println(&t0.size());
-  t0 = t0.merge(t4);
-  println(&t0.size());
-
-  println(t0.get(4));
-  println(t0.get(3));
-  println(t0.get(2));
-  println(t0.get(1));
-  println(t0.get(0));
-  println(&t0.fold());
-}
