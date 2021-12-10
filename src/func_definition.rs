@@ -203,6 +203,7 @@ impl FuncDefinition {
     }
     pub fn transpile_definition_only(&self, ta: &TypeAnnotation, class_str: &str, is_static: bool) -> String {
         let where_empty = self.where_sec.is_empty();
+        let where_str = self.where_sec.transpile(ta);
         let template_str =
             if self.generics.len() > 0 {
                 let gen = self.generics.iter().map(|g| format!("class {}", g.transpile(ta))).collect::<Vec<_>>().join(", ");
@@ -210,11 +211,11 @@ impl FuncDefinition {
                     format!("template<{}> ", gen)
                 }
                 else {
-                    format!("template<{}, class> ", gen)
+                    format!("template<{}, class = {}> ", gen, where_str)
                 }
             } 
             else if !where_empty {
-                format!("template<class> ")
+                format!("template<class = {}> ", where_str)
             }
             else {
                 "".to_string()
@@ -242,7 +243,7 @@ impl FuncDefinition {
     }
 
     fn transpile_definition(&self, ta: &TypeAnnotation, class_str: &str, is_static: bool) -> String {
-        let where_str = self.where_sec.transpile(ta);
+        let _where_str = self.where_sec.transpile(ta);
         let template_str =
             if self.generics.len() > 0 {
                 let gen = self.generics.iter().map(|g| format!("class {}", g.transpile(ta))).collect::<Vec<_>>().join(", ");
@@ -250,11 +251,11 @@ impl FuncDefinition {
                     format!("template<{}> ", gen)
                 }
                 else {
-                    format!("template<{}, class = {}> ", gen, where_str)
+                    format!("template<{}, class> ", gen)
                 }
             } 
             else if !self.where_sec.is_empty() {
-                format!("template<class = {}> ", where_str)
+                format!("template<class> ")
             }
             else {
                 "".to_string()

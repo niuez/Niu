@@ -515,7 +515,7 @@ impl TypeEquations {
         }
         log::info!("    {:?}", self.want_solve);
         */
-        log::info!("{}", debug_str);
+        log::debug!("{}", debug_str);
     }
     pub fn try_get_substs(&self, tv: TypeVariable) -> Type {
         self.substs.iter().find(|TypeSubst { tv: tsv, t: _t }| *tsv == tv)
@@ -893,11 +893,11 @@ impl TypeEquations {
                     if ty.is_solved_type() {
                         let solve_cnt = self.solve_copy_trait(&ty, trs);
                         if solve_cnt == 1 {
-                            log::info!("{:?} is copyable", ty);
+                            log::debug!("{:?} is copyable", ty);
                             self.copyable.insert(tag);
                         }
                         else {
-                            log::info!("{:?} is not copyable", ty);
+                            log::debug!("{:?} is not copyable", ty);
                         }
                     }
                     else {

@@ -80,13 +80,17 @@ pub fn load_library_config(libraries_dir: &Path) -> Result<LibraryConfig, String
 }
 
 
-pub fn test_cppfiles(libraries_dir: &Path) -> Result<(), String> {
+pub fn test_cppfiles(libraries_dir: &Path, test_name: Option<&str>) -> Result<(), String> {
     let test_config = std::fs::read_to_string(libraries_dir.join(".test").join("tests.toml"))
         .map_err(|e| format!("cant open tests.toml, {:?}", e))?;
     let test_config: TestConfig = toml::from_str(&test_config)
         .map_err(|e| format!("cant parse tests.toml, {:?}", e))?;
     let TestConfig { compiler, compile_options, testers, tests } = test_config;
     for Tests { program_file, tester, problem } in tests.into_iter() {
+        if test_name.map(|name| !program_file.contains(name)).unwrap_or(false) {
+            log::info!("skip test {}", program_file);
+            continue
+        }
         log::info!("start test {}", program_file);
         let Testers { generator, .. } = testers.iter().find(|Testers { ref name, .. }| tester == *name).ok_or(format!("not found tester {:?}", tester))?;
 

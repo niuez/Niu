@@ -104,6 +104,10 @@ fn app() -> Result<(), String> {
         .subcommand(SubCommand::with_name("test")
                     .about("test .niu programs")
                     .arg(
+                        Arg::with_name("test_name")
+                        .index(1)
+                    )
+                    .arg(
                         Arg::with_name("nogen")
                         .long("nogen")
                         .help("no generate before test")
@@ -130,6 +134,7 @@ fn app() -> Result<(), String> {
         Ok(())
     }
     else if let Some(matches) = matches.subcommand_matches("test") {
+        let test_name = matches.value_of("test_name");
         let library_dir = subcommand::unit_test::get_library_dir(Path::new("."))?;
         subcommand::create_test_directory(&library_dir)?;
         log::info!("created .test directory");
@@ -139,7 +144,7 @@ fn app() -> Result<(), String> {
         }
         subcommand::tester::download_testers(&library_dir)?;
         log::info!("download finished");
-        subcommand::unit_test::test_cppfiles(&library_dir)?;
+        subcommand::unit_test::test_cppfiles(&library_dir, test_name)?;
         log::info!("test finished");
         Ok(())
     }
