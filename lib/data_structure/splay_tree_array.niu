@@ -4,9 +4,14 @@ import "std/weak_ptr.niu"
 import "std/vec.niu"
 import "std/bool.niu"
 
+trait Monoid where Self: Clone {
+  fn op(self: &Self, right: &Self) -> Self;
+  fn ide() -> Self;
+}
+
 fn swap<T>(a: &mut T, b: &mut T) -> void $${std::swap($arg(a), $arg(b))}$$
 
-fn node_size<T>(ptr: &SharedPtr<StaNode<T>>) -> u64 {
+fn node_size<T>(ptr: &SharedPtr<StaNode<T>>) -> u64 where T: Monoid {
   if ptr.test() {
     ptr.get_ref().sz
   }
@@ -15,8 +20,14 @@ fn node_size<T>(ptr: &SharedPtr<StaNode<T>>) -> u64 {
   }
 }
 
-struct StaNode<T> {
+fn node_fold<T>(ptr: &SharedPtr<StaNode<T>>) -> T where T: Monoid {
+  if ptr.test() { ptr.get_ref().fold.clone() }
+  else { T::ide() }
+}
+
+struct StaNode<T> where T: Monoid {
   val: T,
+  fold: T,
   sz: u64,
   left: SharedPtr<StaNode<T>>,
   right: SharedPtr<StaNode<T>>,
@@ -24,7 +35,8 @@ struct StaNode<T> {
 } {
   fn init(val: T) -> Self {
     StaNode {
-      val: val,
+      val: val.clone(),
+      fold: val.clone(),
       sz: 1,
       left: SharedPtr::empty(),
       right: SharedPtr::empty(),
@@ -37,10 +49,11 @@ struct StaNode<T> {
   }
   fn fix(self: &mut Self) -> void {
     self.sz = node_size(&self.left) + 1 + node_size(&self.right);
+    self.fold = node_fold(&self.left).op(&self.val).op(&node_fold(&self.right));
   }
 }
 
-struct SplayTreeArray<T> {
+struct SplayTreeArray<T> where T: Monoid{
   root: SharedPtr<StaNode<T>>,
 } {
   fn set(par: &SharedPtr<StaNode<T>>, dir: u64, mut new_ch: SharedPtr<StaNode<T>>) -> SharedPtr<StaNode<T>> {
@@ -153,10 +166,20 @@ struct SplayTreeArray<T> {
     self.root = SplayTreeArray::find_(&self.root, i);
     &self.root.get_ref().val
   }
+  fn fold(self: &Self) -> T {
+    node_fold(&self.root)
+  }
 }
 
 #include <iostream>
 fn println<T>(t: &T) -> void $${std::cout << $arg(t) << std::endl;}$$
+
+impl Monoid for u64 {
+  fn op(self: &u64, right: &u64) -> u64 {
+    *self + *right
+  }
+  fn ide() -> u64 { 0 }
+}
 
 fn main() -> void {
   let mut t0 = SplayTreeArray::once(0);
@@ -180,4 +203,5 @@ fn main() -> void {
   println(t0.get(2));
   println(t0.get(1));
   println(t0.get(0));
+  println(&t0.fold());
 }
