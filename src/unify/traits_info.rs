@@ -24,6 +24,7 @@ pub struct TraitsInfo<'a> {
     associated_type_to_traits: HashMap<AssociatedTypeIdentifier, HashSet<TraitId>>,
     member_to_traits: HashMap<Identifier, HashSet<TraitId>>,
     member_to_self_impls: HashMap<Identifier, HashSet<TypeId>>,
+    disable_indices: HashSet<(usize, usize)>,
     depth: usize,
     upper_info: Option<&'a TraitsInfo<'a>>,
 }
@@ -86,6 +87,7 @@ impl<'a> TraitsInfo<'a> {
             associated_type_to_traits: HashMap::new(),
             member_to_traits: HashMap::new(),
             member_to_self_impls: HashMap::new(),
+            disable_indices: HashSet::new(),
             depth: 0,
             upper_info: None,
         }
@@ -99,8 +101,20 @@ impl<'a> TraitsInfo<'a> {
             associated_type_to_traits: HashMap::new(),
             member_to_traits: HashMap::new(),
             member_to_self_impls: HashMap::new(),
+            disable_indices: HashSet::new(),
             depth: self.depth + 1,
             upper_info: Some(self),
+        }
+    }
+    pub fn is_disabled(&self, depth: usize, idx: usize) -> bool {
+        if self.disable_indices.contains(&(depth, idx)) {
+            true
+        }
+        else if let Some(trs) = self.upper_info {
+            trs.is_disabled(depth, idx)
+        }
+        else {
+            false
         }
     }
     pub fn regist_structs_info(&mut self, st: &StructMemberDefinition) -> Result<(), Error> {
@@ -417,20 +431,31 @@ impl<'a> TraitsInfo<'a> {
                     Err(ErrorComment::empty(format!("undefined associated type speficier: {:?}", asso_mp)))
                 }
                 else {
+                    let same_candidates = self.match_to_impls(trait_gen, &ty, self).into_iter().map(|(.., d, i)| (d, i)).collect::<Vec<_>>();
+
                     let cand = ParamCandidate::new(trait_gen.clone(), tr_def.generics.clone(), ty.clone(), asso_tys, tr_def.required_methods.clone(), define_hint);
                     self.regist_selection_candidate(&trait_gen.trait_id, cand);
+
+                    for (depth, idx) in same_candidates {
+                        self.disable_indices.insert((depth, idx));
+                    }
                     Ok(())
                 }
             }
         }
     }
 
-    fn match_to_impls(&self, trait_gen: &TraitGenerics, ty: &Type, top_trs: &Self) -> Vec<(SubstsMap, &SelectionCandidate, usize)> {
+    fn match_to_impls(&self, trait_gen: &TraitGenerics, ty: &Type, top_trs: &Self) -> Vec<(SubstsMap, &SelectionCandidate, usize, usize)> {
         let mut ans = Vec::new();
         if let Some(impls) = self.impls.get(&trait_gen.trait_id) {
             let mut vs = impls.iter().enumerate()
                 .map(|(i, impl_trait)| {
-                    impl_trait.match_impl_for_ty(trait_gen, &ty, top_trs).map(|(a, b)| (a, b, i * self.depth + self.depth * 10000))
+                    if top_trs.is_disabled(self.depth, i) {
+                        None
+                    }
+                    else {
+                        impl_trait.match_impl_for_ty(trait_gen, &ty, top_trs).map(|(a, b)| (a, b, self.depth, i))
+                    }
                 })
             .filter_map(|x| x)
                 .collect::<Vec<_>>();
@@ -447,12 +472,12 @@ impl<'a> TraitsInfo<'a> {
     pub fn match_to_impls_for_type(&self, trait_gen: &TraitGenerics, ty: &Type) -> Result<(SubstsMap, &SelectionCandidate), usize> {
         log::debug!("search {:?} {:?}--------------", trait_gen, ty);
         let mut cands = self.match_to_impls(trait_gen, ty, self);
-        let idx = select_impls_by_priority(cands.iter().map(|(_, _, i)| *i), cands.len());
+        let idx = select_impls_by_priority(cands.iter().map(|(_, _, d, i)| *i * *d + *d * 10000), cands.len());
         //log::debug!("cands {:?}", cands);
         log::debug!("solve  {:?} {:?} ------------> idx {:?} / {}", trait_gen, ty, idx, cands.len());
         match idx {
             Some(i) => {
-                let (substs, cand, _) = cands.swap_remove(i);
+                let (substs, cand, ..) = cands.swap_remove(i);
                 Ok((substs, cand))
             }
             None => {
@@ -492,15 +517,20 @@ impl<'a> TraitsInfo<'a> {
         if let Some(impls) = self.impls.get(trait_id) {
             let mut vs = impls.iter().enumerate()
                 .map(|(i, impl_trait)| {
-                    let res = impl_trait.generate_equations_for_call_equation(call_eq, top_trs);
-                    log::debug!("{:?}", res.as_ref().map(|_| impl_trait.debug_str()));
-                    match res {
-                        Ok((eq, hint)) => {
-                            Some((eq, hint, 0))
-                        }
-                        Err(err) => {
-                            solve_errs.push(err);
-                            None
+                    if top_trs.is_disabled(self.depth, i) {
+                        None
+                    }
+                    else {
+                        let res = impl_trait.generate_equations_for_call_equation(call_eq, top_trs);
+                        log::debug!("{:?}", res.as_ref().map(|_| impl_trait.debug_str()));
+                        match res {
+                            Ok((eq, hint)) => {
+                                Some((eq, hint, 0))
+                            }
+                            Err(err) => {
+                                solve_errs.push(err);
+                                None
+                            }
                         }
                     }
                 })
@@ -609,15 +639,20 @@ impl<'a> TraitsInfo<'a> {
         if let Some(impls) = self.impls.get(trait_id) {
             let mut vs = impls.iter().enumerate()
                 .map(|(i, impl_trait)| {
-                    let res = impl_trait.generate_equations_for_associated_type_equation(associated_eq, top_trs);
-                    log::debug!("{:?}", res.as_ref().map(|_| impl_trait.debug_str()));
-                    match res {
-                        Ok((eq, hint)) => {
-                            Some((eq, hint, 0))
-                        }
-                        Err(err) => {
-                            solve_errs.push(err);
-                            None
+                    if top_trs.is_disabled(self.depth, i) {
+                        None
+                    }
+                    else {
+                        let res = impl_trait.generate_equations_for_associated_type_equation(associated_eq, top_trs);
+                        log::debug!("{:?}", res.as_ref().map(|_| impl_trait.debug_str()));
+                        match res {
+                            Ok((eq, hint)) => {
+                                Some((eq, hint, 0))
+                            }
+                            Err(err) => {
+                                solve_errs.push(err);
+                                None
+                            }
                         }
                     }
                 })
