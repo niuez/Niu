@@ -496,7 +496,7 @@ impl<'a> TraitsInfo<'a> {
                     log::debug!("{:?}", res.as_ref().map(|_| impl_trait.debug_str()));
                     match res {
                         Ok((eq, hint)) => {
-                            Some((eq, hint, i * self.depth + self.depth * 10000))
+                            Some((eq, hint, 0))
                         }
                         Err(err) => {
                             solve_errs.push(err);
@@ -560,11 +560,16 @@ impl<'a> TraitsInfo<'a> {
         let mut solve_errs = CallEquationSolveErrors::new();
         for t in st.into_iter() {
             let mut vs = self.generate_call_equations_for_trait(&t, call_eq, self, &mut solve_errs);
+            for (equs, hint, _) in vs {
+                unify_res.push((equs, hint));
+            }
+            /*
             let idx = select_impls_by_priority(vs.iter().map(|(_, _, i)| *i), vs.len());
             if let Some(idx) = idx {
                 let (equs, cand, _) = vs.swap_remove(idx);
                 unify_res.push((equs, cand));
             }
+            */
             /* else {
                 return Err(vs.into_iter().map(|(_, cand, _)| cand).collect())
             } */
@@ -578,7 +583,6 @@ impl<'a> TraitsInfo<'a> {
         }
         if unify_res.len() == 1 {
             let (gen_equ, _hint) = unify_res.pop().unwrap();
-            log::debug!("OK\n-------------------------------");
             let ret_ty = gen_equ.try_get_substs(TypeVariable::Counter(call_eq.tag.get_num(), "ReturnType", 0));
 
             //log::debug!("take over by call >> ");
@@ -586,6 +590,7 @@ impl<'a> TraitsInfo<'a> {
             //log::debug!("ret = {:?}", ret_ty);
             //log::debug!(">> ");
             equs.take_over_equations(gen_equ);
+            log::debug!("OK\nret_ty = {:?}-------------------------------", ret_ty);
             Ok(ret_ty)
         }
         else if unify_res.len() == 0 {
@@ -593,6 +598,7 @@ impl<'a> TraitsInfo<'a> {
             Err(solve_errs.unify_err(call_eq.caller_range.clone().err()))
         }
         else {
+            log::debug!("MANY-------------------------------------------");
             let errs = unify_res.into_iter().map(|(_, cand)| { cand.err() }).collect();
             Err(UnifyErr::Deficiency(ErrorDetails::new(format!("try solve(many candidate)"), errs, call_eq.caller_range.clone().err())))
         }
@@ -607,7 +613,7 @@ impl<'a> TraitsInfo<'a> {
                     log::debug!("{:?}", res.as_ref().map(|_| impl_trait.debug_str()));
                     match res {
                         Ok((eq, hint)) => {
-                            Some((eq, hint, i * self.depth + self.depth * 10000))
+                            Some((eq, hint, 0))
                         }
                         Err(err) => {
                             solve_errs.push(err);
@@ -636,11 +642,16 @@ impl<'a> TraitsInfo<'a> {
         let mut solve_errs = CallEquationSolveErrors::new();
         for tr in st.into_iter() {
             let mut vs = self.generate_associated_type_equation_for_trait(&tr, associated_eq, self, &mut solve_errs);
+            for (equs, hint, _) in vs {
+                unify_res.push((equs, hint));
+            }
+            /*
             let idx = select_impls_by_priority(vs.iter().map(|(_, _, i)| *i), vs.len());
             if let Some(idx) = idx {
                 let (equs, hint, _) = vs.swap_remove(idx);
                 unify_res.push((equs, hint));
             }
+            */
         }
 
         if unify_res.len() == 1 {
