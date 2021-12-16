@@ -41,14 +41,14 @@ impl TupleMemberEquation {
                 ty, 
                 idx: self.idx,
                 caller_range: self.caller_range
-            }), change))
+            }), SolveChange::Changed))
         }
         else if let Type::MutRef(ty) = ty {
             Ok((Type::TupleMember( TupleMemberEquation {
                 ty, 
                 idx: self.idx,
                 caller_range: self.caller_range
-            }), change))
+            }), SolveChange::Changed))
         }
         else {
             let ty_str = format!("{:?} is not tuple", ty);
