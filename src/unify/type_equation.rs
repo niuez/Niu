@@ -132,6 +132,19 @@ impl Type {
             _ => false,
         }
     }
+    fn is_wait_solve(&self) -> bool {
+        match self {
+            Type::SolvedAssociatedType(..) => false,
+            Type::TypeVariable(..) => false,
+            Type::AutoRef(..) => false,
+            Type::Generics(_, gens) => gens.iter().map(|gen| gen.is_wait_solve()).any(|t| t),
+            Type::Ref(ref ty) => ty.as_ref().is_wait_solve(),
+            Type::MutRef(ref ty) => ty.as_ref().is_wait_solve(),
+            Type::Func(ref args, ref ret, _) => args.iter().map(|arg| arg.is_wait_solve()).any(|t| t) || ret.is_wait_solve(),
+            Type::Tuple(ref params) => params.iter().map(|p| p.is_wait_solve()).any(|b| b),
+            _ => true,
+        }
+    }
     fn occurs(&self, t: &TypeVariable) -> bool {
         match *self {
             Type::TypeVariable(ref s) => s == t,
@@ -915,62 +928,6 @@ impl TypeEquations {
                     let changed = left_changed & right_changed;
                     match (left, right) {
                         (l, r) if l == r => {}
-                        (Type::AssociatedType(a), right) => {
-                            self.change_cnt += changed.cnt();
-                            self.equs.push_back(TypeEquation::Equal(Type::AssociatedType(a), right, err, changed));
-                        }
-                        (left, Type::AssociatedType(a)) => {
-                            self.change_cnt += changed.cnt();
-                            self.equs.push_back(TypeEquation::Equal(left, Type::AssociatedType(a), err, changed));
-                        }
-                        (Type::TraitMethod(a, b, c), right) => {
-                            self.change_cnt += changed.cnt();
-                            self.equs.push_back(TypeEquation::Equal(Type::TraitMethod(a, b, c), right, err, changed));
-                        }
-                        (left, Type::TraitMethod(a, b, c)) => {
-                            self.change_cnt += changed.cnt();
-                            self.equs.push_back(TypeEquation::Equal(left, Type::TraitMethod(a, b, c), err, changed));
-                        }
-                        (Type::Member(a), right) => {
-                            self.change_cnt += changed.cnt();
-                            self.equs.push_back(TypeEquation::Equal(Type::Member(a), right, err, changed));
-                        }
-                        (left, Type::Member(a)) => {
-                            self.change_cnt += changed.cnt();
-                            self.equs.push_back(TypeEquation::Equal(left, Type::Member(a), err, changed));
-                        }
-                        (Type::TupleMember(a), right) => {
-                            self.change_cnt += changed.cnt();
-                            self.equs.push_back(TypeEquation::Equal(Type::TupleMember(a), right, err, changed));
-                        }
-                        (left, Type::TupleMember(a)) => {
-                            self.change_cnt += changed.cnt();
-                            self.equs.push_back(TypeEquation::Equal(left, Type::TupleMember(a), err, changed));
-                        }
-                        (Type::CallEquation(call), right) => {
-                            self.change_cnt += changed.cnt();
-                            self.equs.push_back(TypeEquation::Equal(Type::CallEquation(call), right, err, changed));
-                        }
-                        (left, Type::CallEquation(call)) => {
-                            self.change_cnt += changed.cnt();
-                            self.equs.push_back(TypeEquation::Equal(left, Type::CallEquation(call), err, changed));
-                        }
-                        (Type::CallVariable(call), right) => {
-                            self.change_cnt += changed.cnt();
-                            self.equs.push_back(TypeEquation::Equal(Type::CallVariable(call), right, err, changed));
-                        }
-                        (left, Type::CallVariable(call)) => {
-                            self.change_cnt += changed.cnt();
-                            self.equs.push_back(TypeEquation::Equal(left, Type::CallVariable(call), err, changed));
-                        }
-                        (Type::Deref(ty), right) => {
-                            self.change_cnt += changed.cnt();
-                            self.equs.push_back(TypeEquation::Equal(Type::Deref(ty), right, err, changed));
-                        }
-                        (left, Type::Deref(ty)) => {
-                            self.change_cnt += changed.cnt();
-                            self.equs.push_back(TypeEquation::Equal(left, Type::Deref(ty), err, changed));
-                        }
                         (left, Type::AutoRef(ty, AutoRefTag::Tag(tag))) | (Type::AutoRef(ty, AutoRefTag::Tag(tag)), left) => {
                             let (ty, ty_changed) = self.solve_relations(*ty, trs)?;
                             let mut oks = vec![
@@ -1047,6 +1004,10 @@ impl TypeEquations {
                             for (i, (l, r)) in lp.into_iter().zip(rp.into_iter()).enumerate() {
                                 self.add_equation(l, r, ErrorComment::new(format!("{}-th tuple element equation", i), err.clone()))
                             }
+                        }
+                        (left, right) if left.is_wait_solve() || right.is_wait_solve() => {
+                            self.change_cnt += changed.cnt();
+                            self.equs.push_back(TypeEquation::Equal(left, right, err, changed));
                         }
                         (Type::TypeVariable(lv), rt) if self.remove_want_solve(&lv) => {
                             if rt.occurs(&lv) {
