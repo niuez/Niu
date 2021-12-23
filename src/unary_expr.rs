@@ -21,18 +21,18 @@ use crate::traits::*;
 use crate::error::*;
 
 #[derive(Debug)]
-pub enum UnaryExpr {
+pub enum UnaryExpr<'a> {
     Variable(Variable),
     Literal(Literal),
-    Parentheses(Parentheses),
+    Parentheses(Parentheses<'a>),
     Block(Block),
-    Subseq(Box<UnaryExpr>, Subseq, SourceRange),
+    Subseq(Box<UnaryExpr<'a>>, Subseq, SourceRange<'a>),
     StructInst(StructInstantiation),
-    TraitMethod(TypeSpec, Option<TraitSpec>, Identifier, SourceRange),
-    Tuple(Vec<Expression>, Tag),
+    TraitMethod(TypeSpec<'a>, Option<TraitSpec>, Identifier, SourceRange<'a>),
+    Tuple(Vec<Expression<'a>>, Tag),
 }
 
-impl GenType for UnaryExpr {
+impl<'a> GenType for UnaryExpr<'a> {
     fn gen_type(&self, equs: &mut TypeEquations, trs: &TraitsInfo) -> TResult {
         match *self {
             UnaryExpr::Variable(ref v) => v.gen_type(equs, trs),
@@ -63,7 +63,7 @@ impl GenType for UnaryExpr {
     }
 }
 
-impl Transpile for UnaryExpr {
+impl<'a> Transpile for UnaryExpr<'a> {
     fn transpile(&self, ta: &TypeAnnotation) -> String {
         match *self {
             UnaryExpr::Variable(ref v) => {
@@ -93,7 +93,7 @@ impl Transpile for UnaryExpr {
     }
 }
 
-impl MutCheck for UnaryExpr {
+impl<'a> MutCheck for UnaryExpr<'a> {
     fn mut_check(&self, ta: &TypeAnnotation, vars: &mut VariablesInfo) -> Result<MutResult, String> {
         match *self {
             UnaryExpr::Variable(ref v) => v.mut_check(ta, vars),
@@ -115,7 +115,7 @@ impl MutCheck for UnaryExpr {
     }
 }
 
-impl MoveCheck for UnaryExpr {
+impl<'a> MoveCheck for UnaryExpr<'a> {
     fn move_check(&self, mc: &mut VariablesMoveChecker, ta: &TypeAnnotation) -> Result<MoveResult, String> {
         match *self {
             UnaryExpr::Variable(ref v) => v.move_check(mc, ta),
@@ -209,29 +209,29 @@ pub fn parse_variable(s: &str) -> IResult<&str, UnaryExpr> {
 }
 
 #[derive(Debug)]
-pub struct Parentheses {
-    pub expr: Expression,
+pub struct Parentheses<'a> {
+    pub expr: Expression<'a>,
 }
 
-impl GenType for Parentheses {
+impl<'a> GenType for Parentheses<'a> {
     fn gen_type(&self, equs: &mut TypeEquations, trs: &TraitsInfo) -> TResult {
         self.expr.gen_type(equs, trs)
     }
 }
 
-impl Transpile for Parentheses {
+impl<'a> Transpile for Parentheses<'a> {
     fn transpile(&self, ta: &TypeAnnotation) -> String {
         format!("({})", self.expr.transpile(ta))
     }
 }
 
-impl MutCheck for Parentheses {
+impl<'a> MutCheck for Parentheses<'a> {
     fn mut_check(&self, ta: &TypeAnnotation, vars: &mut VariablesInfo) -> Result<MutResult, String> {
         self.expr.mut_check(ta, vars)
     }
 }
 
-impl MoveCheck for Parentheses {
+impl<'a> MoveCheck for Parentheses<'a> {
     fn move_check(&self, mc: &mut VariablesMoveChecker, ta: &TypeAnnotation) -> Result<MoveResult, String> {
         self.expr.move_check(mc, ta)
     }

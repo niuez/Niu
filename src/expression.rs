@@ -46,14 +46,14 @@ fn expr_gen_type<'a, EI: Iterator<Item=Type>, O: 'a, OI: Iterator<Item=&'a O>, F
 }
 
 #[derive(Debug)]
-pub enum Expression {
+pub enum Expression<'a> {
     IfExpr(Box<IfExpr>),
     ForExpr(Box<ForExpr>),
     ForEachExpr(Box<ForEachExpr>),
-    Expression(ExpOr),
+    Expression(ExpOr<'a>),
 }
 
-impl GenType for Expression {
+impl<'a> GenType for Expression<'a> {
     fn gen_type(&self, equs: &mut TypeEquations, trs: &TraitsInfo) -> TResult {
         match *self {
             Expression::Expression(ref e) => e.gen_type(equs, trs),
@@ -64,7 +64,7 @@ impl GenType for Expression {
     }
 }
 
-impl Transpile for Expression {
+impl<'a> Transpile for Expression<'a> {
     fn transpile(&self, ta: &TypeAnnotation) -> String {
         match *self {
             Expression::Expression(ref e) => e.transpile(ta),
@@ -75,7 +75,7 @@ impl Transpile for Expression {
     }
 }
 
-impl MutCheck for Expression {
+impl<'a> MutCheck for Expression<'a> {
     fn mut_check(&self, ta: &TypeAnnotation, vars: &mut VariablesInfo) -> Result<MutResult, String> {
         match *self {
             Expression::Expression(ref e) => e.mut_check(ta, vars),
@@ -86,7 +86,7 @@ impl MutCheck for Expression {
     }
 }
 
-impl MoveCheck for Expression {
+impl<'a> MoveCheck for Expression<'a> {
     fn move_check(&self, mc: &mut VariablesMoveChecker, ta: &TypeAnnotation) -> Result<MoveResult, String> {
         match *self {
             Expression::Expression(ref e) => e.move_check(mc, ta),
@@ -126,12 +126,12 @@ trait ParseOperator: Sized {
 }
 
 #[derive(Debug)]
-pub struct ExpOr {
-    pub terms: Vec<ExpAnd>,
+pub struct ExpOr<'a> {
+    pub terms: Vec<ExpAnd<'a>>,
     pub opes: Vec<OperatorOr>,
 }
 
-impl GenType for ExpOr {
+impl<'a> GenType for ExpOr<'a> {
     fn gen_type(&self, equs: &mut TypeEquations, trs: &TraitsInfo) -> TResult {
         if self.terms.len() > 1 {
             for t in self.terms.iter() {
@@ -149,7 +149,7 @@ impl GenType for ExpOr {
 #[derive(Debug)]
 pub struct OperatorOr();
 
-impl Transpile for ExpOr {
+impl<'a> Transpile for ExpOr<'a> {
     fn transpile(&self, ta: &TypeAnnotation) -> String {
         let mut res = String::new();
         for i in 0..self.terms.len() {
@@ -166,8 +166,8 @@ impl Transpile for OperatorOr {
     }
 }
 
-impl ParseExpression for ExpOr {
-    type Child = ExpAnd;
+impl<'a> ParseExpression for ExpOr<'a> {
+    type Child = ExpAnd<'a>;
     type Operator = OperatorOr;
     fn new_expr(terms: Vec<Self::Child>, opes: Vec<Self::Operator>, _range: SourceRange) -> Self {
         Self { terms, opes }
@@ -184,7 +184,7 @@ impl ParseOperator for OperatorOr {
     }
 }
 
-impl MutCheck for ExpOr {
+impl<'a> MutCheck for ExpOr<'a> {
     fn mut_check(&self, ta: &TypeAnnotation, vars: &mut VariablesInfo) -> Result<MutResult, String> {
         if self.terms.len() == 1 {
             self.terms.last().unwrap().mut_check(ta, vars)
@@ -198,7 +198,7 @@ impl MutCheck for ExpOr {
     }
 }
 
-impl MoveCheck for ExpOr {
+impl<'a> MoveCheck for ExpOr<'a> {
     fn move_check(&self, mc: &mut VariablesMoveChecker, ta: &TypeAnnotation) -> Result<MoveResult, String> {
         if self.terms.len() == 1 {
             self.terms.last().unwrap().move_check(mc, ta)
@@ -215,12 +215,12 @@ impl MoveCheck for ExpOr {
 
 
 #[derive(Debug)]
-pub struct ExpAnd {
-    pub terms: Vec<ExpOrd>,
+pub struct ExpAnd<'a> {
+    pub terms: Vec<ExpOrd<'a>>,
     pub opes: Vec<OperatorAnd>,
 }
 
-impl GenType for ExpAnd {
+impl<'a> GenType for ExpAnd<'a> {
     fn gen_type(&self, equs: &mut TypeEquations, trs: &TraitsInfo) -> TResult {
         if self.terms.len() > 1 {
             for t in self.terms.iter() {
@@ -238,7 +238,7 @@ impl GenType for ExpAnd {
 #[derive(Debug)]
 pub struct OperatorAnd();
 
-impl Transpile for ExpAnd {
+impl<'a> Transpile for ExpAnd<'a> {
     fn transpile(&self, ta: &TypeAnnotation) -> String {
         let mut res = String::new();
         for i in 0..self.terms.len() {
@@ -255,8 +255,8 @@ impl Transpile for OperatorAnd {
     }
 }
 
-impl ParseExpression for ExpAnd {
-    type Child = ExpOrd;
+impl<'a> ParseExpression for ExpAnd<'a> {
+    type Child = ExpOrd<'a>;
     type Operator = OperatorAnd;
     fn new_expr(terms: Vec<Self::Child>, opes: Vec<Self::Operator>, _range: SourceRange) -> Self {
         Self { terms, opes }
@@ -273,7 +273,7 @@ impl ParseOperator for OperatorAnd {
     }
 }
 
-impl MutCheck for ExpAnd {
+impl<'a> MutCheck for ExpAnd<'a> {
     fn mut_check(&self, ta: &TypeAnnotation, vars: &mut VariablesInfo) -> Result<MutResult, String> {
         if self.terms.len() == 1 {
             self.terms.last().unwrap().mut_check(ta, vars)
@@ -287,7 +287,7 @@ impl MutCheck for ExpAnd {
     }
 }
 
-impl MoveCheck for ExpAnd {
+impl<'a> MoveCheck for ExpAnd<'a> {
     fn move_check(&self, mc: &mut VariablesMoveChecker, ta: &TypeAnnotation) -> Result<MoveResult, String> {
         if self.terms.len() == 1 {
             self.terms.last().unwrap().move_check(mc, ta)
@@ -303,13 +303,13 @@ impl MoveCheck for ExpAnd {
 }
 
 #[derive(Debug)]
-pub struct ExpOrd {
-    pub terms: Vec<ExpBitOr>,
+pub struct ExpOrd<'a> {
+    pub terms: Vec<ExpBitOr<'a>>,
     pub ope: Option<OperatorOrd>,
-    range: SourceRange
+    range: SourceRange<'a>,
 }
 
-impl GenType for ExpOrd {
+impl<'a> GenType for ExpOrd<'a> {
     fn gen_type(&self, equs: &mut TypeEquations, trs: &TraitsInfo) -> TResult {
         match self.ope {
             Some(OperatorOrd::Equal) | Some(OperatorOrd::NotEq) => {
@@ -348,7 +348,7 @@ pub enum OperatorOrd {
     Grq,
 }
 
-impl Transpile for ExpOrd {
+impl<'a> Transpile for ExpOrd<'a> {
     fn transpile(&self, ta: &TypeAnnotation) -> String {
         match self.ope {
             Some(ref o) => {
@@ -378,8 +378,8 @@ impl Transpile for OperatorOrd {
     }
 }
 
-impl ParseExpression for ExpOrd {
-    type Child = ExpBitOr;
+impl<'a> ParseExpression for ExpOrd<'a> {
+    type Child = ExpBitOr<'a>;
     type Operator = OperatorOrd;
     fn new_expr(terms: Vec<Self::Child>, mut opes: Vec<Self::Operator>, range: SourceRange) -> Self {
         if terms.len() == 1 && opes.len() == 0 {
@@ -397,7 +397,7 @@ impl ParseExpression for ExpOrd {
     }
 }
 
-impl ParseOperator for OperatorOrd {
+impl<'a> ParseOperator for OperatorOrd {
     fn parse_operator(s: &str) -> IResult<&str, Self> {
         let (s, c) = alt((tag("=="), tag("!="), tag("<="), tag(">="), tag("<"), tag(">")))(s)?;
         let ope = match c {
@@ -413,7 +413,7 @@ impl ParseOperator for OperatorOrd {
     }
 }
 
-impl MutCheck for ExpOrd {
+impl<'a> MutCheck for ExpOrd<'a> {
     fn mut_check(&self, ta: &TypeAnnotation, vars: &mut VariablesInfo) -> Result<MutResult, String> {
         if self.terms.len() == 1 {
             self.terms.last().unwrap().mut_check(ta, vars)
@@ -427,7 +427,7 @@ impl MutCheck for ExpOrd {
     }
 }
 
-impl MoveCheck for ExpOrd {
+impl<'a> MoveCheck for ExpOrd<'a> {
     fn move_check(&self, mc: &mut VariablesMoveChecker, ta: &TypeAnnotation) -> Result<MoveResult, String> {
         if self.terms.len() == 1 {
             self.terms.last().unwrap().move_check(mc, ta)
@@ -442,18 +442,18 @@ impl MoveCheck for ExpOrd {
 }
 
 #[derive(Debug)]
-pub struct ExpBitOr {
-    pub terms: Vec<ExpBitXor>,
+pub struct ExpBitOr<'a> {
+    pub terms: Vec<ExpBitXor<'a>>,
     pub opes: Vec<OperatorBitOr>,
 }
 
-impl ExpBitOr {
+impl<'a> ExpBitOr<'a> {
     fn has_bit_operator(&self) -> bool {
         self.opes.len() > 0 || self.terms.iter().map(|t| t.has_bit_operator()).any(|b| b)
     }
 }
 
-impl GenType for ExpBitOr {
+impl<'a> GenType for ExpBitOr<'a> {
     fn gen_type(&self, equs: &mut TypeEquations, trs: &TraitsInfo) -> TResult {
         let exprs = self.terms.iter().map(|e| e.gen_type(equs, trs)).collect::<Result<Vec<_>, _>>()?;
         expr_gen_type(equs, exprs.into_iter(), self.opes.iter(), |ope| match *ope {
@@ -465,7 +465,7 @@ impl GenType for ExpBitOr {
 #[derive(Debug)]
 pub struct OperatorBitOr();
 
-impl Transpile for ExpBitOr {
+impl<'a> Transpile for ExpBitOr<'a> {
     fn transpile(&self, ta: &TypeAnnotation) -> String {
         let mut res = String::new();
         for i in 0..self.terms.len() {
@@ -482,8 +482,8 @@ impl Transpile for OperatorBitOr {
     }
 }
 
-impl ParseExpression for ExpBitOr {
-    type Child = ExpBitXor;
+impl<'a> ParseExpression for ExpBitOr<'a> {
+    type Child = ExpBitXor<'a>;
     type Operator = OperatorBitOr;
     fn new_expr(terms: Vec<Self::Child>, opes: Vec<Self::Operator>, _range: SourceRange) -> Self {
         Self { terms, opes }
@@ -500,7 +500,7 @@ impl ParseOperator for OperatorBitOr {
     }
 }
 
-impl MutCheck for ExpBitOr {
+impl<'a> MutCheck for ExpBitOr<'a> {
     fn mut_check(&self, ta: &TypeAnnotation, vars: &mut VariablesInfo) -> Result<MutResult, String> {
         if self.terms.len() == 1 {
             self.terms.last().unwrap().mut_check(ta, vars)
@@ -514,7 +514,7 @@ impl MutCheck for ExpBitOr {
     }
 }
 
-impl MoveCheck for ExpBitOr {
+impl<'a> MoveCheck for ExpBitOr<'a> {
     fn move_check(&self, mc: &mut VariablesMoveChecker, ta: &TypeAnnotation) -> Result<MoveResult, String> {
         if self.terms.len() == 1 {
             self.terms.last().unwrap().move_check(mc, ta)
@@ -530,18 +530,18 @@ impl MoveCheck for ExpBitOr {
 }
 
 #[derive(Debug)]
-pub struct ExpBitXor {
-    pub terms: Vec<ExpBitAnd>,
+pub struct ExpBitXor<'a> {
+    pub terms: Vec<ExpBitAnd<'a>>,
     pub opes: Vec<OperatorBitXor>,
 }
 
-impl ExpBitXor {
+impl<'a> ExpBitXor<'a> {
     fn has_bit_operator(&self) -> bool {
         self.opes.len() > 0 || self.terms.iter().map(|t| t.has_bit_operator()).any(|b| b)
     }
 }
 
-impl GenType for ExpBitXor {
+impl<'a> GenType for ExpBitXor<'a> {
     fn gen_type(&self, equs: &mut TypeEquations, trs: &TraitsInfo) -> TResult {
         let exprs = self.terms.iter().map(|e| e.gen_type(equs, trs)).collect::<Result<Vec<_>, _>>()?;
         expr_gen_type(equs, exprs.into_iter(), self.opes.iter(), |ope| match *ope {
@@ -553,7 +553,7 @@ impl GenType for ExpBitXor {
 #[derive(Debug)]
 pub struct OperatorBitXor();
 
-impl Transpile for ExpBitXor {
+impl<'a> Transpile for ExpBitXor<'a> {
     fn transpile(&self, ta: &TypeAnnotation) -> String {
         let mut res = String::new();
         for i in 0..self.terms.len() {
@@ -570,8 +570,8 @@ impl Transpile for OperatorBitXor {
     }
 }
 
-impl ParseExpression for ExpBitXor {
-    type Child = ExpBitAnd;
+impl<'a> ParseExpression for ExpBitXor<'a> {
+    type Child = ExpBitAnd<'a>;
     type Operator = OperatorBitXor;
     fn new_expr(terms: Vec<Self::Child>, opes: Vec<Self::Operator>, _range: SourceRange) -> Self {
         Self { terms, opes }
@@ -588,7 +588,7 @@ impl ParseOperator for OperatorBitXor {
     }
 }
 
-impl MutCheck for ExpBitXor {
+impl<'a> MutCheck for ExpBitXor<'a> {
     fn mut_check(&self, ta: &TypeAnnotation, vars: &mut VariablesInfo) -> Result<MutResult, String> {
         if self.terms.len() == 1 {
             self.terms.last().unwrap().mut_check(ta, vars)
@@ -602,7 +602,7 @@ impl MutCheck for ExpBitXor {
     }
 }
 
-impl MoveCheck for ExpBitXor {
+impl<'a> MoveCheck for ExpBitXor<'a> {
     fn move_check(&self, mc: &mut VariablesMoveChecker, ta: &TypeAnnotation) -> Result<MoveResult, String> {
         if self.terms.len() == 1 {
             self.terms.last().unwrap().move_check(mc, ta)
@@ -617,19 +617,19 @@ impl MoveCheck for ExpBitXor {
     }
 }
 #[derive(Debug)]
-pub struct ExpBitAnd {
-    pub terms: Vec<ExpShift>,
+pub struct ExpBitAnd<'a> {
+    pub terms: Vec<ExpShift<'a>>,
     pub opes: Vec<OperatorBitAnd>,
 }
 
 
-impl ExpBitAnd {
+impl<'a> ExpBitAnd<'a> {
     fn has_bit_operator(&self) -> bool {
         self.opes.len() > 0
     }
 }
 
-impl GenType for ExpBitAnd {
+impl<'a> GenType for ExpBitAnd<'a> {
     fn gen_type(&self, equs: &mut TypeEquations, trs: &TraitsInfo) -> TResult {
         let exprs = self.terms.iter().map(|e| e.gen_type(equs, trs)).collect::<Result<Vec<_>, _>>()?;
         expr_gen_type(equs, exprs.into_iter(), self.opes.iter(), |ope| match *ope {
@@ -642,7 +642,7 @@ impl GenType for ExpBitAnd {
 #[derive(Debug)]
 pub struct OperatorBitAnd();
 
-impl Transpile for ExpBitAnd {
+impl<'a> Transpile for ExpBitAnd<'a> {
     fn transpile(&self, ta: &TypeAnnotation) -> String {
         let mut res = String::new();
         for i in 0..self.terms.len() {
@@ -659,8 +659,8 @@ impl Transpile for OperatorBitAnd {
     }
 }
 
-impl ParseExpression for ExpBitAnd {
-    type Child = ExpShift;
+impl<'a> ParseExpression for ExpBitAnd<'a> {
+    type Child = ExpShift<'a>;
     type Operator = OperatorBitAnd;
     fn new_expr(terms: Vec<Self::Child>, opes: Vec<Self::Operator>, _range: SourceRange) -> Self {
         Self { terms, opes }
@@ -678,7 +678,7 @@ impl ParseOperator for OperatorBitAnd {
     }
 }
 
-impl MutCheck for ExpBitAnd {
+impl<'a> MutCheck for ExpBitAnd<'a> {
     fn mut_check(&self, ta: &TypeAnnotation, vars: &mut VariablesInfo) -> Result<MutResult, String> {
         if self.terms.len() == 1 {
             self.terms.last().unwrap().mut_check(ta, vars)
@@ -692,7 +692,7 @@ impl MutCheck for ExpBitAnd {
     }
 }
 
-impl MoveCheck for ExpBitAnd {
+impl<'a> MoveCheck for ExpBitAnd<'a> {
     fn move_check(&self, mc: &mut VariablesMoveChecker, ta: &TypeAnnotation) -> Result<MoveResult, String> {
         if self.terms.len() == 1 {
             self.terms.last().unwrap().move_check(mc, ta)
@@ -707,12 +707,12 @@ impl MoveCheck for ExpBitAnd {
     }
 }
 #[derive(Debug)]
-pub struct ExpShift {
-    pub terms: Vec<ExpAddSub>,
+pub struct ExpShift<'a> {
+    pub terms: Vec<ExpAddSub<'a>>,
     pub opes: Vec<OperatorShift>,
 }
 
-impl GenType for ExpShift {
+impl<'a> GenType for ExpShift<'a> {
     fn gen_type(&self, equs: &mut TypeEquations, trs: &TraitsInfo) -> TResult {
         let exprs = self.terms.iter().map(|e| e.gen_type(equs, trs)).collect::<Result<Vec<_>, _>>()?;
         expr_gen_type(equs, exprs.into_iter(), self.opes.iter(), |ope| match *ope {
@@ -728,7 +728,7 @@ pub enum OperatorShift {
     Shr,
 }
 
-impl Transpile for ExpShift {
+impl<'a> Transpile for ExpShift<'a> {
     fn transpile(&self, ta: &TypeAnnotation) -> String {
         let mut res = String::new();
         for i in 0..self.terms.len() {
@@ -748,8 +748,8 @@ impl Transpile for OperatorShift {
     }
 }
 
-impl ParseExpression for ExpShift {
-    type Child = ExpAddSub;
+impl<'a> ParseExpression for ExpShift<'a> {
+    type Child = ExpAddSub<'a>;
     type Operator = OperatorShift;
     fn new_expr(terms: Vec<Self::Child>, opes: Vec<Self::Operator>, _range: SourceRange) -> Self {
         Self { terms, opes }
@@ -771,7 +771,7 @@ impl ParseOperator for OperatorShift {
     }
 }
 
-impl MutCheck for ExpShift {
+impl<'a> MutCheck for ExpShift<'a> {
     fn mut_check(&self, ta: &TypeAnnotation, vars: &mut VariablesInfo) -> Result<MutResult, String> {
         if self.terms.len() == 1 {
             self.terms.last().unwrap().mut_check(ta, vars)
@@ -785,7 +785,7 @@ impl MutCheck for ExpShift {
     }
 }
 
-impl MoveCheck for ExpShift {
+impl<'a> MoveCheck for ExpShift<'a> {
     fn move_check(&self, mc: &mut VariablesMoveChecker, ta: &TypeAnnotation) -> Result<MoveResult, String> {
         if self.terms.len() == 1 {
             self.terms.last().unwrap().move_check(mc, ta)
@@ -800,12 +800,12 @@ impl MoveCheck for ExpShift {
     }
 }
 #[derive(Debug)]
-pub struct ExpAddSub {
-    pub terms: Vec<ExpMulDivRem>,
+pub struct ExpAddSub<'a> {
+    pub terms: Vec<ExpMulDivRem<'a>>,
     pub opes: Vec<OperatorAddSub>,
 }
 
-impl GenType for ExpAddSub {
+impl<'a> GenType for ExpAddSub<'a> {
     fn gen_type(&self, equs: &mut TypeEquations, trs: &TraitsInfo) -> TResult {
         let exprs = self.terms.iter().map(|e| e.gen_type(equs, trs)).collect::<Result<Vec<_>, _>>()?;
         expr_gen_type(equs, exprs.into_iter(), self.opes.iter(), |ope| match *ope {
@@ -821,7 +821,7 @@ pub enum OperatorAddSub {
     Sub,
 }
 
-impl Transpile for ExpAddSub {
+impl<'a> Transpile for ExpAddSub<'a> {
     fn transpile(&self, ta: &TypeAnnotation) -> String {
         let mut res = String::new();
         for i in 0..self.terms.len() {
@@ -841,8 +841,8 @@ impl Transpile for OperatorAddSub {
     }
 }
 
-impl ParseExpression for ExpAddSub {
-    type Child = ExpMulDivRem;
+impl<'a> ParseExpression for ExpAddSub<'a> {
+    type Child = ExpMulDivRem<'a>;
     type Operator = OperatorAddSub;
     fn new_expr(terms: Vec<Self::Child>, opes: Vec<Self::Operator>, _range: SourceRange) -> Self {
         Self { terms, opes }
@@ -864,7 +864,7 @@ impl ParseOperator for OperatorAddSub {
     }
 }
 
-impl MutCheck for ExpAddSub {
+impl<'a> MutCheck for ExpAddSub<'a> {
     fn mut_check(&self, ta: &TypeAnnotation, vars: &mut VariablesInfo) -> Result<MutResult, String> {
         if self.terms.len() == 1 {
             self.terms.last().unwrap().mut_check(ta, vars)
@@ -878,7 +878,7 @@ impl MutCheck for ExpAddSub {
     }
 }
 
-impl MoveCheck for ExpAddSub {
+impl<'a> MoveCheck for ExpAddSub<'a> {
     fn move_check(&self, mc: &mut VariablesMoveChecker, ta: &TypeAnnotation) -> Result<MoveResult, String> {
         if self.terms.len() == 1 {
             self.terms.last().unwrap().move_check(mc, ta)
@@ -894,13 +894,13 @@ impl MoveCheck for ExpAddSub {
 }
 
 #[derive(Debug)]
-pub struct ExpMulDivRem {
-    pub unary_exprs: Vec<ExpUnaryOpe>,
+pub struct ExpMulDivRem<'a> {
+    pub unary_exprs: Vec<ExpUnaryOpe<'a>>,
     pub opes: Vec<OperatorMulDivRem>,
     pub tag: Tag,
 }
 
-impl GenType for ExpMulDivRem {
+impl<'a> GenType for ExpMulDivRem<'a> {
     fn gen_type(&self, equs: &mut TypeEquations, trs: &TraitsInfo) -> TResult {
         let exprs = self.unary_exprs.iter().map(|e| e.gen_type(equs, trs)).collect::<Result<Vec<_>, _>>()?;
         expr_gen_type(equs, exprs.into_iter(), self.opes.iter(), |ope| match *ope {
@@ -918,7 +918,7 @@ pub enum OperatorMulDivRem {
     Rem
 }
 
-impl Transpile for ExpMulDivRem {
+impl<'a> Transpile for ExpMulDivRem<'a> {
     fn transpile(&self, ta: &TypeAnnotation) -> String {
         let mut res = String::new();
         for i in 0..self.unary_exprs.len() {
@@ -939,8 +939,8 @@ impl Transpile for OperatorMulDivRem {
     }
 }
 
-impl ParseExpression for ExpMulDivRem {
-    type Child = ExpUnaryOpe;
+impl<'a> ParseExpression for ExpMulDivRem<'a> {
+    type Child = ExpUnaryOpe<'a>;
     type Operator = OperatorMulDivRem;
     fn new_expr(unary_exprs: Vec<Self::Child>, opes: Vec<Self::Operator>, _range: SourceRange) -> Self {
         Self { unary_exprs, opes, tag: Tag::new(), }
@@ -972,7 +972,7 @@ impl ParseOperator for OperatorMulDivRem {
     }
 }
 
-impl MutCheck for ExpMulDivRem {
+impl<'a> MutCheck for ExpMulDivRem<'a> {
     fn mut_check(&self, ta: &TypeAnnotation, vars: &mut VariablesInfo) -> Result<MutResult, String> {
         if self.unary_exprs.len() == 1 {
             self.unary_exprs.last().unwrap().mut_check(ta, vars)
@@ -986,7 +986,7 @@ impl MutCheck for ExpMulDivRem {
     }
 }
 
-impl MoveCheck for ExpMulDivRem {
+impl<'a> MoveCheck for ExpMulDivRem<'a> {
     fn move_check(&self, mc: &mut VariablesMoveChecker, ta: &TypeAnnotation) -> Result<MoveResult, String> {
         if self.unary_exprs.len() == 1 {
             self.unary_exprs.last().unwrap().move_check(mc, ta)
@@ -1002,16 +1002,16 @@ impl MoveCheck for ExpMulDivRem {
 }
 
 #[derive(Debug)]
-pub enum ExpUnaryOpe {
+pub enum ExpUnaryOpe<'a> {
     UnaryExpr(UnaryExpr),
-    Ref(Box<ExpUnaryOpe>),
-    MutRef(Box<ExpUnaryOpe>),
-    Deref(Box<ExpUnaryOpe>, Tag),
-    Neg(Box<ExpUnaryOpe>, Tag),
-    Not(Box<ExpUnaryOpe>, Tag),
+    Ref(Box<ExpUnaryOpe<'a>>),
+    MutRef(Box<ExpUnaryOpe<'a>>),
+    Deref(Box<ExpUnaryOpe<'a>>, Tag),
+    Neg(Box<ExpUnaryOpe<'a>>, Tag),
+    Not(Box<ExpUnaryOpe<'a>>, Tag),
 }
 
-impl GenType for ExpUnaryOpe {
+impl<'a> GenType for ExpUnaryOpe<'a> {
     fn gen_type(&self, equs: &mut TypeEquations, trs: &TraitsInfo) -> TResult {
         match self {
             Self::UnaryExpr(ref exp) => exp.gen_type(equs, trs),
@@ -1048,7 +1048,7 @@ impl GenType for ExpUnaryOpe {
     }
 }
 
-impl Transpile for ExpUnaryOpe {
+impl<'a> Transpile for ExpUnaryOpe<'a> {
     fn transpile(&self, ta: &TypeAnnotation) -> String {
         match self {
             Self::UnaryExpr(ref exp) => exp.transpile(ta),
@@ -1061,7 +1061,7 @@ impl Transpile for ExpUnaryOpe {
     }
 }
 
-impl MutCheck for ExpUnaryOpe {
+impl<'a> MutCheck for ExpUnaryOpe<'a> {
     fn mut_check(&self, ta: &TypeAnnotation, vars: &mut VariablesInfo) -> Result<MutResult, String> {
         match self {
             Self::UnaryExpr(ref exp) => exp.mut_check(ta, vars),
@@ -1095,7 +1095,7 @@ impl MutCheck for ExpUnaryOpe {
     }
 }
 
-impl MoveCheck for ExpUnaryOpe {
+impl<'a> MoveCheck for ExpUnaryOpe<'a> {
     fn move_check(&self, mc: &mut VariablesMoveChecker, ta: &TypeAnnotation) -> Result<MoveResult, String> {
         match self {
             Self::UnaryExpr(ref exp) => exp.move_check(mc, ta),

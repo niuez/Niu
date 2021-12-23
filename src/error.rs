@@ -40,9 +40,9 @@ impl<'a> NiuError for ErrorHint<'a> {
 #[derive(Debug, Clone)]
 pub enum Error<'a> {
     Hint(ErrorHint<'a>),
-    Comment(ErrorComment),
-    Details(ErrorDetails),
-    Unify(ErrorUnify),
+    Comment(ErrorComment<'a>),
+    Details(ErrorDetails<'a>),
+    Unify(ErrorUnify<'a>),
     None,
 }
 

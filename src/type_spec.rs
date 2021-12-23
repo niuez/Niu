@@ -17,9 +17,9 @@ use crate::trans::*;
 use crate::error::*;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct TypeSign {
+pub struct TypeSign<'a> {
     pub id: TypeId,
-    pub gens: Vec<TypeSpec>,
+    pub gens: Vec<TypeSpec<'a>>,
 }
 
 #[derive(Debug, Clone)]
@@ -49,7 +49,7 @@ impl<'a> GenericsTypeMap<'a> {
 }
 
 
-impl TypeSign {
+impl<'a> TypeSign<'a> {
     pub fn generics_to_type(&self, mp: &GenericsTypeMap, equs: &mut TypeEquations, trs: &TraitsInfo) -> TResult {
         match mp.get(&self.id).cloned() {
             Some(t) => {
@@ -138,7 +138,7 @@ pub fn parse_type_sign(s: &str) -> IResult<&str, TypeSign> {
     }
 } */
 
-impl Transpile for TypeSign {
+impl Transpile for TypeSign<'_> {
     fn transpile(&self, ta: &TypeAnnotation) -> String {
         if let Some((ids, cppinline)) = ta.is_inline_struct(&self.id) {
             let mp = ids.iter().cloned().zip(self.gens.iter().map(|g| g.transpile(ta))).collect::<HashMap<_, _>>();
@@ -162,27 +162,27 @@ impl Transpile for TypeSign {
 }
 
 #[derive(Debug, Clone)]
-pub struct AssociatedSpec {
-    type_spec: Box<TypeSpec>,
+pub struct AssociatedSpec<'a> {
+    type_spec: Box<TypeSpec<'a>>,
     associated: AssociatedType,
     tag: Tag,
-    range: SourceRange,
+    range: SourceRange<'a>,
 }
 
-impl AssociatedSpec {
+impl<'a> AssociatedSpec<'a> {
     pub fn new(type_spec: Box<TypeSpec>, associated: AssociatedType, tag: Tag, range: SourceRange) -> Self {
         Self { type_spec, associated, tag, range }
     }
 }
 
-impl PartialEq for AssociatedSpec {
+impl<'a> PartialEq for AssociatedSpec<'a> {
     fn eq(&self, other: &Self) -> bool {
         self.type_spec == other.type_spec &&
         self.associated == other.associated
     }
 }
-impl Eq for AssociatedSpec {}
-impl std::hash::Hash for AssociatedSpec {
+impl<'a> Eq for AssociatedSpec<'a> {}
+impl<'a> std::hash::Hash for AssociatedSpec<'a> {
     fn hash<H>(&self, state: &mut H) where H: std::hash::Hasher {
         self.type_spec.hash(state);
         self.associated.hash(state);
@@ -190,15 +190,15 @@ impl std::hash::Hash for AssociatedSpec {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum TypeSpec {
-    TypeSign(TypeSign),
-    Pointer(Box<TypeSpec>),
-    MutPointer(Box<TypeSpec>),
-    Associated(AssociatedSpec),
-    Tuple(Vec<TypeSpec>),
+pub enum TypeSpec<'a> {
+    TypeSign(TypeSign<'a>),
+    Pointer(Box<TypeSpec<'a>>),
+    MutPointer(Box<TypeSpec<'a>>),
+    Associated(AssociatedSpec<'a>),
+    Tuple(Vec<TypeSpec<'a>>),
 }
 
-impl TypeSpec {
+impl<'a> TypeSpec<'a> {
     pub fn generics_to_type(&self, mp: &GenericsTypeMap, equs: &mut TypeEquations, trs: &TraitsInfo) -> TResult {
         match *self {
             TypeSpec::TypeSign(ref sign) => {
@@ -307,7 +307,7 @@ impl TypeSpec {
     }
 }
 
-fn parse_type_spec_subseq(s: &str, prev: TypeSpec, prev_range: SourceRange) -> IResult<&str, TypeSpec> {
+fn parse_type_spec_subseq<'a>(s: &'a str, prev: TypeSpec, prev_range: SourceRange) -> IResult<&'a str, TypeSpec<'a>> {
     if let Ok((ss, (_, (asso_ty, range)))) = tuple((multispace0, with_range(parse_associated_type)))(s) {
         let range = prev_range.merge(&range);
         parse_type_spec_subseq(ss, TypeSpec::Associated(
@@ -355,7 +355,7 @@ pub fn parse_type_spec(s: &str) -> IResult<&str, TypeSpec> {
 }
 
 /* 
-impl GenType for TypeSpec {
+impl<'a> GenType for TypeSpec {
     fn gen_type(&self, equs: &mut TypeEquations, trs: &TraitsInfo) -> TResult {
         match *self {
             TypeSpec::TypeSign(ref sign) => sign.gen_type(equs, trs),
@@ -367,7 +367,7 @@ impl GenType for TypeSpec {
     }
 } */
 
-impl Transpile for TypeSpec {
+impl<'a> Transpile for TypeSpec<'a> {
     fn transpile(&self, ta: &TypeAnnotation) -> String {
         match *self {
             TypeSpec::TypeSign(ref sign) => sign.transpile(ta),

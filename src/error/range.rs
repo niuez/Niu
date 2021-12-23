@@ -37,11 +37,11 @@ impl<'a> SourceRange<'a> {
 pub struct RangeHint<'a> {
     range: SourceRange<'a>,
     hint: String,
-    prev: Box<ErrorHint>,
+    prev: Box<ErrorHint<'a>>,
 }
 
 impl<'a> RangeHint<'a> {
-    pub fn new(range: SourceRange, hint: &str, prev: ErrorHint) -> ErrorHint {
+    pub fn new(range: SourceRange, hint: &str, prev: ErrorHint) -> ErrorHint<'a> {
         ErrorHint::Range(Self { range, hint: hint.to_string(), prev: Box::new(prev) })
     }
 }
