@@ -39,6 +39,8 @@ pub mod move_checker;
 
 pub mod error;
 
+pub mod content_str;
+
 use std::path::*;
 
 //use crate::trans::Transpile;

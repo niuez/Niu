@@ -35,3 +35,4 @@ pub mod move_checker;
 pub mod unit_test;
 
 pub mod error;
+pub mod content_str;
