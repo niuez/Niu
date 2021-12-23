@@ -17,18 +17,18 @@ pub trait NiuError: std::fmt::Debug {
 }
 
 #[derive(Debug, Clone)]
-pub enum ErrorHint {
-    Range(RangeHint),
+pub enum ErrorHint<'a> {
+    Range(RangeHint<'a>),
     None,
 }
 
-impl ErrorHint {
-    pub fn err(self) -> Error {
+impl<'a> ErrorHint<'a> {
+    pub fn err(self) -> Error<'a> {
         Error::Hint(self)
     }
 }
 
-impl NiuError for ErrorHint {
+impl<'a> NiuError for ErrorHint<'a> {
     fn what(&self, data: &ErrorData) -> String {
         match *self {
             Self::Range(ref a) => a.what(data),
@@ -38,15 +38,15 @@ impl NiuError for ErrorHint {
 }
 
 #[derive(Debug, Clone)]
-pub enum Error {
-    Hint(ErrorHint),
+pub enum Error<'a> {
+    Hint(ErrorHint<'a>),
     Comment(ErrorComment),
     Details(ErrorDetails),
     Unify(ErrorUnify),
     None,
 }
 
-impl NiuError for Error {
+impl<'a> NiuError for Error<'a> {
     fn what(&self, data: &ErrorData) -> String {
         match *self {
             Self::Hint(ref a) => a.what(data),

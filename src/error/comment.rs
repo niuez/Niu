@@ -1,13 +1,13 @@
 use crate::error::*;
 
 #[derive(Debug, Clone)]
-pub struct ErrorComment {
+pub struct ErrorComment<'a> {
     comment: String,
-    prev: Box<Error>,
+    prev: Box<Error<'a>>,
 }
 
-impl ErrorComment {
-    pub fn empty(comment: String) -> Error {
+impl<'a> ErrorComment<'a> {
+    pub fn empty(comment: String) -> Error<'a> {
         Error::Comment(ErrorComment {
             comment,
             prev: Box::new(Error::None),
@@ -21,7 +21,7 @@ impl ErrorComment {
     }
 }
 
-impl NiuError for ErrorComment {
+impl<'a> NiuError for ErrorComment<'a> {
     fn what(&self, data: &ErrorData) -> String {
         format!("{}\nerror: {}", self.prev.as_ref().what(data), self.comment)
     }
