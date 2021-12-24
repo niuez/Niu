@@ -1,0 +1,8 @@
+import "std/opes.niu"
+struct Hoge {} {}
+
+impl Clone for Hoge {
+  fn clone(self: Self) -> Self {
+    self
+  }
+}
