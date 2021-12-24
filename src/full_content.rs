@@ -22,7 +22,7 @@ use crate::content_str::*;
 
 #[derive(Debug)]
 pub struct FullContent {
-    pub programs: HashMap<usize, String>,
+    pub programs: HashMap<usize, ProgramData>,
     pub structs: Vec<(StructDefinition, String)>,
     pub traits: Vec<(TraitDefinition, String)>,
     pub impls: Vec<(ImplDefinition, String)>,
@@ -284,7 +284,7 @@ pub fn parse_full_content<'a>(s: ContentStr<'a>, name: &str) -> IResult<ContentS
             ContentElement::UnitTest(unit_test) => unit_tests.push(unit_test),
         }
     }
-    let programs = std::iter::once((s.name, s.s.to_string())).collect();
+    let programs = std::iter::once((s.name, ProgramData { program: s.s.to_string(), filename: name.to_string() })).collect();
     Ok((ss, (imports, FullContent { programs, structs, funcs, traits, impls, includes, unit_tests, })))
 }
 

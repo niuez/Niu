@@ -10,8 +10,14 @@ pub use comment::*;
 pub use details::*;
 pub use unify::*;
 
+#[derive(Debug)]
+pub struct ProgramData {
+    pub program: String,
+    pub filename: String,
+}
+
 pub struct ErrorData<'a> {
-    pub programs: &'a HashMap<usize, String>,
+    pub programs: &'a HashMap<usize, ProgramData>,
 }
 
 pub trait NiuError: std::fmt::Debug {
