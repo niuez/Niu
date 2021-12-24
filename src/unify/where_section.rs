@@ -15,6 +15,7 @@ use crate::identifier::Tag;
 use crate::unify::*;
 use crate::trans::*;
 use crate::error::*;
+use crate::content_str::*;
 
 #[derive(Debug, Clone)]
 pub struct WhereSection {
@@ -158,12 +159,12 @@ impl WhereSection {
     }
 }
 
-fn parse_associated_type_specifier_elem(s: &str) -> IResult<&str, (AssociatedTypeIdentifier, TypeSpec)> {
+fn parse_associated_type_specifier_elem(s: ContentStr<'_>) -> IResult<ContentStr<'_>, (AssociatedTypeIdentifier, TypeSpec)> {
     let (s, ((id, _, _, _, spec), _range)) = with_range(tuple((parse_associated_type_identifier, multispace0, char('='), multispace0, parse_type_spec)))(s)?;
     Ok((s, (id, spec)))
 }
 
-fn parse_associated_type_specifiers(s: &str) -> IResult<&str, Vec<(AssociatedTypeIdentifier, TypeSpec)>> {
+fn parse_associated_type_specifiers(s: ContentStr<'_>) -> IResult<ContentStr<'_>, Vec<(AssociatedTypeIdentifier, TypeSpec)>> {
     let (s, op) = opt(tuple((char('('), multispace0, separated_list0(tuple((multispace0, char(','), multispace0)), parse_associated_type_specifier_elem), multispace0, char(')'))))(s)?;
     let res = match op {
         Some((_, _, res, _, _)) => res,
@@ -172,13 +173,13 @@ fn parse_associated_type_specifiers(s: &str) -> IResult<&str, Vec<(AssociatedTyp
     Ok((s, res))
 }
 
-fn parse_has_trait_element(s: &str) -> IResult<&str, WhereElem> {
+fn parse_has_trait_element(s: ContentStr<'_>) -> IResult<ContentStr<'_>, WhereElem> {
     let (s, ((spec, _, _, _, tr_id, _, assos), range)) = with_range(tuple((parse_type_spec, multispace0, char(':'), multispace0, parse_trait_spec, multispace0, parse_associated_type_specifiers)))(s)?;
     let dep = spec.associated_type_depth();
     Ok((s, WhereElem::HasTrait((spec, dep, tr_id, assos, range))))
 }
 
-fn parse_tuple_trait_element(s: &str) -> IResult<&str, WhereElem> {
+fn parse_tuple_trait_element(s: ContentStr<'_>) -> IResult<ContentStr<'_>, WhereElem> {
     let (s, ((_, _, spec, _, _, _, tr_id), range)) = with_range(tuple((tag("tuple"), multispace1, parse_type_spec, multispace0, char(':'), multispace0, parse_trait_id)))(s)?;
     Ok((s, WhereElem::TupleTrait((spec, tr_id, range))))
 }
@@ -188,7 +189,7 @@ enum WhereElem {
     TupleTrait((TypeSpec, TraitId, SourceRange)),
 }
 
-pub fn parse_where_section(s: &str) -> IResult<&str, WhereSection> {
+pub fn parse_where_section(s: ContentStr<'_>) -> IResult<ContentStr<'_>, WhereSection> {
     let (s, (op, range)) = with_range(opt(
         tuple((
                 tag("where"), multispace1,
@@ -211,7 +212,7 @@ pub fn parse_where_section(s: &str) -> IResult<&str, WhereSection> {
 
 #[test]
 fn parse_where_section_test() {
-    log::debug!("{:?}", parse_where_section("where S: Add(Output=T)").unwrap());
-    log::debug!("{:?}", parse_where_section("where S: Add<T>(Output=T)").unwrap());
-    log::debug!("{:?}", parse_where_section("where S: Add<T>(Output=T), S: Sub<T>(Output=T)").unwrap());
+    log::debug!("{:?}", parse_where_section("where S: Add(Output=T)".into_content(0)).unwrap());
+    log::debug!("{:?}", parse_where_section("where S: Add<T>(Output=T)".into_content(0)).unwrap());
+    log::debug!("{:?}", parse_where_section("where S: Add<T>(Output=T), S: Sub<T>(Output=T)".into_content(0)).unwrap());
 }

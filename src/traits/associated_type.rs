@@ -18,7 +18,7 @@ impl Transpile for AssociatedTypeIdentifier {
 }
 
 
-pub fn parse_associated_type_identifier(s: &str) -> IResult<&str, AssociatedTypeIdentifier> {
+pub fn parse_associated_type_identifier(s: ContentStr<'_>) -> IResult<ContentStr<'_>, AssociatedTypeIdentifier> {
     let (s, id) = parse_identifier(s)?;
     Ok((s, AssociatedTypeIdentifier { id }))
 }
@@ -30,7 +30,7 @@ pub struct AssociatedType {
     pub type_id: AssociatedTypeIdentifier,
 }
 
-pub fn parse_associated_type(s: &str) -> IResult<&str, AssociatedType> {
+pub fn parse_associated_type(s: ContentStr<'_>) -> IResult<ContentStr<'_>, AssociatedType> {
     let (s, (trait_spec, _, _, type_id)) = tuple((
             opt(tuple((char('#'), multispace0, parse_trait_spec, multispace0))), tag("::"), multispace0, parse_associated_type_identifier))(s)?;
     Ok((s, AssociatedType { trait_spec: trait_spec.map(|(_, _, t, _)| t), type_id }))

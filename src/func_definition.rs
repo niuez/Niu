@@ -19,6 +19,7 @@ use crate::type_spec::*;
 use crate::cpp_inline::*;
 use crate::move_checker::*;
 use crate::error::*;
+use crate::content_str::*;
 
 
 #[derive(Debug)]
@@ -325,7 +326,7 @@ impl FuncDefinition {
     Ok((s, (id, opt.map(|(_, _, tr)| tr))))
 }*/
 
-fn parse_mutable(s: &str) -> IResult<&str, bool> {
+fn parse_mutable(s: ContentStr<'_>) -> IResult<ContentStr<'_>, bool> {
     let (s, op) = opt(tuple((tag("mut"), multispace1)))(s)?;
     let is_mutable = match op {
         Some(_) => true,
@@ -334,7 +335,7 @@ fn parse_mutable(s: &str) -> IResult<&str, bool> {
     Ok((s, is_mutable))
 }
 
-pub fn parse_func_definition_info(s: &str) -> IResult<&str, FuncDefinitionInfo> {
+pub fn parse_func_definition_info(s: ContentStr<'_>) -> IResult<ContentStr<'_>, FuncDefinitionInfo> {
     let (s, ((_, _, func_id, _, generics_opt, _, _, _, op, _, _, _, _, return_type, _, where_sec), range)) = 
         with_range(tuple((tag("fn"), multispace1, parse_identifier, multispace0, opt(tuple((char('<'), multispace0, opt(tuple((parse_type_id, multispace0, many0(tuple((char(','), multispace0, parse_type_id, multispace0))), opt(char(',')), multispace0))), char('>'), multispace0))), multispace0,
                char('('), multispace0,
@@ -368,22 +369,22 @@ pub fn parse_func_definition_info(s: &str) -> IResult<&str, FuncDefinitionInfo> 
     Ok((s, FuncDefinitionInfo { func_id, generics, where_sec, args, return_type, inline: None, range }))
 }
 
-fn parse_func_block_block(s: &str) -> IResult<&str, FuncBlock> {
+fn parse_func_block_block(s: ContentStr<'_>) -> IResult<ContentStr<'_>, FuncBlock> {
     let (s, block) = parse_block(s)?;
     Ok((s, FuncBlock::Block(block)))
 }
 
-fn parse_func_block_cppinline(s: &str) -> IResult<&str, FuncBlock> {
+fn parse_func_block_cppinline(s: ContentStr<'_>) -> IResult<ContentStr<'_>, FuncBlock> {
     let (s, inline) = parse_cpp_inline(s)?;
     Ok((s, FuncBlock::CppInline(inline)))
 }
 
 
-fn parse_func_block(s: &str) -> IResult<&str, FuncBlock> {
+fn parse_func_block(s: ContentStr<'_>) -> IResult<ContentStr<'_>, FuncBlock> {
     alt((parse_func_block_block, parse_func_block_cppinline))(s)
 }
 
-pub fn parse_func_definition(s: &str) -> IResult<&str, FuncDefinition> {
+pub fn parse_func_definition(s: ContentStr<'_>) -> IResult<ContentStr<'_>, FuncDefinition> {
     let (s, (info, _, block)) = tuple((parse_func_definition_info, multispace0, parse_func_block))(s)?;
     Ok((s, FuncDefinition { func_id: info.func_id, generics: info.generics, where_sec: info.where_sec, args: info.args, return_type: info.return_type, block, def_range: info.range.clone() }))
 }
@@ -391,22 +392,22 @@ pub fn parse_func_definition(s: &str) -> IResult<&str, FuncDefinition> {
 
 #[test]
 fn parse_func_definition_test() {
-    log::debug!("{:?}", parse_func_definition("fn func(x: i64) -> i64 { let y = x * x; y + x }").ok());
-    log::debug!("{:?}", parse_func_definition("fn func2<t>(x: t) -> t { x }").ok());
-    log::debug!("{:?}", parse_func_definition("fn func3<x, y, z>(x: x) -> z { x }").ok());
+    log::debug!("{:?}", parse_func_definition("fn func(x: i64) -> i64 { let y = x * x; y + x }".into_content(0)).ok());
+    log::debug!("{:?}", parse_func_definition("fn func2<t>(x: t) -> t { x }".into_content(0)).ok());
+    log::debug!("{:?}", parse_func_definition("fn func3<x, y, z>(x: x) -> z { x }".into_content(0)).ok());
 }
 #[test]
 fn parse_func_definition2_test() {
-    log::debug!("{:?}", parse_func_definition("fn func2<t>(x: t) -> t where t: MyTraits{ x }").ok());
-    log::debug!("{:?}", parse_func_definition_info("fn nest_out<T>(t: T) -> T#MyTrait::Output#MyTrait::Output where T: MyTrait, T#MyTrait::Output: MyTrait").ok());
+    log::debug!("{:?}", parse_func_definition("fn func2<t>(x: t) -> t where t: MyTraits{ x }".into_content(0)).ok());
+    log::debug!("{:?}", parse_func_definition_info("fn nest_out<T>(t: T) -> T#MyTrait::Output#MyTrait::Output where T: MyTrait, T#MyTrait::Output: MyTrait".into_content(0)).ok());
 }
 
 #[test]
 fn parse_func_mutable_argument_test() {
-    log::debug!("{:?}", parse_func_definition("fn func(mut x: i64, mut y: u64) -> bool { false }").unwrap());
+    log::debug!("{:?}", parse_func_definition("fn func(mut x: i64, mut y: u64) -> bool { false }".into_content(0)).unwrap());
 }
 
 #[test]
 fn parse_func_cppinline_test() {
-    log::debug!("{:?}", parse_func_definition("fn push_back(self: Self, t: T) -> bool $${ $arg(self).push_back($arg(t)) }$$").ok());
+    log::debug!("{:?}", parse_func_definition("fn push_back(self: Self, t: T) -> bool $${ $arg(self).push_back($arg(t)) }$$".into_content(0)).ok());
 }

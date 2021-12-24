@@ -18,6 +18,7 @@ use crate::trans::*;
 use crate::mut_checker::*;
 use crate::move_checker::*;
 use crate::error::*;
+use crate::content_str::*;
 
 pub use if_expr::*;
 pub use for_expr::*;
@@ -97,7 +98,7 @@ impl MoveCheck for Expression {
     }
 }
 
-fn default_parse_expression<P: ParseExpression>(s: &str) -> IResult<&str, P>
+fn default_parse_expression<P: ParseExpression>(s: ContentStr) -> IResult<ContentStr, P>
 where
     P::Child: ParseExpression,
     P::Operator: ParseOperator,
@@ -118,11 +119,11 @@ trait ParseExpression: Sized {
     type Child: Sized;
     type Operator: Sized;
     fn new_expr(childs: Vec<Self::Child>, opes: Vec<Self::Operator>, range: SourceRange) -> Self;
-    fn parse_expression(s: &str) -> IResult<&str, Self>;
+    fn parse_expression(s: ContentStr) -> IResult<ContentStr, Self>;
 }
 
 trait ParseOperator: Sized {
-    fn parse_operator(s: &str) -> IResult<&str, Self>;
+    fn parse_operator(s: ContentStr) -> IResult<ContentStr, Self>;
 }
 
 #[derive(Debug)]
@@ -172,13 +173,13 @@ impl ParseExpression for ExpOr {
     fn new_expr(terms: Vec<Self::Child>, opes: Vec<Self::Operator>, _range: SourceRange) -> Self {
         Self { terms, opes }
     }
-    fn parse_expression(s: &str) -> IResult<&str, Self> {
+    fn parse_expression(s: ContentStr<'_>) -> IResult<ContentStr<'_>, Self> {
         default_parse_expression::<Self>(s)
     }
 }
 
 impl ParseOperator for OperatorOr {
-    fn parse_operator(s: &str) -> IResult<&str, Self> {
+    fn parse_operator(s: ContentStr<'_>) -> IResult<ContentStr<'_>, Self> {
         let (s, _) = tag("||")(s)?;
         Ok((s, OperatorOr()))
     }
@@ -261,13 +262,13 @@ impl ParseExpression for ExpAnd {
     fn new_expr(terms: Vec<Self::Child>, opes: Vec<Self::Operator>, _range: SourceRange) -> Self {
         Self { terms, opes }
     }
-    fn parse_expression(s: &str) -> IResult<&str, Self> {
+    fn parse_expression(s: ContentStr<'_>) -> IResult<ContentStr<'_>, Self> {
         default_parse_expression::<Self>(s)
     }
 }
 
 impl ParseOperator for OperatorAnd {
-    fn parse_operator(s: &str) -> IResult<&str, Self> {
+    fn parse_operator(s: ContentStr<'_>) -> IResult<ContentStr<'_>, Self> {
         let (s, _) = tag("&&")(s)?;
         Ok((s, OperatorAnd()))
     }
@@ -392,15 +393,15 @@ impl ParseExpression for ExpOrd {
             unreachable!();
         }
     }
-    fn parse_expression(s: &str) -> IResult<&str, Self> {
+    fn parse_expression(s: ContentStr<'_>) -> IResult<ContentStr<'_>, Self> {
         default_parse_expression::<Self>(s)
     }
 }
 
 impl ParseOperator for OperatorOrd {
-    fn parse_operator(s: &str) -> IResult<&str, Self> {
+    fn parse_operator(s: ContentStr<'_>) -> IResult<ContentStr<'_>, Self> {
         let (s, c) = alt((tag("=="), tag("!="), tag("<="), tag(">="), tag("<"), tag(">")))(s)?;
-        let ope = match c {
+        let ope = match c.s {
             "==" => OperatorOrd::Equal,
             "!=" => OperatorOrd::NotEq,
             "<" => OperatorOrd::Less,
@@ -488,13 +489,13 @@ impl ParseExpression for ExpBitOr {
     fn new_expr(terms: Vec<Self::Child>, opes: Vec<Self::Operator>, _range: SourceRange) -> Self {
         Self { terms, opes }
     }
-    fn parse_expression(s: &str) -> IResult<&str, Self> {
+    fn parse_expression(s: ContentStr<'_>) -> IResult<ContentStr<'_>, Self> {
         default_parse_expression::<Self>(s)
     }
 }
 
 impl ParseOperator for OperatorBitOr {
-    fn parse_operator(s: &str) -> IResult<&str, Self> {
+    fn parse_operator(s: ContentStr<'_>) -> IResult<ContentStr<'_>, Self> {
         let (s, _) = char('|')(s)?;
         Ok((s, OperatorBitOr()))
     }
@@ -576,13 +577,13 @@ impl ParseExpression for ExpBitXor {
     fn new_expr(terms: Vec<Self::Child>, opes: Vec<Self::Operator>, _range: SourceRange) -> Self {
         Self { terms, opes }
     }
-    fn parse_expression(s: &str) -> IResult<&str, Self> {
+    fn parse_expression(s: ContentStr<'_>) -> IResult<ContentStr<'_>, Self> {
         default_parse_expression::<Self>(s)
     }
 }
 
 impl ParseOperator for OperatorBitXor {
-    fn parse_operator(s: &str) -> IResult<&str, Self> {
+    fn parse_operator(s: ContentStr<'_>) -> IResult<ContentStr<'_>, Self> {
         let (s, _) = char('^')(s)?;
         Ok((s, OperatorBitXor()))
     }
@@ -665,15 +666,15 @@ impl ParseExpression for ExpBitAnd {
     fn new_expr(terms: Vec<Self::Child>, opes: Vec<Self::Operator>, _range: SourceRange) -> Self {
         Self { terms, opes }
     }
-    fn parse_expression(s: &str) -> IResult<&str, Self> {
+    fn parse_expression(s: ContentStr<'_>) -> IResult<ContentStr<'_>, Self> {
         default_parse_expression::<Self>(s)
     }
 }
 
 impl ParseOperator for OperatorBitAnd {
-    fn parse_operator(s: &str) -> IResult<&str, Self> {
+    fn parse_operator(s: ContentStr<'_>) -> IResult<ContentStr<'_>, Self> {
         let (s, _) = char('&')(s)?;
-        let (_, _) = none_of("&")(s)?;
+        let (_, _) = none_of("&")(s.clone())?;
         Ok((s, OperatorBitAnd()))
     }
 }
@@ -754,15 +755,15 @@ impl ParseExpression for ExpShift {
     fn new_expr(terms: Vec<Self::Child>, opes: Vec<Self::Operator>, _range: SourceRange) -> Self {
         Self { terms, opes }
     }
-    fn parse_expression(s: &str) -> IResult<&str, Self> {
+    fn parse_expression(s: ContentStr<'_>) -> IResult<ContentStr<'_>, Self> {
         default_parse_expression::<Self>(s)
     }
 }
 
 impl ParseOperator for OperatorShift {
-    fn parse_operator(s: &str) -> IResult<&str, Self> {
+    fn parse_operator(s: ContentStr<'_>) -> IResult<ContentStr<'_>, Self> {
         let (s, c) = alt((tag("<<"), tag(">>")))(s)?;
-        let ope = match c {
+        let ope = match c.s {
             "<<" => OperatorShift::Shl,
             ">>" => OperatorShift::Shr,
             _ => unreachable!()
@@ -847,13 +848,13 @@ impl ParseExpression for ExpAddSub {
     fn new_expr(terms: Vec<Self::Child>, opes: Vec<Self::Operator>, _range: SourceRange) -> Self {
         Self { terms, opes }
     }
-    fn parse_expression(s: &str) -> IResult<&str, Self> {
+    fn parse_expression(s: ContentStr<'_>) -> IResult<ContentStr<'_>, Self> {
         default_parse_expression::<Self>(s)
     }
 }
 
 impl ParseOperator for OperatorAddSub {
-    fn parse_operator(s: &str) -> IResult<&str, Self> {
+    fn parse_operator(s: ContentStr<'_>) -> IResult<ContentStr<'_>, Self> {
         let (s, c) = one_of("+-")(s)?;
         let ope = match c {
             '+' => OperatorAddSub::Add,
@@ -945,7 +946,7 @@ impl ParseExpression for ExpMulDivRem {
     fn new_expr(unary_exprs: Vec<Self::Child>, opes: Vec<Self::Operator>, _range: SourceRange) -> Self {
         Self { unary_exprs, opes, tag: Tag::new(), }
     }
-    fn parse_expression(s: &str) -> IResult<&str, Self> {
+    fn parse_expression(s: ContentStr<'_>) -> IResult<ContentStr<'_>, Self> {
         let (s, (head, _, tails)) = 
             tuple((parse_exp_unary_ope, multispace0, many0(tuple((Self::Operator::parse_operator, multispace0, parse_exp_unary_ope, multispace0)))))(s)?;
         let mut unary_exprs = vec![head];
@@ -960,7 +961,7 @@ impl ParseExpression for ExpMulDivRem {
 }
 
 impl ParseOperator for OperatorMulDivRem {
-    fn parse_operator(s: &str) -> IResult<&str, Self> {
+    fn parse_operator(s: ContentStr<'_>) -> IResult<ContentStr<'_>, Self> {
         let (s, c) = one_of("*/%")(s)?;
         let ope = match c {
             '*' => OperatorMulDivRem::Mul,
@@ -1128,48 +1129,48 @@ impl MoveCheck for ExpUnaryOpe {
     }
 }
 
-pub fn parse_exp_unary_ope_ref(s: &str) -> IResult<&str, ExpUnaryOpe> {
+pub fn parse_exp_unary_ope_ref(s: ContentStr<'_>) -> IResult<ContentStr<'_>, ExpUnaryOpe> {
     let (s, (_, _, exp)) = tuple((char('&'), multispace0, parse_exp_unary_ope))(s)?;
     Ok((s, ExpUnaryOpe::Ref(Box::new(exp))))
 }
-pub fn parse_exp_unary_ope_mutref(s: &str) -> IResult<&str, ExpUnaryOpe> {
+pub fn parse_exp_unary_ope_mutref(s: ContentStr<'_>) -> IResult<ContentStr<'_>, ExpUnaryOpe> {
     let (s, (_, _, exp)) = tuple((tag("&mut"), multispace0, parse_exp_unary_ope))(s)?;
     Ok((s, ExpUnaryOpe::MutRef(Box::new(exp))))
 }
 
-pub fn parse_exp_unary_ope_deref(s: &str) -> IResult<&str, ExpUnaryOpe> {
+pub fn parse_exp_unary_ope_deref(s: ContentStr<'_>) -> IResult<ContentStr<'_>, ExpUnaryOpe> {
     let (s, (_, _, exp)) = tuple((char('*'), multispace0, parse_exp_unary_ope))(s)?;
     Ok((s, ExpUnaryOpe::Deref(Box::new(exp), Tag::new())))
 }
 
-pub fn parse_exp_unary_ope_neg(s: &str) -> IResult<&str, ExpUnaryOpe> {
+pub fn parse_exp_unary_ope_neg(s: ContentStr<'_>) -> IResult<ContentStr<'_>, ExpUnaryOpe> {
     let (s, (_, _, exp)) = tuple((char('-'), multispace0, parse_exp_unary_ope))(s)?;
     Ok((s, ExpUnaryOpe::Neg(Box::new(exp), Tag::new())))
 }
 
-pub fn parse_exp_unary_ope_not(s: &str) -> IResult<&str, ExpUnaryOpe> {
+pub fn parse_exp_unary_ope_not(s: ContentStr<'_>) -> IResult<ContentStr<'_>, ExpUnaryOpe> {
     let (s, (_, _, exp)) = tuple((char('!'), multispace0, parse_exp_unary_ope))(s)?;
     Ok((s, ExpUnaryOpe::Not(Box::new(exp), Tag::new())))
 }
 
-pub fn parse_exp_unary_ope_unary_exp(s: &str) -> IResult<&str, ExpUnaryOpe> {
+pub fn parse_exp_unary_ope_unary_exp(s: ContentStr<'_>) -> IResult<ContentStr<'_>, ExpUnaryOpe> {
     let (s, exp) = parse_unary_expr(s)?;
     Ok((s, ExpUnaryOpe::UnaryExpr(exp)))
 }
 
-pub fn parse_exp_unary_ope(s: &str) -> IResult<&str, ExpUnaryOpe> {
+pub fn parse_exp_unary_ope(s: ContentStr<'_>) -> IResult<ContentStr<'_>, ExpUnaryOpe> {
     alt((parse_exp_unary_ope_mutref, parse_exp_unary_ope_ref, parse_exp_unary_ope_deref, parse_exp_unary_ope_neg, parse_exp_unary_ope_not, parse_exp_unary_ope_unary_exp))(s)
 }
 
 
 
 
-pub fn parse_expression(s: &str) -> IResult<&str, Expression> {
+pub fn parse_expression(s: ContentStr<'_>) -> IResult<ContentStr<'_>, Expression> {
     let (s, expr) = alt((parse_if_expr, parse_for_expr, parse_expor))(s)?;
     Ok((s, expr))
 }
 
-pub fn parse_expor(s: &str) -> IResult<&str, Expression> {
+pub fn parse_expor(s: ContentStr<'_>) -> IResult<ContentStr<'_>, Expression> {
     let (s, p) = ExpOr::parse_expression(s)?;
     Ok((s, Expression::Expression(p)))
 }
@@ -1177,39 +1178,39 @@ pub fn parse_expor(s: &str) -> IResult<&str, Expression> {
 
 #[test]
 fn parse_expression_test() {
-    println!("{:?}", parse_expression("1 + 2 - 3 + 4 - 5").ok());
-    println!("{:?}", parse_expression("func(1 + 2, 3 - 4)").ok());
-    println!("{:#?}", parse_expression("1 + 2 * 3 - 4 / 5").ok());
-    println!("{:#?}", parse_expression("(1 + 2) * (3 - 4) / 5").ok());
+    println!("{:?}", parse_expression("1 + 2 - 3 + 4 - 5".into_content(0)).ok());
+    println!("{:?}", parse_expression("func(1 + 2, 3 - 4)".into_content(0)).ok());
+    println!("{:#?}", parse_expression("1 + 2 * 3 - 4 / 5".into_content(0)).ok());
+    println!("{:#?}", parse_expression("(1 + 2) * (3 - 4) / 5".into_content(0)).ok());
 }
 
 #[test]
 fn parse_bit_test() {
-    println!("{:#?}", parse_expression("1 & 2 | 3 ^ 4").ok());
+    println!("{:#?}", parse_expression("1 & 2 | 3 ^ 4".into_content(0)).ok());
 }
 #[test]
 fn parse_conditions_test() {
-    println!("{:?}", parse_expression("1 == 2").ok());
-    println!("{:?}", parse_expression("1 != 2").ok());
-    println!("{:?}", parse_expression("1 < 2").ok());
-    println!("{:?}", parse_expression("1 > 2").ok());
-    println!("{:?}", parse_expression("1 <= 2").ok());
-    println!("{:?}", parse_expression("1 >= 2").ok());
+    println!("{:?}", parse_expression("1 == 2".into_content(0)).ok());
+    println!("{:?}", parse_expression("1 != 2".into_content(0)).ok());
+    println!("{:?}", parse_expression("1 < 2".into_content(0)).ok());
+    println!("{:?}", parse_expression("1 > 2".into_content(0)).ok());
+    println!("{:?}", parse_expression("1 <= 2".into_content(0)).ok());
+    println!("{:?}", parse_expression("1 >= 2".into_content(0)).ok());
 }
 
 #[test]
 fn parse_all_test() {
-    println!("{:?}", parse_expression("1 + 2 == 3 * 4 || 5 << 6 & 7 >> 8 != 9 | 0 ^ 1 && 2 % 3 < 4 / 5 && 6 > 7 && 8 < 9 || 0 <= 1 && 2 >= 3").ok());
+    println!("{:?}", parse_expression("1 + 2 == 3 * 4 || 5 << 6 & 7 >> 8 != 9 | 0 ^ 1 && 2 % 3 < 4 / 5 && 6 > 7 && 8 < 9 || 0 <= 1 && 2 >= 3".into_content(0)).ok());
 }
 
 #[test]
 fn parse_ref_test() {
-    println!("{:?}", parse_expression("*var").ok());
-    println!("{:?}", parse_expression("&var").ok());
+    println!("{:?}", parse_expression("*var".into_content(0)).ok());
+    println!("{:?}", parse_expression("&var".into_content(0)).ok());
 }
 
 #[test]
 #[should_panic]
 fn parse_conditions_failure_test() {
-    println!("{:?}", parse_expression("1 == 2 == 3").ok());
+    println!("{:?}", parse_expression("1 == 2 == 3".into_content(0)).ok());
 }

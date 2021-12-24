@@ -14,6 +14,7 @@ use crate::trans::*;
 use crate::mut_checker::*;
 use crate::move_checker::*;
 use crate::identifier::Tag;
+use crate::content_str::*;
 
 #[derive(Debug)]
 pub struct Block {
@@ -79,22 +80,22 @@ enum BlockElement {
     Statement(Statement),
 }
 
-fn parse_block_end(s: &str) -> IResult<&str, BlockElement> {
+fn parse_block_end(s: ContentStr<'_>) -> IResult<ContentStr<'_>, BlockElement> {
     let (s, (_, expr, _, _)) = tuple((multispace0, opt(parse_expression), multispace0, char('}')))(s)?;
     Ok((s, BlockElement::End(expr)))
 }
 
-fn parse_block_statement_with_block(s: &str) -> IResult<&str, BlockElement> {
+fn parse_block_statement_with_block(s: ContentStr<'_>) -> IResult<ContentStr<'_>, BlockElement> {
     let (s, (_, expr)) = tuple((multispace0, alt((parse_if_expr, parse_for_expr, parse_for_each_expr))))(s)?;
     Ok((s, BlockElement::Statement(Statement::Expression(expr, Tag::new()))))
 }
 
-fn parse_block_statement_without_block(s: &str) -> IResult<&str, BlockElement> {
+fn parse_block_statement_without_block(s: ContentStr<'_>) -> IResult<ContentStr<'_>, BlockElement> {
     let (s, (_, stmt, _, _)) = tuple((multispace0, parse_statement, multispace0, char(';')))(s)?;
     Ok((s, BlockElement::Statement(stmt)))
 }
 
-pub fn parse_block(s: &str) -> IResult<&str, Block> {
+pub fn parse_block(s: ContentStr<'_>) -> IResult<ContentStr<'_>, Block> {
     let (mut s, _) = tuple((char('{'), multispace0))(s)?;
     let mut statements = Vec::new();
     loop {
@@ -112,8 +113,8 @@ pub fn parse_block(s: &str) -> IResult<&str, Block> {
 
 #[test]
 fn parse_block_test() {
-    println!("{:?}", parse_block("{ let x = 0; let y = 91; let z = 1333; func(x * x, y, z); }").unwrap());
-    println!("{:?}", parse_block("{ let x = 0; let y = 91; let z = 1333; func(x * x, y, z) }").unwrap());
-    println!("{:?}", parse_block("{ let x = 0; let y = 91; if x == y { x; } else { y; } func(x * x, y, z); }").unwrap());
-    println!("{:?}", parse_block("{ let x = 0; let y = 91; if x == y { x } else { y } }").unwrap());
+    println!("{:?}", parse_block("{ let x = 0; let y = 91; let z = 1333; func(x * x, y, z); }".into_content(0)).unwrap());
+    println!("{:?}", parse_block("{ let x = 0; let y = 91; let z = 1333; func(x * x, y, z) }".into_content(0)).unwrap());
+    println!("{:?}", parse_block("{ let x = 0; let y = 91; if x == y { x; } else { y; } func(x * x, y, z); }".into_content(0)).unwrap());
+    println!("{:?}", parse_block("{ let x = 0; let y = 91; if x == y { x } else { y } }".into_content(0)).unwrap());
 }

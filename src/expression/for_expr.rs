@@ -78,7 +78,7 @@ impl MoveCheck for ForExpr {
     }
 }
 
-pub fn parse_for_expr_paren(s: &str) -> IResult<&str, Expression> {
+pub fn parse_for_expr_paren(s: ContentStr<'_>) -> IResult<ContentStr<'_>, Expression> {
     let (s, (_, _, _, _, init, _, _, _, cond, _, _, _, update, _, _, _, block)) =
         tuple((tag("for"), multispace0, char('('), multispace0,
             parse_statement, multispace0, char(';'), multispace0,
@@ -87,12 +87,12 @@ pub fn parse_for_expr_paren(s: &str) -> IResult<&str, Expression> {
     Ok((s, Expression::ForExpr(Box::new(ForExpr { init, cond, update, block }))))
 }
 
-fn parse_initial_variable(s: &str) -> IResult<&str, Statement> {
+fn parse_initial_variable(s: ContentStr<'_>) -> IResult<ContentStr<'_>, Statement> {
     let (s, (id, _, tyinfo, _, _e, _, value)) = tuple((parse_identifier, multispace0, opt(tuple((char(':'), multispace0, parse_type_spec))), multispace0, tag("="), multispace0, parse_expression))(s)?;
     Ok((s, Statement::LetDeclaration(LetDeclaration { vars: VariableDeclaration::Leaf(id, true), type_info: tyinfo.map(|(_, _, type_info)| type_info ), value })))
 }
 
-pub fn parse_for_expr_no_parentheses(s: &str) -> IResult<&str, Expression> {
+pub fn parse_for_expr_no_parentheses(s: ContentStr<'_>) -> IResult<ContentStr<'_>, Expression> {
     let (s, (_, _, init, _, _, _, cond, _, _, _, update, _, block)) =
         tuple((tag("for"), multispace1,
             parse_initial_variable, multispace0, char(';'), multispace0,
@@ -102,12 +102,12 @@ pub fn parse_for_expr_no_parentheses(s: &str) -> IResult<&str, Expression> {
 }
 
 
-pub fn parse_for_expr(s: &str) -> IResult<&str, Expression> {
+pub fn parse_for_expr(s: ContentStr<'_>) -> IResult<ContentStr<'_>, Expression> {
     alt((parse_for_expr_paren, parse_for_expr_no_parentheses))(s)
 }
 
 #[test]
 fn parse_for_expr_test() {
-    println!("{:?}", parse_for_expr("for(let mut i = 0; i < 5; i = i + 1) {}").unwrap());
-    println!("{:?}", parse_for_expr("for i = 0; i < 5; i = i + 1 {}").unwrap());
+    println!("{:?}", parse_for_expr("for(let mut i = 0; i < 5; i = i + 1) {}".into_content(0)).unwrap());
+    println!("{:?}", parse_for_expr("for i = 0; i < 5; i = i + 1 {}".into_content(0)).unwrap());
 }

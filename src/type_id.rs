@@ -3,6 +3,7 @@ use nom::IResult;
 use crate::identifier::{ Identifier, parse_identifier };
 use crate::unify::*;
 use crate::trans::*;
+use crate::content_str::*;
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct TypeId {
@@ -38,7 +39,7 @@ impl Transpile for TypeId {
     }
 }
 
-pub fn parse_type_id(s: &str) -> IResult<&str, TypeId> {
+pub fn parse_type_id(s: ContentStr<'_>) -> IResult<ContentStr<'_>, TypeId> {
     let (s, id) = parse_identifier(s)?;
     Ok((s, TypeId { id }))
 }

@@ -10,6 +10,7 @@ use crate::trans::*;
 use crate::mut_checker::*;
 use crate::move_checker::*;
 use crate::error::*;
+use crate::content_str::*;
 
 #[derive(Debug)]
 pub struct Substitute {
@@ -58,7 +59,7 @@ impl MoveCheck for Substitute {
     }
 }
 
-pub fn parse_substitute(s: &str) -> IResult<&str, Substitute> {
+pub fn parse_substitute(s: ContentStr<'_>) -> IResult<ContentStr<'_>, Substitute> {
     let (s, (into_expr, _, _e, _, value)) = tuple((parse_expression, multispace0, tag("="), multispace0, parse_expression))(s)?;
     Ok((s, Substitute { into_expr, value, }))
 }

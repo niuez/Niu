@@ -589,7 +589,7 @@ impl<'a> TraitsInfo<'a> {
         let mut unify_res = Vec::new();
         let mut solve_errs = CallEquationSolveErrors::new();
         for t in st.into_iter() {
-            let mut vs = self.generate_call_equations_for_trait(&t, call_eq, self, &mut solve_errs);
+            let vs = self.generate_call_equations_for_trait(&t, call_eq, self, &mut solve_errs);
             for (equs, hint, _) in vs {
                 unify_res.push((equs, hint));
             }
@@ -676,7 +676,7 @@ impl<'a> TraitsInfo<'a> {
         let mut unify_res = Vec::new();
         let mut solve_errs = CallEquationSolveErrors::new();
         for tr in st.into_iter() {
-            let mut vs = self.generate_associated_type_equation_for_trait(&tr, associated_eq, self, &mut solve_errs);
+            let vs = self.generate_associated_type_equation_for_trait(&tr, associated_eq, self, &mut solve_errs);
             for (equs, hint, _) in vs {
                 unify_res.push((equs, hint));
             }

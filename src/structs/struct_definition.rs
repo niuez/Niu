@@ -22,6 +22,7 @@ use crate::trans::*;
 use crate::mut_checker::*;
 use crate::move_checker::*;
 use crate::error::*;
+use crate::content_str::*;
 
 #[derive(Debug, Clone)]
 pub struct MemberInfo {
@@ -199,12 +200,12 @@ impl StructMemberDefinition {
     }
 }
 
-fn parse_member(s: &str) -> IResult<&str, (Identifier, TypeSpec)> {
+fn parse_member(s: ContentStr<'_>) -> IResult<ContentStr<'_>, (Identifier, TypeSpec)> {
     let (s, (id, _, _, _, ty)) = tuple((parse_identifier, multispace0, char(':'), multispace0, parse_type_spec))(s)?;
     Ok((s, (id, ty)))
 }
 
-fn parse_generics_annotation(s: &str) -> IResult<&str, Vec<TypeId>> {
+fn parse_generics_annotation(s: ContentStr<'_>) -> IResult<ContentStr<'_>, Vec<TypeId>> {
     let (s, op) = opt(tuple((char('<'), multispace0, parse_type_id, multispace0, many0(tuple((char(','), multispace0, parse_type_id, multispace0))), opt(tuple((multispace0, char(',')))), multispace0, char('>'))))(s)?;
     let v = match op {
         None => Vec::new(),
@@ -219,7 +220,7 @@ fn parse_generics_annotation(s: &str) -> IResult<&str, Vec<TypeId>> {
     Ok((s, v))
 }
 
-fn parse_struct_members(s: &str) -> IResult<&str, StructMember> {
+fn parse_struct_members(s: ContentStr<'_>) -> IResult<ContentStr<'_>, StructMember> {
     let (s, (_, _, opts, _)) = tuple((char('{'), multispace0,
                          opt(tuple((parse_member, many0(tuple((multispace0, char(','), multispace0, parse_member))), opt(tuple((multispace0, char(',')))), multispace0))),
                          char('}')))(s)?;
@@ -237,19 +238,19 @@ fn parse_struct_members(s: &str) -> IResult<&str, StructMember> {
     Ok((s, StructMember::MemberInfo(MemberInfo { members_order, members })))
 }
 
-fn parse_struct_cpp_inline(s: &str) -> IResult<&str, StructMember> {
+fn parse_struct_cpp_inline(s: ContentStr<'_>) -> IResult<ContentStr<'_>, StructMember> {
     let (s, cppinline) = parse_cpp_inline(s)?;
     Ok((s, StructMember::CppInline(cppinline)))
 }
 
-pub fn parse_struct_member_definition(s: &str) -> IResult<&str, StructMemberDefinition> {
+pub fn parse_struct_member_definition(s: ContentStr<'_>) -> IResult<ContentStr<'_>, StructMemberDefinition> {
     let (s, ((_, _, struct_id, _, generics, _, where_sec), range)) =
         with_range(tuple((tag("struct"), multispace1, parse_type_id, multispace0, parse_generics_annotation, multispace0, parse_where_section)))(s)?;
     let (s, (_, member)) = tuple((multispace0, alt((parse_struct_members, parse_struct_cpp_inline))))(s)?;
     Ok((s, StructMemberDefinition { struct_id, generics, member, where_sec, without_member_range: range }))
 }
 
-pub fn parse_struct_definition(s: &str) -> IResult<&str, StructDefinition> {
+pub fn parse_struct_definition(s: ContentStr<'_>) -> IResult<ContentStr<'_>, StructDefinition> {
     let (s, (member_def, _, _, _, funcs, _)) = tuple((parse_struct_member_definition, multispace0, char('{'), multispace0,
             many0(tuple((parse_func_definition, multispace0))), char('}')))(s)?;
     let require_methods = funcs.into_iter().map(|(func, _)| (func.func_id.clone(), func)).collect();
@@ -272,12 +273,12 @@ pub fn parse_struct_definition(s: &str) -> IResult<&str, StructDefinition> {
 
 #[test]
 fn parse_struct_definition_test() {
-    log::debug!("{:?}", parse_struct_definition("struct MyStruct { a: i64, b: u64, }").ok());
+    log::debug!("{:?}", parse_struct_definition("struct MyStruct { a: i64, b: u64, }".into_content(0)).ok());
 }
 
 #[test]
 fn parse_struct_definition2_test() {
-    log::debug!("{:?}", parse_struct_definition("struct MyStruct<S, T> { a: S, b: T }").ok());
+    log::debug!("{:?}", parse_struct_definition("struct MyStruct<S, T> { a: S, b: T }".into_content(0)).ok());
 }
 
 /*#[test]

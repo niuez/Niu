@@ -85,7 +85,7 @@ impl MoveCheck for ForEachExpr {
     }
 }
 
-pub fn parse_for_each_expr(s: &str) -> IResult<&str, Expression> {
+pub fn parse_for_each_expr(s: ContentStr<'_>) -> IResult<ContentStr<'_>, Expression> {
     let (s, (_, _, id, _, _, _, iter, _, block)) = tuple((tag("for"), multispace1, parse_identifier,
         multispace1, tag("in"), multispace1, parse_expression,
         multispace0, parse_block
@@ -95,6 +95,6 @@ pub fn parse_for_each_expr(s: &str) -> IResult<&str, Expression> {
 
 #[test]
 fn parse_for_expr_test() {
-    println!("{:?}", parse_for_expr("for(let mut i = 0; i < 5; i = i + 1) {}").unwrap());
-    println!("{:?}", parse_for_expr("for i = 0; i < 5; i = i + 1 {}").unwrap());
+    println!("{:?}", parse_for_expr("for(let mut i = 0; i < 5; i = i + 1) {}".into_content(0)).unwrap());
+    println!("{:?}", parse_for_expr("for i = 0; i < 5; i = i + 1 {}".into_content(0)).unwrap());
 }

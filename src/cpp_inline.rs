@@ -12,6 +12,7 @@ use crate::unify::*;
 use crate::trans::*;
 use crate::type_spec::*;
 use crate::error::*;
+use crate::content_str::*;
 
 #[derive(Debug, Clone)]
 pub struct CppInline {
@@ -73,27 +74,27 @@ impl CppInline {
     }
 }
 
-fn parse_inline_elem_type(s: &str) -> IResult<&str, CppInlineElem> {
+fn parse_inline_elem_type(s: ContentStr<'_>) -> IResult<ContentStr<'_>, CppInlineElem> {
     let (s, (_, _, id, _, _)) = tuple((tag("$ty("), multispace0, parse_type_id, multispace0, tag(")")))(s)?;
     Ok((s, CppInlineElem::Type(id)))
 }
 
-fn parse_inline_elem_arg(s: &str) -> IResult<&str, CppInlineElem> {
+fn parse_inline_elem_arg(s: ContentStr<'_>) -> IResult<ContentStr<'_>, CppInlineElem> {
     let (s, (_, _, id, _, _)) = tuple((tag("$arg("), multispace0, parse_identifier, multispace0, tag(")")))(s)?;
     Ok((s, CppInlineElem::Arg(id)))
 }
 
-fn parse_inline_end(s: &str) -> IResult<&str, CppInlineElem> {
+fn parse_inline_end(s: ContentStr<'_>) -> IResult<ContentStr<'_>, CppInlineElem> {
     let (s, _) = tag("}$$")(s)?;
     Ok((s, CppInlineElem::End))
 }
 
-fn parse_inline_any(s: &str) -> IResult<&str, CppInlineElem> {
+fn parse_inline_any(s: ContentStr<'_>) -> IResult<ContentStr<'_>, CppInlineElem> {
     let (s, c) = anychar(s)?;
     Ok((s, CppInlineElem::Any(c)))
 }
 
-pub fn parse_cpp_inline(s: &str) -> IResult<&str, CppInline> {
+pub fn parse_cpp_inline(s: ContentStr<'_>) -> IResult<ContentStr<'_>, CppInline> {
     let (mut s, _) = tag("$${")(s)?;
     let mut inlines = Vec::new();
     loop {
@@ -113,6 +114,6 @@ pub fn parse_cpp_inline(s: &str) -> IResult<&str, CppInline> {
 
 #[test]
 fn parse_inline_test() {
-    println!("{:?}", parse_cpp_inline("$${$ty(Vec<T>)($arg(vec)).push_back($arg(elem))}$$").ok());
-    println!("{:?}", parse_cpp_inline("$${ $arg(self).push_back($arg(t)) }$$").ok());
+    println!("{:?}", parse_cpp_inline("$${$ty(Vec<T>)($arg(vec)).push_back($arg(elem))}$$".into_content(0)).ok());
+    println!("{:?}", parse_cpp_inline("$${ $arg(self).push_back($arg(t)) }$$".into_content(0)).ok());
 }

@@ -18,10 +18,11 @@ use crate::move_checker::*;
 use crate::structs::*;
 use crate::unit_test::*;
 use crate::error::*;
+use crate::content_str::*;
 
 #[derive(Debug)]
 pub struct FullContent {
-    pub programs: HashMap<String, String>,
+    pub programs: HashMap<usize, ProgramData>,
     pub structs: Vec<(StructDefinition, String)>,
     pub traits: Vec<(TraitDefinition, String)>,
     pub impls: Vec<(ImplDefinition, String)>,
@@ -100,8 +101,8 @@ impl FullContent {
     }
     pub fn type_check(&self) -> Result<TypeAnnotation, String> {
         let res = self.inner_type_check();
-        res.map_err(|(err, name)| {
-                let data = ErrorData { statement: self.programs.get(name).unwrap() };
+        res.map_err(|(err, _name)| {
+                let data = ErrorData { programs: &self.programs };
                 format!("unify error\n{}", err.what(&data))
             }
         )
@@ -222,48 +223,48 @@ enum ContentElement {
     UnitTest(UnitTestFunc),
 }
 
-fn parse_element_struct(s: &str) -> IResult<&str, ContentElement> {
+fn parse_element_struct(s: ContentStr<'_>) -> IResult<ContentStr<'_>, ContentElement> {
     let (s, f) = parse_struct_definition(s)?;
     Ok((s, ContentElement::Struct(f)))
 }
 
-fn parse_element_func(s: &str) -> IResult<&str, ContentElement> {
+fn parse_element_func(s: ContentStr<'_>) -> IResult<ContentStr<'_>, ContentElement> {
     let (s, f) = parse_func_definition(s)?;
     Ok((s, ContentElement::Func(f)))
 }
 
-fn parse_element_trait(s: &str) -> IResult<&str, ContentElement> {
+fn parse_element_trait(s: ContentStr<'_>) -> IResult<ContentStr<'_>, ContentElement> {
     let (s, t) = parse_trait_definition(s)?;
     Ok((s, ContentElement::Trait(t)))
 }
 
-fn parse_element_impl_trait(s: &str) -> IResult<&str, ContentElement> {
+fn parse_element_impl_trait(s: ContentStr<'_>) -> IResult<ContentStr<'_>, ContentElement> {
     let (s, it) = parse_impl_definition(s)?;
     Ok((s, ContentElement::ImplTrait(it)))
 }
 
-fn parse_element_import(s: &str) -> IResult<&str, ContentElement> {
+fn parse_element_import(s: ContentStr<'_>) -> IResult<ContentStr<'_>, ContentElement> {
     let (s, (_, _, _, _, path, _, _)) = tuple((multispace0, tag("import"), multispace0, char('"'), is_not("\""), char('"'), multispace0))(s)?;
-    Ok((s, ContentElement::Import(path.to_string())))
+    Ok((s, ContentElement::Import(path.s.to_string())))
 }
 
-fn parse_element_include(s: &str) -> IResult<&str, ContentElement> {
+fn parse_element_include(s: ContentStr<'_>) -> IResult<ContentStr<'_>, ContentElement> {
     let (s, (_, _, _, _, path, _, _)) = tuple((multispace0, tag("#include"), multispace0, char('<'), is_not(">"), char('>'), multispace0))(s)?;
-    Ok((s, ContentElement::Include(path.to_string())))
+    Ok((s, ContentElement::Include(path.s.to_string())))
 }
 
-fn parse_element_unit_test(s: &str) -> IResult<&str, ContentElement> {
+fn parse_element_unit_test(s: ContentStr<'_>) -> IResult<ContentStr<'_>, ContentElement> {
     let (s, (_, unit_test, _)) = tuple((multispace0, parse_unit_test_func, multispace0))(s)?;
     Ok((s, ContentElement::UnitTest(unit_test)))
 }
 
 
-fn parse_content_element(s: &str) -> IResult<&str, ContentElement> {
+fn parse_content_element(s: ContentStr<'_>) -> IResult<ContentStr<'_>, ContentElement> {
     alt((parse_element_include, parse_element_import, parse_element_struct, parse_element_func, parse_element_trait, parse_element_impl_trait, parse_element_unit_test))(s)
 }
 
-pub fn parse_full_content<'a>(s: &'a str, name: &str) -> IResult<&'a str, (Vec<(String, String)>, FullContent)> {
-    let (ss, (_, elems, _)) = tuple((multispace0, many0(tuple((parse_content_element, multispace0))), multispace0))(s)?;
+pub fn parse_full_content<'a>(s: ContentStr<'a>, name: &str) -> IResult<ContentStr<'a>, (Vec<(String, String)>, FullContent)> {
+    let (ss, (_, elems, _)) = tuple((multispace0, many0(tuple((parse_content_element, multispace0))), multispace0))(s.clone())?;
     
     let mut structs = Vec::new();
     let mut funcs = Vec::new();
@@ -283,7 +284,7 @@ pub fn parse_full_content<'a>(s: &'a str, name: &str) -> IResult<&'a str, (Vec<(
             ContentElement::UnitTest(unit_test) => unit_tests.push(unit_test),
         }
     }
-    let programs = std::iter::once((name.to_string(), s.to_string())).collect();
+    let programs = std::iter::once((s.name, ProgramData { program: s.s.to_string(), filename: name.to_string() })).collect();
     Ok((ss, (imports, FullContent { programs, structs, funcs, traits, impls, includes, unit_tests, })))
 }
 
@@ -299,6 +300,7 @@ pub fn parse_full_content_from_file(filename: &str, import_path: &[PathBuf]) -> 
 
     let mut que = Vec::new();
     let mut read = HashSet::new();
+    let mut file_cnt = 0;
     {
         let path = Path::new(filename).canonicalize().map_err(|e| format!("{:?}", e))?.to_path_buf();
         if path.is_file() {
@@ -312,9 +314,11 @@ pub fn parse_full_content_from_file(filename: &str, import_path: &[PathBuf]) -> 
     
     while let Some((path, first_file)) = que.pop() {
         let program = std::fs::read_to_string(path.as_path()).map_err(|_| format!("cant open {}", filename))?;
-        let (s, (imports, mut full)) = crate::full_content::parse_full_content(&program, path.to_str().unwrap()).map_err(|e| format!("{:?}", e))?;
-        if s != "" {
-            Err(format!("path {:?} parse error, remaining -> {}", path, s))?;
+        let content = program.into_content(file_cnt);
+        file_cnt += 1;
+        let (s, (imports, mut full)) = crate::full_content::parse_full_content(content, path.to_str().unwrap()).map_err(|e| format!("{:?}", e))?;
+        if s.s != "" {
+            Err(format!("path {:?} parse error, remaining -> {}", path, s.s))?;
         }
         dbg!(import_path);
         for (import, _) in imports.into_iter() {

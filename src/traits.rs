@@ -27,6 +27,7 @@ use crate::func_definition::*;
 use crate::type_spec::*;
 use crate::type_id::*;
 use crate::error::*;
+use crate::content_str::*;
 
 pub const BINARY_OPERATOR_TRAITS : [(&'static str, (&'static str, &'static str)); 10] = [
             ("BitOr", ("operator|", "|")), ("BitXor", ("operator^", "^")), ("BitAnd", ("operator&", "&")),
@@ -92,7 +93,7 @@ impl Transpile for TraitId {
     }
 }
 
-pub fn parse_trait_id(s: &str) -> IResult<&str, TraitId> {
+pub fn parse_trait_id(s: ContentStr<'_>) -> IResult<ContentStr<'_>, TraitId> {
     let (s, id) = parse_identifier(s)?;
     Ok((s, TraitId { id }))
 }
@@ -119,12 +120,12 @@ impl TraitSpec {
     }
 }
 
-fn parse_generics_args(s: &str) -> IResult<&str, Vec<TypeId>> {
+fn parse_generics_args(s: ContentStr<'_>) -> IResult<ContentStr<'_>, Vec<TypeId>> {
     let (s, op) = opt(tuple((multispace0, char('<'), multispace0, separated_list0(tuple((multispace0, char(','), multispace0)), parse_type_id), multispace0, char('>'))))(s)?;
     Ok((s, op.map(|(_, _, _, res, _, _)| res).unwrap_or(Vec::new())))
 }
 
-pub fn parse_trait_spec(s: &str) -> IResult<&str, TraitSpec> {
+pub fn parse_trait_spec(s: ContentStr<'_>) -> IResult<ContentStr<'_>, TraitSpec> {
     let (s, (trait_id, opts)) =
         tuple((parse_trait_id,
                opt(tuple((multispace0, char('<'), multispace0, separated_list0(tuple((multispace0, char(','), multispace0)), parse_type_spec), multispace0, char('>'))))))(s)?;
@@ -179,7 +180,7 @@ impl Transpile for TraitDefinition {
     }
 }
 
-pub fn parse_trait_definition(s: &str) -> IResult<&str, TraitDefinition> {
+pub fn parse_trait_definition(s: ContentStr<'_>) -> IResult<ContentStr<'_>, TraitDefinition> {
     let (s, (((_, _, trait_id, _, generics, _, where_sec), range),_, _, _, many_types, many_methods, _, _)) = 
         tuple((
             with_range(tuple((tag("trait"), multispace1, parse_trait_id,
@@ -220,5 +221,5 @@ pub fn parse_trait_definition(s: &str) -> IResult<&str, TraitDefinition> {
 
 #[test]
 fn parse_trait_definition_test() {
-    log::debug!("{:?}", parse_trait_definition("trait MyTrait { type Output; type Input; }").ok());
+    log::debug!("{:?}", parse_trait_definition("trait MyTrait { type Output; type Input; }".into_content(0)).ok());
 }
