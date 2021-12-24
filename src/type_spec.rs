@@ -309,7 +309,7 @@ impl TypeSpec {
 }
 
 fn parse_type_spec_subseq(s: ContentStr<'_>, prev: TypeSpec, prev_range: SourceRange) -> IResult<ContentStr<'_>, TypeSpec> {
-    if let Ok((ss, (_, (asso_ty, range)))) = tuple((multispace0, with_range(parse_associated_type)))(s) {
+    if let Ok((ss, (_, (asso_ty, range)))) = tuple((multispace0, with_range(parse_associated_type)))(s.clone()) {
         let range = prev_range.merge(&range);
         parse_type_spec_subseq(ss, TypeSpec::Associated(
                 AssociatedSpec{

@@ -22,7 +22,7 @@ use crate::content_str::*;
 
 #[derive(Debug)]
 pub struct FullContent {
-    pub programs: HashMap<String, String>,
+    pub programs: HashMap<usize, String>,
     pub structs: Vec<(StructDefinition, String)>,
     pub traits: Vec<(TraitDefinition, String)>,
     pub impls: Vec<(ImplDefinition, String)>,
@@ -101,8 +101,8 @@ impl FullContent {
     }
     pub fn type_check(&self) -> Result<TypeAnnotation, String> {
         let res = self.inner_type_check();
-        res.map_err(|(err, name)| {
-                let data = ErrorData { statement: self.programs.get(name).unwrap() };
+        res.map_err(|(err, _name)| {
+                let data = ErrorData { programs: &self.programs };
                 format!("unify error\n{}", err.what(&data))
             }
         )
@@ -284,7 +284,7 @@ pub fn parse_full_content<'a>(s: ContentStr<'a>, name: &str) -> IResult<ContentS
             ContentElement::UnitTest(unit_test) => unit_tests.push(unit_test),
         }
     }
-    let programs = std::iter::once((name.to_string(), s.s.to_string())).collect();
+    let programs = std::iter::once((s.name, s.s.to_string())).collect();
     Ok((ss, (imports, FullContent { programs, structs, funcs, traits, impls, includes, unit_tests, })))
 }
 
@@ -315,6 +315,7 @@ pub fn parse_full_content_from_file(filename: &str, import_path: &[PathBuf]) -> 
     while let Some((path, first_file)) = que.pop() {
         let program = std::fs::read_to_string(path.as_path()).map_err(|_| format!("cant open {}", filename))?;
         let content = program.into_content(file_cnt);
+        file_cnt += 1;
         let (s, (imports, mut full)) = crate::full_content::parse_full_content(content, path.to_str().unwrap()).map_err(|e| format!("{:?}", e))?;
         if s.s != "" {
             Err(format!("path {:?} parse error, remaining -> {}", path, s.s))?;

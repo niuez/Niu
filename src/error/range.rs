@@ -56,8 +56,8 @@ impl RangeHint {
 
 impl NiuError for RangeHint {
     fn what(&self, data: &ErrorData) -> String {
-        let start_line_num = self.range.get_start_line_number(data.statement);
-        let code = self.range.get_range_str(data.statement).lines()
+        let start_line_num = self.range.get_start_line_number(data.programs.get(&self.range.name).unwrap());
+        let code = self.range.get_range_str(data.programs.get(&self.range.name).unwrap()).lines()
             .enumerate()
             .map(|(i, s)| format!("{:04} |     {}", i + start_line_num, s)).collect::<Vec<_>>().join("\n");
         format!("{}\nhint: {}\n     |\n{}\n     |", self.prev.as_ref().what(data), self.hint, code)

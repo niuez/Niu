@@ -3,13 +3,15 @@ pub mod comment;
 pub mod details;
 pub mod unify;
 
+use std::collections::HashMap;
+
 pub use range::*;
 pub use comment::*;
 pub use details::*;
 pub use unify::*;
 
 pub struct ErrorData<'a> {
-    pub statement: &'a str,
+    pub programs: &'a HashMap<usize, String>,
 }
 
 pub trait NiuError: std::fmt::Debug {

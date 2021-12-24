@@ -154,7 +154,7 @@ pub fn parse_unary_expr(s: ContentStr) -> IResult<ContentStr, UnaryExpr> {
             )))(s)?;
     let mut now = s;
     let mut prec = x;
-    while let Ok((s, (sub, sub_range))) = with_range(parse_subseq)(now) {
+    while let Ok((s, (sub, sub_range))) = with_range(parse_subseq)(now.clone()) {
         range = range.merge(&sub_range);
         now = s;
         prec = UnaryExpr::Subseq(Box::new(prec), sub, range.clone());
