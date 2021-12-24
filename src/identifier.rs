@@ -8,6 +8,7 @@ use nom::multi::*;
 use nom::sequence::*;
 use nom::IResult;
 
+use crate::content_str::*;
 use crate::unify::*;
 
 static TAG_COUNTER: AtomicUsize = AtomicUsize::new(0);
@@ -77,26 +78,26 @@ impl<'a> Identifier {
     }
 }
 
-pub fn parse_identifier(s: &str) -> IResult<&str, Identifier> {
+pub fn parse_identifier(s: ContentStr<'_>) -> IResult<ContentStr<'_>, Identifier> {
     not(all_consuming(alt((
                     tag("if"),
                     tag("else"),
                     tag("while"),
                     tag("for"),
                     tag("in")
-                    ))))(s)?;
+                    ))))(s.clone())?;
     let (s, (head, tails)) = tuple((alt((alpha1, tag("_"))), many0(alt((alphanumeric1, tag("_"))))))(s)?;
-    let mut name = vec![head];
+    let mut name = vec![head.s];
     for s in tails {
-        name.push(s);
+        name.push(s.s);
     }
     Ok((s, Identifier::from_vec_str(name)))
 }
 
 #[test]
 fn parse_identifier_test() {
-    log::debug!("{:?}", parse_identifier("func").ok());
-    log::debug!("{:?}", parse_identifier("if").ok());
-    log::debug!("{:?}", parse_identifier("x").ok());
-    log::debug!("{:?}", parse_identifier("f_u_n_c91").ok());
+    log::debug!("{:?}", parse_identifier(ContentStr { s: "func", name: 0 }).ok());
+    log::debug!("{:?}", parse_identifier(ContentStr { s: "if", name: 0 }).ok());
+    log::debug!("{:?}", parse_identifier(ContentStr { s: "x", name: 0 }).ok());
+    log::debug!("{:?}", parse_identifier(ContentStr { s: "f_u_n_c91", name: 0 }).ok());
 }

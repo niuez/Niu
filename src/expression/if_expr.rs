@@ -14,6 +14,7 @@ use crate::trans::*;
 use crate::mut_checker::*;
 use crate::move_checker::*;
 use crate::error::*;
+use crate::content_str::*;
 
 #[derive(Debug)]
 struct IfPair {
@@ -121,7 +122,7 @@ impl MoveCheck for IfExpr {
 }
 
 
-pub fn parse_if_expr(s: &str) -> IResult<&str, Expression> {
+pub fn parse_if_expr(s: ContentStr<'_>) -> IResult<ContentStr<'_>, Expression> {
     let (s, (_, _, if_cond, _, if_block, _, many, el_block, _)) = tuple((tag("if"), multispace1, parse_expression, multispace0, parse_block, multispace0,
                         many0(tuple((tag("else"), multispace1, tag("if"), multispace1, parse_expression, multispace0, parse_block, multispace0))),
                         opt(tuple((tag("else"), multispace0, parse_block))), multispace0))(s)?;
@@ -133,5 +134,5 @@ pub fn parse_if_expr(s: &str) -> IResult<&str, Expression> {
 
 #[test]
 fn parse_if_expr_test() {
-    println!("{:?}", parse_if_expr("if a == b { c } else { d }").ok());
+    println!("{:?}", parse_if_expr("if a == b { c } else { d }".into_content(0)).ok());
 }

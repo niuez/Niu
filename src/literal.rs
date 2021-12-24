@@ -15,6 +15,7 @@ use crate::unify::*;
 use crate::trans::*;
 use crate::mut_checker::*;
 use crate::move_checker::*;
+use crate::content_str::*;
 
 #[derive(Debug)]
 pub enum Literal {
@@ -60,7 +61,7 @@ impl MoveCheck for Literal {
     }
 }
 
-pub fn parse_literal(s: &str) -> IResult<&str, UnaryExpr> {
+pub fn parse_literal(s: ContentStr<'_>) -> IResult<ContentStr<'_>, UnaryExpr> {
     let (s, x) = alt((parse_char, literal_f64, literal_i64, literal_u64, literal_boolean))(s)?;
     Ok((s, UnaryExpr::Literal(x)))
 }
@@ -113,39 +114,39 @@ impl Transpile for Boolean {
     }
 }
 
-pub fn literal_u64(s: &str) -> IResult<&str, Literal> {
+pub fn literal_u64(s: ContentStr<'_>) -> IResult<ContentStr<'_>, Literal> {
     let (s, (number, _)) = 
          tuple((unsigned_number, opt(tag("u64"))))(s)?;
     Ok((s, 
-        Literal::U64(LiteralU64 { number: number.join("") })
+        Literal::U64(LiteralU64 { number: number.into_iter().map(|s| s.s).collect::<Vec<_>>().join("") })
         ))
 }
 
-pub fn literal_i64(s: &str) -> IResult<&str, Literal> {
+pub fn literal_i64(s: ContentStr<'_>) -> IResult<ContentStr<'_>, Literal> {
     let (s, (number, _)) = 
          tuple((unsigned_number, tag("i64")))(s)?;
     Ok((s, 
-        Literal::I64(LiteralI64 { number: number.join("") })
-        ))
+        Literal::I64(LiteralI64 { number: number.into_iter().map(|s| s.s).collect::<Vec<_>>().join("") })
+    ))
 }
 
-pub fn unsigned_number(s: &str) -> IResult<&str, Vec<&str>> {
+pub fn unsigned_number(s: ContentStr) -> IResult<ContentStr, Vec<ContentStr>> {
     separated_list1(tag("_"), digit1)(s)
 }
 
-pub fn literal_boolean(s: &str) -> IResult<&str, Literal> {
+pub fn literal_boolean(s: ContentStr<'_>) -> IResult<ContentStr<'_>, Literal> {
     let (s, x) = alt((tag("true"), tag("false")))(s)?;
-    match x {
+    match x.s {
         "true" => Ok((s, Literal::Boolean(Boolean::True))),
         "false" => Ok((s, Literal::Boolean(Boolean::False))),
         _ => unreachable!(),
     }
 }
 
-pub fn literal_f64(s: &str) -> IResult<&str, Literal> {
+pub fn literal_f64(s: ContentStr<'_>) -> IResult<ContentStr<'_>, Literal> {
     let (s, number) = nom::number::complete::recognize_float(s)?;
-    match number.find('.') {
-        Some(_) => Ok((s, Literal::F64(LiteralF64 { number: number.to_string() }))),
+    match number.s.find('.') {
+        Some(_) => Ok((s, Literal::F64(LiteralF64 { number: number.s.to_string() }))),
         None => Err(nom::Err::Error(nom::error::Error { input: s, code: nom::error::ErrorKind::Float }))
     }
 }
@@ -153,26 +154,26 @@ pub fn literal_f64(s: &str) -> IResult<&str, Literal> {
 
 #[test]
 fn parse_literal_u64_test() {
-    log::debug!("{:?}", parse_literal("659").ok());
-    log::debug!("{:?}", parse_literal("6_5_9").ok());
+    log::debug!("{:?}", parse_literal(ContentStr { s: "659", name: 0 }).ok());
+    log::debug!("{:?}", parse_literal(ContentStr { s: "6_5_9", name: 0 }).ok());
 }
 
 #[test]
 fn parse_literal_i64_test() {
-    log::debug!("{:?}", parse_literal("659i64").ok());
-    log::debug!("{:?}", parse_literal("6_5_9i64").ok());
+    log::debug!("{:?}", parse_literal(ContentStr { s: "659i64", name: 0 }).ok());
+    log::debug!("{:?}", parse_literal(ContentStr { s: "6_5_9i64", name: 0 }).ok());
 }
 
 #[test]
 fn parse_literal_boolean_test() {
-    log::debug!("{:?}", parse_literal("true").ok());
-    log::debug!("{:?}", parse_literal("false").ok());
+    log::debug!("{:?}", parse_literal(ContentStr { s: "true", name: 0 }).ok());
+    log::debug!("{:?}", parse_literal(ContentStr { s: "false", name: 0 }).ok());
 }
 
 #[test]
 fn parse_literal_f64_test() {
-    println!("{:?}", parse_literal("12.3").unwrap());
-    println!("{:?}", parse_literal("91.").unwrap());
-    println!("{:?}", parse_literal("123.e-3").unwrap());
-    println!("{:?}", parse_literal("123.").unwrap());
+    log::debug!("{:?}", parse_literal(ContentStr { s: "12.3", name: 0 }).ok());
+    log::debug!("{:?}", parse_literal(ContentStr { s: "91.", name: 0 }).ok());
+    log::debug!("{:?}", parse_literal(ContentStr { s: "123.e-3", name: 0 }).ok());
+    log::debug!("{:?}", parse_literal(ContentStr { s: "123.", name: 0 }).ok());
 }

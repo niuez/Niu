@@ -300,17 +300,17 @@ impl ImplDefinition {
     }
 }
 
-fn parse_generics_args(s: &str) -> IResult<&str, Vec<TypeId>> {
+fn parse_generics_args(s: ContentStr<'_>) -> IResult<ContentStr<'_>, Vec<TypeId>> {
     let (s, op) = opt(tuple((multispace0, char('<'), multispace0, separated_list0(tuple((multispace0, char(','), multispace0)), parse_type_id), multispace0, char('>'))))(s)?;
     Ok((s, op.map(|(_, _, _, res, _, _)| res).unwrap_or(Vec::new())))
 }
 
-/*fn parse_generics_params(s: &str) -> IResult<&str, Vec<TypeSpec>> {
+/*fn parse_generics_params(s: ContentStr<'_>) -> IResult<ContentStr<'_>, Vec<TypeSpec>> {
     let (s, op) = opt(tuple((multispace0, char('<'), multispace0, separated_list0(tuple((multispace0, char(','), multispace0)), parse_type_spec), multispace0, char('>'))))(s)?;
     Ok((s, op.map(|(_, _, _, res, _, _)| res).unwrap_or(Vec::new())))
 }*/
 
-pub fn parse_impl_definition(s: &str) -> IResult<&str, ImplDefinition> {
+pub fn parse_impl_definition(s: ContentStr<'_>) -> IResult<ContentStr<'_>, ImplDefinition> {
     let (s, (((_, generics, _, trait_spec, _, _, _, impl_ty, _, where_sec), range), _, _, _, many_types, many_methods, _, _)) = 
         tuple((
             with_range(tuple((tag("impl"), parse_generics_args,

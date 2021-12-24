@@ -16,6 +16,7 @@ use crate::mut_checker::*;
 use crate::move_checker::*;
 use crate::type_spec::*;
 use crate::error::*;
+use crate::content_str::*;
 
 #[derive(Debug)]
 pub enum VariableDeclaration {
@@ -112,17 +113,17 @@ impl VariableDeclaration {
     }
 }
 
-fn parse_declaration_tuple(s: &str) -> IResult<&str, VariableDeclaration> {
+fn parse_declaration_tuple(s: ContentStr<'_>) -> IResult<ContentStr<'_>, VariableDeclaration> {
     let (s, (_, _, tuples, _, _, _, _)) = tuple((char('('), multispace0, separated_list1(tuple((multispace0, char(','), multispace0)), parse_variable_declaration), multispace0, opt(char(',')), multispace0, char(')')))(s)?;
     Ok((s, VariableDeclaration::Tuple(tuples, Tag::new())))
 }
 
-fn parse_declration_leaf(s: &str) -> IResult<&str, VariableDeclaration> {
+fn parse_declration_leaf(s: ContentStr<'_>) -> IResult<ContentStr<'_>, VariableDeclaration> {
     let (s, (is_mut, id)) = tuple((opt(tuple((tag("mut"), multispace1))), parse_identifier))(s)?;
     Ok((s, VariableDeclaration::Leaf(id, is_mut.is_some())))
 }
 
-pub fn parse_variable_declaration(s: &str) -> IResult<&str, VariableDeclaration> {
+pub fn parse_variable_declaration(s: ContentStr<'_>) -> IResult<ContentStr<'_>, VariableDeclaration> {
     alt((parse_declration_leaf, parse_declaration_tuple))(s)
 }
 
@@ -169,13 +170,13 @@ impl MoveCheck for LetDeclaration {
 }
 
 
-pub fn parse_let_declaration(s: &str) -> IResult<&str, LetDeclaration> {
+pub fn parse_let_declaration(s: ContentStr<'_>) -> IResult<ContentStr<'_>, LetDeclaration> {
     let (s, (_let, _, vars, _, tyinfo, _, _e, _, value)) = tuple((tag("let"), multispace1, parse_variable_declaration, multispace0, opt(tuple((char(':'), multispace0, parse_type_spec))), multispace0, tag("="), multispace0, parse_expression))(s)?;
     Ok((s, (LetDeclaration { vars, type_info: tyinfo.map(|(_, _, type_info)| type_info ), value })))
 }
 
 #[test]
 fn parse_decl_test() {
-    log::debug!("{:?}", parse_let_declaration("let x = 1 + 2").ok());
-    log::debug!("{:?}", parse_let_declaration("let x: i64 = 1 + 2").ok());
+    log::debug!("{:?}", parse_let_declaration("let x = 1 + 2".into_content(0)).ok());
+    log::debug!("{:?}", parse_let_declaration("let x: i64 = 1 + 2".into_content(0)).ok());
 }

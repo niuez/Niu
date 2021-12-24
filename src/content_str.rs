@@ -2,13 +2,32 @@ use nom::*;
 
 #[derive(Debug, Clone)]
 pub struct ContentStr<'a> {
-    s: &'a str,
-    name: usize,
+    pub s: &'a str,
+    pub name: usize,
+}
+
+pub trait IntoContentStr<'a> {
+    fn into_content(self, name: usize) -> ContentStr<'a>;
+}
+
+impl<'a> IntoContentStr<'a> for &'a str {
+    fn into_content(self, name: usize) -> ContentStr<'a> {
+        ContentStr { s: self, name, }
+    }
+}
+
+impl<'a, 'b> Compare<&'b str> for ContentStr<'a> {
+    fn compare(&self, t: &'b str) -> CompareResult {
+        self.s.compare(t)
+    }
+    fn compare_no_case(&self, t: &'b str) -> CompareResult {
+        self.s.compare_no_case(t)
+    }
 }
 
 impl<'a> ExtendInto for ContentStr<'a> {
-    type Item = char;
-    type Extender = String;
+    type Item = <&'a str as ExtendInto>::Item;
+    type Extender = <&'a str as ExtendInto>::Extender;
 
     #[inline]
     fn new_builder(&self) -> String {
@@ -32,7 +51,7 @@ impl<'a> FindToken<char> for ContentStr<'a> {
 }
 
 impl<'a> InputIter for ContentStr<'a> {
-    type Item = <&'a str as InputIter>::Item;
+    type Item = char;
     type Iter = <&'a str as InputIter>::Iter;
     type IterElem = <&'a str as InputIter>::IterElem;
     fn iter_indices(&self) -> Self::Iter {
@@ -73,5 +92,11 @@ impl<'a, R> Slice<R> for ContentStr<'a> where &'a str: Slice<R> {
     fn slice(&self, range: R) -> Self {
         let s = self.s.slice(range);
         Self { name: self.name, s, }
+    }
+}
+
+impl<'a> Offset for ContentStr<'a> {
+    fn offset(&self, second: &Self) -> usize {
+        self.s.offset(second.s)
     }
 }

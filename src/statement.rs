@@ -13,6 +13,7 @@ use crate::substitute::*;
 use crate::unify::*;
 use crate::trans::*;
 use crate::error::*;
+use crate::content_str::*;
 
 
 #[derive(Debug)]
@@ -81,36 +82,36 @@ impl MoveCheck for Statement {
     }
 }
 
-pub fn parse_expression_to_statement(s: &str) -> IResult<&str, Statement> {
+pub fn parse_expression_to_statement(s: ContentStr<'_>) -> IResult<ContentStr<'_>, Statement> {
     let (s, expr) = parse_expression(s)?;
     Ok((s, Statement::Expression(expr, Tag::new())))
 }
 
-pub fn parse_let_declaration_to_statement(s: &str) -> IResult<&str, Statement> {
+pub fn parse_let_declaration_to_statement(s: ContentStr<'_>) -> IResult<ContentStr<'_>, Statement> {
     let (s, decl) = parse_let_declaration(s)?;
     Ok((s, Statement::LetDeclaration(decl)))
 }
 
-pub fn parse_substitute_to_statement(s: &str) -> IResult<&str, Statement> {
+pub fn parse_substitute_to_statement(s: ContentStr<'_>) -> IResult<ContentStr<'_>, Statement> {
     let (s, subst) = parse_substitute(s)?;
     Ok((s, Statement::Substitute(subst)))
 }
 
-pub fn parse_break_to_statement(s: &str) -> IResult<&str, Statement> {
+pub fn parse_break_to_statement(s: ContentStr<'_>) -> IResult<ContentStr<'_>, Statement> {
     let (s, _) = tag("break")(s)?;
     Ok((s, Statement::Break))
 }
-pub fn parse_continue_to_statement(s: &str) -> IResult<&str, Statement> {
+pub fn parse_continue_to_statement(s: ContentStr<'_>) -> IResult<ContentStr<'_>, Statement> {
     let (s, _) = tag("continue")(s)?;
     Ok((s, Statement::Continue))
 }
 
-pub fn parse_statement(s: &str) -> IResult<&str, Statement> {
+pub fn parse_statement(s: ContentStr<'_>) -> IResult<ContentStr<'_>, Statement> {
     alt((parse_break_to_statement, parse_continue_to_statement, parse_let_declaration_to_statement, parse_substitute_to_statement, parse_expression_to_statement))(s)
 }
 
 #[test]
 fn parse_statement_test() {
-    log::debug!("{:?}", parse_statement("let x = 1 + 2;").ok());
-    log::debug!("{:?}", parse_statement("clamp(x, y, z);").ok());
+    log::debug!("{:?}", parse_statement(ContentStr { s: "let x = 1 + 2;", name: 0 }).ok());
+    log::debug!("{:?}", parse_statement("clamp(x, y, z);".into_content(0)).ok());
 }

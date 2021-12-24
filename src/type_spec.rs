@@ -15,6 +15,7 @@ use crate::traits::*;
 use crate::unify::*;
 use crate::trans::*;
 use crate::error::*;
+use crate::content_str::*;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct TypeSign {
@@ -100,7 +101,7 @@ impl TypeSign {
     }
 }
 
-fn parse_generics_annotation(s: &str) -> IResult<&str, Vec<TypeSpec>> {
+fn parse_generics_annotation(s: ContentStr<'_>) -> IResult<ContentStr<'_>, Vec<TypeSpec>> {
     let (s, op) = opt(tuple((char('<'), multispace0, parse_type_spec, multispace0, many0(tuple((char(','), multispace0, parse_type_spec, multispace0))), opt(tuple((multispace0, char(',')))), multispace0, char('>'))))(s)?;
     let v = match op {
         None => Vec::new(),
@@ -116,7 +117,7 @@ fn parse_generics_annotation(s: &str) -> IResult<&str, Vec<TypeSpec>> {
 }
 
 
-pub fn parse_type_sign(s: &str) -> IResult<&str, TypeSign> {
+pub fn parse_type_sign(s: ContentStr<'_>) -> IResult<ContentStr<'_>, TypeSign> {
     let (s, (id, _, gens)) = tuple((parse_type_id, multispace0, parse_generics_annotation))(s)?;
     Ok((s, TypeSign { id, gens }))
 }
@@ -307,7 +308,7 @@ impl TypeSpec {
     }
 }
 
-fn parse_type_spec_subseq(s: &str, prev: TypeSpec, prev_range: SourceRange) -> IResult<&str, TypeSpec> {
+fn parse_type_spec_subseq(s: ContentStr<'_>, prev: TypeSpec, prev_range: SourceRange) -> IResult<ContentStr<'_>, TypeSpec> {
     if let Ok((ss, (_, (asso_ty, range)))) = tuple((multispace0, with_range(parse_associated_type)))(s) {
         let range = prev_range.merge(&range);
         parse_type_spec_subseq(ss, TypeSpec::Associated(
@@ -323,34 +324,34 @@ fn parse_type_spec_subseq(s: &str, prev: TypeSpec, prev_range: SourceRange) -> I
     }
 }
 
-fn parse_type_spec_pointer(s: &str) -> IResult<&str, TypeSpec> {
+fn parse_type_spec_pointer(s: ContentStr<'_>) -> IResult<ContentStr<'_>, TypeSpec> {
     let (s, (_, _, spec)) = tuple((tag("&"), multispace0, parse_type_spec))(s)?;
     Ok((s, TypeSpec::Pointer(Box::new(spec))))
 }
 
-fn parse_type_spec_mutpointer(s: &str) -> IResult<&str, TypeSpec> {
+fn parse_type_spec_mutpointer(s: ContentStr<'_>) -> IResult<ContentStr<'_>, TypeSpec> {
     let (s, (_, _, spec)) = tuple((tag("&mut"), multispace0, parse_type_spec))(s)?;
     Ok((s, TypeSpec::MutPointer(Box::new(spec))))
 }
 
-fn parse_type_spec_paren(s: &str) -> IResult<&str, TypeSpec> {
+fn parse_type_spec_paren(s: ContentStr<'_>) -> IResult<ContentStr<'_>, TypeSpec> {
     let (s, (_, _, spec, _, _)) = tuple((tag("("), multispace0, parse_type_spec, multispace0, tag(")")))(s)?;
     Ok((s, spec))
 }
 
-fn parse_type_spec_tuple(s: &str) -> IResult<&str, TypeSpec> {
+fn parse_type_spec_tuple(s: ContentStr<'_>) -> IResult<ContentStr<'_>, TypeSpec> {
     let (s, (_, _, tuples, _, _, _, _)) = tuple((char('('), multispace0, separated_list1(tuple((multispace0, char(','), multispace0)), parse_type_spec), multispace0, opt(char(',')), multispace0, char(')')))(s)?;
     Ok((s, TypeSpec::Tuple(tuples)))
 }
 
 
-fn parse_type_spec_sign(s: &str) -> IResult<&str, TypeSpec> {
+fn parse_type_spec_sign(s: ContentStr<'_>) -> IResult<ContentStr<'_>, TypeSpec> {
     let (s, (sign, range)) = with_range(parse_type_sign)(s)?;
     let prev = TypeSpec::TypeSign(sign);
     parse_type_spec_subseq(s, prev, range)
 }
 
-pub fn parse_type_spec(s: &str) -> IResult<&str, TypeSpec> {
+pub fn parse_type_spec(s: ContentStr<'_>) -> IResult<ContentStr<'_>, TypeSpec> {
     alt((parse_type_spec_mutpointer, parse_type_spec_pointer, parse_type_spec_paren, parse_type_spec_tuple, parse_type_spec_sign))(s)
 }
 
@@ -390,16 +391,16 @@ impl Transpile for TypeSpec {
 
 #[test]
 fn parse_type_spec_test() {
-    log::debug!("{:?}", parse_type_spec("i64").ok());
-    log::debug!("{:?}", parse_type_spec("i64#MyTrait::Output").ok());
-    log::debug!("{:?}", parse_type_spec("Pair<Pair<i64, u64>, bool>").ok());
-    log::debug!("{:?}", parse_type_spec("T#MyTrait::Output#MyTrait::Output").ok());
-    log::debug!("{:?}", parse_type_spec("(i64)").ok());
-    log::debug!("{:?}", parse_type_spec("*i64").ok());
-    log::debug!("{:?}", parse_type_spec("*(*i64)").ok());
-    log::debug!("{:?}", parse_type_spec("*(T#MyTrait::Output)").ok());
-    println!("{:?}", parse_type_spec("(X, Y, Z)").unwrap());
-    println!("{:?}", parse_type_spec("(X, Y,)").unwrap());
+    log::debug!("{:?}", parse_type_spec("i64".into_content(0)).ok());
+    log::debug!("{:?}", parse_type_spec("i64#MyTrait::Output".into_content(0)).ok());
+    log::debug!("{:?}", parse_type_spec("Pair<Pair<i64, u64>, bool>".into_content(0)).ok());
+    log::debug!("{:?}", parse_type_spec("T#MyTrait::Output#MyTrait::Output".into_content(0)).ok());
+    log::debug!("{:?}", parse_type_spec("(i64)".into_content(0)).ok());
+    log::debug!("{:?}", parse_type_spec("*i64".into_content(0)).ok());
+    log::debug!("{:?}", parse_type_spec("*(*i64)".into_content(0)).ok());
+    log::debug!("{:?}", parse_type_spec("*(T#MyTrait::Output)".into_content(0)).ok());
+    println!("{:?}", parse_type_spec("(X, Y, Z)".into_content(0)).unwrap());
+    println!("{:?}", parse_type_spec("(X, Y,)".into_content(0)).unwrap());
     // log::debug!("{:?}", parse_type_spec("Pair<Pair<i64, u64>, bool>").unwrap().1.gen_type(&mut equs));
 }
     

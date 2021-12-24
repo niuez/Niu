@@ -17,6 +17,7 @@ use crate::mut_checker::*;
 use crate::move_checker::*;
 use crate::identifier::*;
 use crate::error::*;
+use crate::content_str::*;
 
 #[derive(Debug)]
 pub enum Subseq {
@@ -423,7 +424,7 @@ pub fn subseq_move_check(uexpr: &UnaryExpr, subseq: &Subseq, mc: &mut VariablesM
 }
 
 
-pub fn parse_subseq(s: &str) -> IResult<&str, Subseq> {
+pub fn parse_subseq(s: ContentStr<'_>) -> IResult<ContentStr<'_>, Subseq> {
     let (s, (_, x)) = tuple((multispace0, alt((parse_call, parse_member, parse_tuple_member, parse_index_call))))(s)?;
     Ok((s, x))
 }
@@ -434,7 +435,7 @@ pub struct Call {
     tag: Tag,
 }
 
-pub fn parse_call(s: &str) -> IResult<&str, Subseq> {
+pub fn parse_call(s: ContentStr<'_>) -> IResult<ContentStr<'_>, Subseq> {
     let (s, (_, _, op, _)) = tuple((
         char('('), multispace0, opt(tuple((
                     parse_expression, multispace0,
@@ -460,7 +461,7 @@ pub struct IndexCall {
     range: SourceRange,
 }
 
-pub fn parse_index_call(s: &str) -> IResult<&str, Subseq> {
+pub fn parse_index_call(s: ContentStr<'_>) -> IResult<ContentStr<'_>, Subseq> {
     let (s, ((_, _, arg, _, _), range)) = with_range(tuple((
             char('['), multispace0, parse_expression, multispace0, char(']')
             )))(s)?;
@@ -473,7 +474,7 @@ pub struct Member {
     pub range: SourceRange,
 }
 
-fn parse_member(s: &str) -> IResult<&str, Subseq> {
+fn parse_member(s: ContentStr<'_>) -> IResult<ContentStr<'_>, Subseq> {
     let (s, ((_, _, mem_id), range)) = with_range(tuple((char('.'), multispace0, parse_identifier)))(s)?;
     Ok((s, Subseq::Member(Member { mem_id, range })))
 }
@@ -485,13 +486,13 @@ pub struct TupleMember {
     pub range: SourceRange,
 }
 
-fn parse_tuple_member(s: &str) -> IResult<&str, Subseq> {
+fn parse_tuple_member(s: ContentStr<'_>) -> IResult<ContentStr<'_>, Subseq> {
     let (s, ((_, _, idx), range)) = with_range(tuple((char('.'), multispace0, nom::character::complete::u64)))(s)?;
     Ok((s, Subseq::TupleMember(TupleMember { idx: idx as usize, id: Identifier::from_str(&idx.to_string()), range, })))
 }
 
 #[test]
 fn parse_call_test() {
-    log::debug!("{:?}", parse_call("()").ok());
-    log::debug!("{:?}", parse_call("(1, 2, 3)").ok());
+    log::debug!("{:?}", parse_call("()".into_content(0)).ok());
+    log::debug!("{:?}", parse_call("(1, 2, 3)".into_content(0)).ok());
 }

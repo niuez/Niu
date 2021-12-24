@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use crate::identifier::*;
 use crate::cpp_inline::*;
 use crate::trans::*;
+use crate::content_str::*;
 
 use nom::IResult;
 use nom::bytes::complete::*;
@@ -36,18 +37,18 @@ impl UnitTestFunc {
     }
 }
 
-fn parse_tester(s: &str) -> IResult<&str, String> {
+fn parse_tester(s: ContentStr<'_>) -> IResult<ContentStr<'_>, String> {
     let (s, tester) = is_not(":")(s)?;
-    Ok((s, tester.to_string()))
+    Ok((s, tester.s.to_string()))
 }
 
-fn parse_problem(s: &str) -> IResult<&str, String> {
+fn parse_problem(s: ContentStr<'_>) -> IResult<ContentStr<'_>, String> {
     let (s, tester) = is_not(")")(s)?;
-    Ok((s, tester.to_string()))
+    Ok((s, tester.s.to_string()))
 }
 
 
-pub fn parse_unit_test_func(s: &str) -> IResult<&str, UnitTestFunc> {
+pub fn parse_unit_test_func(s: ContentStr<'_>) -> IResult<ContentStr<'_>, UnitTestFunc> {
     let (s, (_, _, _, tester, _, problem, _, _, test_name, _, cpp_inline)) = tuple((tag("testfn"), multispace0, char('('), parse_tester,
         char(':'), parse_problem,
         char(')'), multispace0, parse_identifier,
@@ -62,5 +63,5 @@ fn parse_unit_test_func_test() {
     long long a, b;
     std::cin >> a >> b;
     std::cout << a + b << std::endl;
-}$$"#).unwrap())
+}$$"#.into_content(0)).unwrap())
 }

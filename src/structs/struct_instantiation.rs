@@ -18,6 +18,7 @@ use crate::mut_checker::*;
 use crate::move_checker::*;
 use crate::error::*;
 use crate::unify::MemberEquation;
+use crate::content_str::*;
 
 #[derive(Debug)]
 pub struct StructInstantiation {
@@ -45,12 +46,12 @@ impl GenType for StructInstantiation {
     }
 }
 
-fn parse_member(s: &str) -> IResult<&str, (Identifier, (Expression, SourceRange))> {
+fn parse_member(s: ContentStr<'_>) -> IResult<ContentStr<'_>, (Identifier, (Expression, SourceRange))> {
     let (s, ((id, _, _, _, ty), range)) = with_range(tuple((parse_identifier, multispace0, char(':'), multispace0, parse_expression)))(s)?;
     Ok((s, (id, (ty, range))))
 }
 
-pub fn parse_struct_instantiation(s: &str) -> IResult<&str, UnaryExpr> {
+pub fn parse_struct_instantiation(s: ContentStr<'_>) -> IResult<ContentStr<'_>, UnaryExpr> {
     let (s, ((struct_id, _, _, _, opts, _), range)) = with_range(tuple((parse_type_id, multispace0, char('{'), multispace0,
                          opt(tuple((parse_member, many0(tuple((multispace0, char(','), multispace0, parse_member))), opt(tuple((multispace0, char(',')))), multispace0))),
                          char('}'))))(s)?;
@@ -98,6 +99,6 @@ impl MoveCheck for StructInstantiation {
 
 #[test]
 fn parse_struct_instantiation_test() {
-    log::debug!("{:?}", parse_struct_instantiation("MyStruct { a: 1i64 + 2i64, b: val, }").ok());
+    log::debug!("{:?}", parse_struct_instantiation("MyStruct { a: 1i64 + 2i64, b: val, }".into_content(0)).ok());
 }
 

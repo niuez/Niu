@@ -18,7 +18,7 @@ impl Transpile for TraitMethodIdentifier {
 }
 
 
-pub fn parse_trait_method_identifier(s: &str) -> IResult<&str, TraitMethodIdentifier> {
+pub fn parse_trait_method_identifier(s: ContentStr<'_>) -> IResult<ContentStr<'_>, TraitMethodIdentifier> {
     let (s, id) = parse_identifier(s)?;
     Ok((s, TraitMethodIdentifier { id }))
 }
@@ -30,7 +30,7 @@ pub struct TraitMethod {
     pub method_id: TraitMethodIdentifier,
 }
 
-pub fn parse_trait_method(s: &str) -> IResult<&str, TraitMethod> {
+pub fn parse_trait_method(s: ContentStr<'_>) -> IResult<ContentStr<'_>, TraitMethod> {
     let (s, (trait_id, _, _, _, method_id)) = tuple((parse_trait_id, multispace0, tag("."), multispace0, parse_trait_method_identifier))(s)?;
     Ok((s, TraitMethod { trait_id, method_id }))
 }
