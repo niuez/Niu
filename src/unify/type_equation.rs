@@ -659,7 +659,8 @@ impl TypeEquations {
         let (ty, b8) = self.solve_tuple(ty, trs)?;
         let (ty, b9) = self.solve_tuple_member(ty, trs)?;
         let (ty, b10) = self.solve_call_variable(ty, trs)?;
-        Ok((ty, b0 & b1 & b2 & b3 & b4 & b5 & b6 & b7 & b8 & b9 & b10))
+        let (ty, b11) = self.solve_ref(ty, trs)?;
+        Ok((ty, b0 & b1 & b2 & b3 & b4 & b5 & b6 & b7 & b8 & b9 & b10 & b11))
     }
 
     fn solve_call_equation(&mut self, ty: Type, trs: &TraitsInfo) -> Result<(Type, SolveChange), UnifyErr> {
@@ -850,6 +851,20 @@ impl TypeEquations {
     fn solve_call_variable(&mut self, ty: Type, trs: &TraitsInfo) -> Result<(Type, SolveChange), UnifyErr> {
         match ty {
             Type::CallVariable(call) => call.solve(self, trs),
+            _ => Ok((ty, SolveChange::not())),
+        }
+    }
+
+    fn solve_ref(&mut self, ty: Type, trs: &TraitsInfo) -> Result<(Type, SolveChange), UnifyErr> {
+        match ty {
+            Type::Ref(ty) => {
+                let (ty, change) = self.solve_relations(*ty, trs)?;
+                Ok((Type::Ref(Box::new(ty)), change))
+            }
+            Type::MutRef(ty) => {
+                let (ty, change) = self.solve_relations(*ty, trs)?;
+                Ok((Type::MutRef(Box::new(ty)), change))
+            }
             _ => Ok((ty, SolveChange::not())),
         }
     }

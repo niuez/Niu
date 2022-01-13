@@ -242,7 +242,7 @@ impl TypeSpec {
             TypeSpec::MutPointer(ref spec) => {
                 Ok(Type::Ref(Box::new(spec.as_ref().generate_type_no_auto_generics(equs, trs)?)))
             }
-            TypeSpec::Associated(AssociatedSpec { ref type_spec, ref associated, .. }) => {
+            TypeSpec::Associated(AssociatedSpec { ref type_spec, ref associated, ref tag, .. }) => {
                 let trait_gen = match associated.trait_spec {
                     Some(ref tr) => Some(tr.generate_trait_generics_with_no_map(equs, trs)?),
                     None => None,
@@ -252,7 +252,7 @@ impl TypeSpec {
                     trait_gen,
                     associated_type_id: associated.type_id.clone(),
                     caller_range: ErrorHint::None,
-                    tag: Tag::new(),
+                    tag: tag.clone(),
                 }))
             }
             TypeSpec::Tuple(ref params) => {

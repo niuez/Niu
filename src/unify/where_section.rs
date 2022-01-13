@@ -57,12 +57,11 @@ impl WhereSection {
         Ok(())
     }
 
-    pub fn regist_candidate(&self, equs: &TypeEquations, trs: &mut TraitsInfo, define_hint: &ErrorHint) -> Result<(), Error> {
+    pub fn regist_candidate(&self, equs: &mut TypeEquations, trs: &mut TraitsInfo, define_hint: &ErrorHint) -> Result<(), Error> {
         for (spec, _, tr_spec, asso_eqs, range) in self.has_traits.iter() {
 
 
             let mut tmp_equs = TypeEquations::new();
-
             let param_ty = spec.generate_type_no_auto_generics(equs, trs)?;
             let alpha = tr_spec.get_tag().generate_type_variable("ParamType", 0, &mut tmp_equs);
             tmp_equs.add_equation(param_ty, alpha, range.hint("temporary equation for regist candidate from where section", define_hint.clone()).err());
@@ -75,16 +74,17 @@ impl WhereSection {
                 tmp_equs.add_equation(asso_spec_ty, alpha, Error::None);
             }
             tmp_equs.unify(trs).map_err(|err| err.into_err())?;
-            let substs = SubstsMap::new(tmp_equs.take_substs().clone());
+            //dbg!(&tmp_equs);
+            //let substs = SubstsMap::new(tmp_equs.take_substs().clone());
 
-            let param_ty = substs.get_from_tag(&tr_spec.get_tag(), "ParamType", 0)?;
+            let param_ty = tmp_equs.try_get_substs(TypeVariable::Counter(tr_spec.get_tag().get_num(), "ParamType", 0));
             let asso_mp = asso_eqs.iter().map(|(asso_id, _)| {
-                    let asso_spec_ty = substs.get(&asso_id.id, "AssociatedType", 0)?;
+                    let asso_spec_ty = tmp_equs.try_get_substs(TypeVariable::Counter(asso_id.id.get_tag_number(), "AssociatedType", 0));
                     Ok((asso_id.clone(), asso_spec_ty))
                 }).collect::<Result<HashMap<_, _>, Error>>()?;
             
             trs.regist_param_candidate(param_ty, &tr_gen, asso_mp, define_hint)?;
-            
+            equs.take_over_equations(tmp_equs);
         }
         Ok(())
     }
