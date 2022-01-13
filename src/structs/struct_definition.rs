@@ -60,6 +60,7 @@ impl StructDefinition {
         &self.member_def
     }
     pub fn unify_require_methods(&self, equs: &mut TypeEquations, trs: &TraitsInfo) -> Result<(), Error> {
+        self.member_def.regist_member_type(equs, trs)?;
         self.impl_self.unify_require_methods(equs, trs)
     }
     pub fn mut_check(&self, ta: &TypeAnnotation, vars: &mut VariablesInfo) -> Result<(), String> {
@@ -196,6 +197,26 @@ impl StructMemberDefinition {
             StructMember::CppInline(_) => {
                 Err(ErrorComment::empty(format!("{:?} is inline struct", self.struct_id)))
             }
+        }
+    }
+    fn regist_member_type(&self, equs: &mut TypeEquations, trs: &TraitsInfo) -> Result<(), Error> {
+        let mut trs = trs.into_scope();
+        for id in self.generics.iter() {
+            trs.regist_generics_type(id)?;
+        }
+        self.where_sec.regist_candidate(equs, &mut trs, &self.without_member_range.hint("member regist", ErrorHint::None))?;
+        match self.member {
+            StructMember::MemberInfo(MemberInfo { ref members, .. }) => {
+                for (id, spec) in members.iter() {
+                    let alpha = id.generate_not_void_type_variable("ForRegist", 0, equs);
+                    dbg!(spec);
+                    let ty_spec = spec.generate_type_no_auto_generics(equs, &trs)?;
+                    equs.add_equation(alpha, ty_spec, Error::None);
+                }
+                equs.unify(&trs).map_err(|e| e.into_err())?;
+                Ok(())
+            }
+            _ => Ok(())
         }
     }
 }

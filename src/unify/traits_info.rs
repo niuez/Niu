@@ -412,7 +412,7 @@ impl<'a> TraitsInfo<'a> {
             Some(tr_def) => {
                 let mut equs = TypeEquations::new();
                 equs.set_self_type(Some(ty.clone()));
-                tr_def.where_sec.regist_candidate(&equs, self, &tr_def.without_member_range.hint(&format!("regist candidate by where section of {:?}", trait_gen), define_hint.clone()))?;
+                tr_def.where_sec.regist_candidate(&mut equs, self, &tr_def.without_member_range.hint(&format!("regist candidate by where section of {:?}", trait_gen), define_hint.clone()))?;
                 //dbg!(&tr_def.asso_ids);
                 let asso_tys = tr_def.asso_ids.iter().map(|asso_id| {
                     let asso_ty = match asso_mp.remove(asso_id) {
