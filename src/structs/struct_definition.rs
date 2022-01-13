@@ -209,7 +209,7 @@ impl StructMemberDefinition {
             StructMember::MemberInfo(MemberInfo { ref members, .. }) => {
                 for (id, spec) in members.iter() {
                     let alpha = id.generate_not_void_type_variable("ForRegist", 0, equs);
-                    dbg!(spec);
+                    //dbg!(spec);
                     let ty_spec = spec.generate_type_no_auto_generics(equs, &trs)?;
                     equs.add_equation(alpha, ty_spec, Error::None);
                 }
