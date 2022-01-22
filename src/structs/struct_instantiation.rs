@@ -4,6 +4,7 @@ use nom::IResult;
 use nom::character::complete::*;
 use nom::multi::*;
 use nom::sequence::*; 
+use nom::branch::*;
 use nom::combinator::*;
 
 use crate::identifier::{ Identifier, parse_identifier, Tag };
@@ -53,7 +54,10 @@ fn parse_member(s: ContentStr<'_>) -> IResult<ContentStr<'_>, (Identifier, (Expr
 
 pub fn parse_struct_instantiation(s: ContentStr<'_>) -> IResult<ContentStr<'_>, UnaryExpr> {
     let (s, ((struct_id, _, _, _, opts, _), range)) = with_range(tuple((parse_type_id, multispace0, char('{'), multispace0,
-                         opt(tuple((parse_member, many0(tuple((multispace0, char(','), multispace0, parse_member))), opt(tuple((multispace0, char(',')))), multispace0))),
+                         alt((
+                            map(tuple((parse_member, many0(tuple((multispace0, char(','), multispace0, parse_member))), opt(tuple((multispace0, char(',')))), multispace0)), |p| Some(p)),
+                            map(tuple((char(','), multispace0)), |_| None)
+                         )),
                          char('}'))))(s)?;
     let members = match opts {
         None => HashMap::new(),

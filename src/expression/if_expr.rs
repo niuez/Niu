@@ -121,7 +121,6 @@ impl MoveCheck for IfExpr {
     }
 }
 
-
 pub fn parse_if_expr(s: ContentStr<'_>) -> IResult<ContentStr<'_>, Expression> {
     let (s, (_, _, if_cond, _, if_block, _, many, el_block, _)) = tuple((tag("if"), multispace1, parse_expression, multispace0, parse_block, multispace0,
                         many0(tuple((tag("else"), multispace1, tag("if"), multispace1, parse_expression, multispace0, parse_block, multispace0))),
@@ -134,5 +133,6 @@ pub fn parse_if_expr(s: ContentStr<'_>) -> IResult<ContentStr<'_>, Expression> {
 
 #[test]
 fn parse_if_expr_test() {
-    println!("{:?}", parse_if_expr("if a == b { c } else { d }".into_content(0)).ok());
+    println!("{:?}", parse_if_expr("if a == b { c } else { d }".into_content(0)).unwrap());
+    println!("{:?}", parse_if_expr("if a == b {} else { let a = 0; }".into_content(0)).unwrap());
 }
