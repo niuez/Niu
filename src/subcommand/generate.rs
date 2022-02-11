@@ -31,7 +31,7 @@ fn generate_test(library_dir: &Path, trans_file: &Path, unit_test: UnitTestTrans
     log::info!("generate test {}", test_name.into_string());
     let test_file = library_dir.join(".test").join(&test_name.into_string()).with_extension("cpp");
     let trans_file = Path::new("..").join(trans_file.strip_prefix(library_dir).unwrap());
-    let program = format!("#include <iostream>\n#include \"{}\"\nint main() {{\n{}\n}}", trans_file.to_str().unwrap(), program);
+    let program = format!("#include \"{}\"\n{}", trans_file.to_str().unwrap(), program);
     let mut test_file = std::fs::File::create(&test_file)
         .map_err(|e| format!("failure to create {:?}, {:?}", test_file, e))?;
     test_file.write_all(program.as_bytes())
