@@ -47,6 +47,8 @@ struct UnionFind {
 }
 
 testfn(library-checker-problems:datastructure/unionfind) unionfind_test $${
+#include <iostream>
+int main() {
   std::cin.tie(nullptr);
   int N, Q;
   std::cin >> N >> Q;
@@ -61,4 +63,5 @@ testfn(library-checker-problems:datastructure/unionfind) unionfind_test $${
       std::cout << (UnionFind::root(uf, a) == UnionFind::root(uf, b)) << "\n";
     }
   }
+}
 }$$

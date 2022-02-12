@@ -31,7 +31,7 @@ fn generate_test(library_dir: &Path, trans_file: &Path, unit_test: UnitTestTrans
     log::info!("generate test {}", test_name.into_string());
     let test_file = library_dir.join(".test").join(&test_name.into_string()).with_extension("cpp");
     let trans_file = Path::new("..").join(trans_file.strip_prefix(library_dir).unwrap());
-    let program = format!("#include <iostream>\n#include \"{}\"\nint main() {{\n{}\n}}", trans_file.to_str().unwrap(), program);
+    let program = format!("#include \"{}\"\n{}", trans_file.to_str().unwrap(), program);
     let mut test_file = std::fs::File::create(&test_file)
         .map_err(|e| format!("failure to create {:?}, {:?}", test_file, e))?;
     test_file.write_all(program.as_bytes())
@@ -43,7 +43,7 @@ fn generate_test(library_dir: &Path, trans_file: &Path, unit_test: UnitTestTrans
     })
 }
 
-fn transpile_target(library_dir: &Path, target: &Path) -> Result<Vec<Tests>, String> {
+fn transpile_target(library_dir: &Path, target: &Path) -> Result<(PathBuf, Vec<Tests>), String> {
     log::info!("tranpile {:?}", target);
     let trans_dir = target.parent().unwrap().strip_prefix(library_dir)
         .map_err(|e| format!("strip error {:?}", e))?;
@@ -59,9 +59,10 @@ fn transpile_target(library_dir: &Path, target: &Path) -> Result<Vec<Tests>, Str
                 .map_err(|e| format!("failure to create file {:?}, {:?}", trans_path, e))?;
             trans_file.write_all(prog.as_bytes())
                 .map_err(|e| format!("failure to write {:?}", e))?;
-            unit_tests.into_iter()
+            let tests = unit_tests.into_iter()
                 .map(|unit_test| generate_test(library_dir, &trans_path, unit_test))
-                .collect::<Result<_, _>>()
+                .collect::<Result<_, _>>()?;
+            Ok((trans_path, tests))
         }
         Err(err) => {
             Err(format!("failure to transpile {:?}, {}", target, err))
@@ -69,14 +70,16 @@ fn transpile_target(library_dir: &Path, target: &Path) -> Result<Vec<Tests>, Str
     }
 }
 
-pub fn generate_headers(library_dir: &Path) -> Result<(), String> {
+pub fn generate_headers(library_dir: &Path) -> Result<Vec<(PathBuf, PathBuf, Vec<Tests>)>, String> {
     let lib_conf = super::unit_test::load_library_config(library_dir)?;
     let list = get_targets_list(library_dir)?;
     let mut tests = Vec::new();
-    for target in list.into_iter() {
-        let mut test = transpile_target(library_dir, &target)?;
-        tests.append(&mut test);
-    }
+    let target_list = list.into_iter().map(|target| {
+        let (trans_path, test) = transpile_target(library_dir, &target)?;
+        let mut test2 = test.clone();
+        tests.append(&mut test2);
+        Ok((target, trans_path, test))
+    }).collect::<Result<Vec<_>, String>>()?;
     if !tests.is_empty() {
         log::info!("generate tests.toml");
         let tests_conf = TestConfig::generate(&lib_conf, &tests);
@@ -88,5 +91,5 @@ pub fn generate_headers(library_dir: &Path) -> Result<(), String> {
     else {
         log::info!("test not found, generating tests.toml was skipped");
     }
-    Ok(())
+    Ok(target_list)
 }

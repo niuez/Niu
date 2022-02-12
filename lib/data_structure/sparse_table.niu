@@ -31,3 +31,31 @@ struct SparseTable<T> where T: Band {
   }
 }
 
+testfn(library-checker-problems:datastructure/staticrmq) sparse_table_staticrmq $${
+#include <iostream>
+using u64 = unsigned int long long;
+template<>
+struct Band<u64, void>: std::true_type {
+  static u64 ope(const u64& a, const u64& b) {
+    return std::min(a, b);
+  }
+};
+int main() {
+  std::cin.tie(nullptr);
+  int N, Q;
+  std::cin >> N >> Q;
+  std::vector<u64> a(N);
+  for(int i = 0; i < N; i++) {
+    std::cin >> a[i];
+  }
+  using ST = SparseTable<u64>;
+  auto st = ST::init(std::move(a));
+  while(Q--) {
+    int l, r;
+    std::cin >> l >> r;
+    std::cout << ST::query(st, l, r) << '\n';
+  }
+}
+}$$
+
+
