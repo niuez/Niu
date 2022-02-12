@@ -24,21 +24,21 @@ fn name_to_title(s: &str) -> String {
     }).collect::<Vec<String>>().join(" ")
 }
 
-fn regist_summary_rec<'a>(summary_mp: &mut HashMap<String, SummaryElement>, now_dir: PathBuf, mut strip_iter: std::path::Iter<'a>, name: String) -> Result<(), String> {
+fn regist_summary_rec<'a>(summary_mp: &mut HashMap<String, SummaryElement>, now_dir: PathBuf, mut strip_iter: std::path::Iter<'a>, name: String, library_dir: &Path) -> Result<(), String> {
     if let Some(dir) = strip_iter.next() {
         let dir_name = dir.to_str().unwrap().to_string();
         let now_dir = now_dir.join(dir);
         if !summary_mp.contains_key(&dir_name) {
             summary_mp.insert(dir_name.clone(), SummaryElement::Dir(now_dir.clone(), HashMap::new()));
-            std::fs::create_dir_all(&now_dir)
+            std::fs::create_dir_all(library_dir.join("md").join(&now_dir))
                 .map_err(|e| format!("failure to create dir, {:?}, {:?}", now_dir, e))?;
-            let mut index_md = std::fs::File::create(now_dir.join("index.md"))
+            let mut index_md = std::fs::File::create(library_dir.join("md").join(&now_dir).join("index.md"))
                 .map_err(|e| format!("failure to create index.md, {:?}", e))?;
             index_md.write_fmt(format_args!("# {}", name_to_title(&dir_name)))
                 .map_err(|e| format!("failure to write index.md, {:?}", e))?;
         }
         if let SummaryElement::Dir(_, new_mp) = summary_mp.get_mut(&dir_name).unwrap() {
-            regist_summary_rec(new_mp, now_dir, strip_iter, name)?;
+            regist_summary_rec(new_mp, now_dir, strip_iter, name, library_dir)?;
         }
     }
     else {
@@ -91,7 +91,7 @@ pub fn generate_document(library_dir: &Path) -> Result<(), String> {
 
         {
             let now_dir = PathBuf::new();
-            regist_summary_rec(&mut summary, now_dir, strip_dir.iter(), name.to_str().unwrap().to_string())?;
+            regist_summary_rec(&mut summary, now_dir, strip_dir.iter(), name.to_str().unwrap().to_string(), library_dir)?;
         }
 
 
