@@ -117,6 +117,9 @@ fn app() -> Result<(), String> {
         .subcommand(SubCommand::with_name("gen")
                     .about("generate headers and tests")
                     )
+        .subcommand(SubCommand::with_name("doc")
+                    .about("generate document")
+                    )
         .get_matches();
     if let Some(matches) = matches.subcommand_matches("trans") {
         match type_check(matches.value_of("FILE").unwrap()) {
@@ -148,6 +151,13 @@ fn app() -> Result<(), String> {
         log::info!("download finished");
         subcommand::unit_test::test_cppfiles(&library_dir, test_name)?;
         log::info!("test finished");
+        Ok(())
+    }
+    else if let Some(_matches) = matches.subcommand_matches("doc") {
+        let library_dir = subcommand::unit_test::get_library_dir(Path::new("."))?;
+        log::info!("generate documents");
+        subcommand::document::generate_document(&library_dir)?;
+        log::info!("generated");
         Ok(())
     }
     else {

@@ -3,4 +3,5 @@ Cargo.lock
 .DS_Store
 lib/.test
 lib/transpile
+lib/md
 unit_test

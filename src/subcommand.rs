@@ -1,6 +1,7 @@
 pub mod unit_test;
 pub mod generate;
 pub mod tester;
+pub mod document;
 
 use std::path::*;
 
