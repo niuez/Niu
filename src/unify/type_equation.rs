@@ -480,6 +480,7 @@ pub trait GenType {
     fn gen_type(&self, equs: &mut TypeEquations, trs: &TraitsInfo) -> TResult;
 }
 
+#[derive(Debug)]
 pub enum UnifyErr {
     Contradiction(Error),
     Deficiency(Error),
