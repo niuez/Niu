@@ -15,6 +15,7 @@ trait Effect<E> where E: Monoid {
 struct LazySegmentTree<T, E> where
   E: Monoid,
   T: Monoid,
+  T: Clone,
   T: Effect<E>,
 {
   node: Vec<T>,
@@ -37,5 +38,34 @@ struct LazySegmentTree<T, E> where
       node[i] = node[i * 2].ope(&node[i * 2 + 1]);
     }
     LazySegmentTree { node: node, lazy: lazy, flag: flag, n: n, }
+  }
+
+  fn eff(self: &mut Self, k: u64, e: &E) -> void {
+    if k < (self.n << 1) {
+      self.lazy[k] = self.lazy[k].ope(e);
+      self.flag[k] = true;
+    }
+  }
+
+  fn eval(self: &Self, k: u64) -> T {
+    if self.flag[k] {
+      self.node[k].effect(&self.lazy[k])
+    }
+    else {
+      self.node[k].clone()
+    }
+  }
+
+  fn push(self: &mut Self, k: u64) -> void {
+    if self.flag[k] {
+      self.node[k] = self.eval(k);
+      self.eff(k << 1, &self.lazy[k]);
+      self.eff((k << 1) | 1, &self.lazy[k]);
+      self.lazy[k] = E::ide();
+      self.flag[k] = false;
+    }
+  }
+
+  fn infuse(self: &mut Self, k: u64) -> void {
   }
 }

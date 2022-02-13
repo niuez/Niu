@@ -955,7 +955,13 @@ impl TypeEquations {
                                     let mut tmp_equs = TypeEquations::new();
                                     tmp_equs.add_equation(left.clone(), right, ErrorComment::new(format!("deref by {:?}", ref_tag), err.clone()));
                                     (ref_tag, tmp_equs)
-                            }).filter_map(
+                            }).chain(std::iter::once( {
+                                let mut tmp_equs = TypeEquations::new();
+                                let alpha = tag.generate_type_variable("MutrefToRef", 0, &mut tmp_equs);
+                                tmp_equs.add_equation(ty.clone(), Type::MutRef(Box::new(alpha.clone())), Error::None);
+                                tmp_equs.add_equation(Type::Ref(Box::new(alpha)), left.clone(), Error::None);
+                                (AutoRefTag::Nothing, tmp_equs)
+                            } )).filter_map(
                                 |(ref_tag, mut tmp_equs)| match tmp_equs.unify(trs) {
                                     Err(UnifyErr::Contradiction(_)) => None,
                                     _ => Some((ref_tag, tmp_equs)),
