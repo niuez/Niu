@@ -1,0 +1,41 @@
+import "std/vec.niu"
+import "std/u64.niu"
+import "std/i64.niu"
+import "std/bool.niu"
+
+trait Monoid {
+  fn ide() -> Self;
+  fn ope(self: &Self, right: &Self) -> Self;
+}
+
+trait Effect<E> where E: Monoid {
+  fn effect(self: &Self, e: &E) -> Self;
+}
+
+struct LazySegmentTree<T, E> where
+  E: Monoid,
+  T: Monoid,
+  T: Effect<E>,
+{
+  node: Vec<T>,
+  lazy: Vec<E>,
+  flag: Vec<bool>,
+  n: u64,
+} {
+  fn init(arr: Vec<T>) -> Self {
+    let mut n = 1;
+    for i = 1; n < arr.len(); n = n * 2 {}
+    let mut node = Vec::init(2 * n, T::ide());
+    let mut lazy = Vec::init(2 * n, E::ide());
+    let mut flag = Vec::init(2 * n, false);
+    let mut j = 0;
+    for x in arr {
+      node[j + n] = x;
+      j = j + 1;
+    }
+    for i = n - 1; i >= 1; i = i - 1 {
+      node[i] = node[i * 2].ope(&node[i * 2 + 1]);
+    }
+    LazySegmentTree { node: node, lazy: lazy, flag: flag, n: n, }
+  }
+}

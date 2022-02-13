@@ -24,7 +24,7 @@ pub struct TraitsInfo<'a> {
     associated_type_to_traits: HashMap<AssociatedTypeIdentifier, HashSet<TraitId>>,
     member_to_traits: HashMap<Identifier, HashSet<TraitId>>,
     member_to_self_impls: HashMap<Identifier, HashSet<TypeId>>,
-    disable_indices: HashSet<(usize, usize)>,
+    disable_indices: HashSet<(usize, TraitId, usize)>,
     depth: usize,
     upper_info: Option<&'a TraitsInfo<'a>>,
 }
@@ -106,12 +106,13 @@ impl<'a> TraitsInfo<'a> {
             upper_info: Some(self),
         }
     }
-    pub fn is_disabled(&self, depth: usize, idx: usize) -> bool {
-        if self.disable_indices.contains(&(depth, idx)) {
+    pub fn is_disabled(&self, depth: usize, trait_id: &TraitId, idx: usize) -> bool {
+        log::debug!("{:?}, {:?}", (depth, idx), self.disable_indices);
+        if self.disable_indices.contains(&(depth, trait_id.clone(), idx)) {
             true
         }
         else if let Some(trs) = self.upper_info {
-            trs.is_disabled(depth, idx)
+            trs.is_disabled(depth, trait_id, idx)
         }
         else {
             false
@@ -431,13 +432,15 @@ impl<'a> TraitsInfo<'a> {
                     Err(ErrorComment::empty(format!("undefined associated type speficier: {:?}", asso_mp)))
                 }
                 else {
-                    let same_candidates = self.match_to_impls(trait_gen, &ty, self).into_iter().map(|(.., d, i)| (d, i)).collect::<Vec<_>>();
+                    let match_candidates = self.match_to_impls(trait_gen, &ty, self);
+                    log::info!("match candidates {:?}", match_candidates);
+                    let same_candidates = match_candidates.into_iter().map(|(.., d, i)| (d, i)).collect::<Vec<_>>();
 
                     let cand = ParamCandidate::new(trait_gen.clone(), tr_def.generics.clone(), ty.clone(), asso_tys, tr_def.required_methods.clone(), define_hint);
                     self.regist_selection_candidate(&trait_gen.trait_id, cand);
 
                     for (depth, idx) in same_candidates {
-                        self.disable_indices.insert((depth, idx));
+                        self.disable_indices.insert((depth, trait_gen.trait_id.clone(), idx));
                     }
                     Ok(())
                 }
@@ -448,9 +451,10 @@ impl<'a> TraitsInfo<'a> {
     fn match_to_impls(&self, trait_gen: &TraitGenerics, ty: &Type, top_trs: &Self) -> Vec<(SubstsMap, &SelectionCandidate, usize, usize)> {
         let mut ans = Vec::new();
         if let Some(impls) = self.impls.get(&trait_gen.trait_id) {
+            log::debug!("impls ->\n {:?}", impls);
             let mut vs = impls.iter().enumerate()
                 .map(|(i, impl_trait)| {
-                    if top_trs.is_disabled(self.depth, i) {
+                    if top_trs.is_disabled(self.depth, &trait_gen.trait_id, i) {
                         None
                     }
                     else {
@@ -517,7 +521,7 @@ impl<'a> TraitsInfo<'a> {
         if let Some(impls) = self.impls.get(trait_id) {
             let mut vs = impls.iter().enumerate()
                 .map(|(i, impl_trait)| {
-                    if top_trs.is_disabled(self.depth, i) {
+                    if top_trs.is_disabled(self.depth, trait_id, i) {
                         None
                     }
                     else {
@@ -639,7 +643,7 @@ impl<'a> TraitsInfo<'a> {
         if let Some(impls) = self.impls.get(trait_id) {
             let mut vs = impls.iter().enumerate()
                 .map(|(i, impl_trait)| {
-                    if top_trs.is_disabled(self.depth, i) {
+                    if top_trs.is_disabled(self.depth, trait_id, i) {
                         None
                     }
                     else {
